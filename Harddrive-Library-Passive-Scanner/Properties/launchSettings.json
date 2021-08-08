@@ -1,0 +1,11 @@
+﻿{
+  "profiles": {
+    "Harddrive_Library_Passive_Scanner": {
+      "commandName": "Project",
+      "dotnetRunMessages": "true",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}
