@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace HDDL.Disk
+namespace HDDL.IO.Disk
 {
     /// <summary>
     /// Contains static methods for path comparison

@@ -1,7 +1,7 @@
 ﻿using HDDL.Scanning;
 using System;
 
-namespace HSL
+namespace HDSL
 {
     /// <summary>
     /// For now, this is test code to develop the Harddrive-Library class library
