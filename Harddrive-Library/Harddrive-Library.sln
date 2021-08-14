@@ -9,11 +9,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Services", "Services", "{27
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Clients", "Clients", "{CF50F7D4-C510-46F8-9181-85B6DC808D39}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Harddrive-Library-Passive-Scanner", "..\Harddrive-Library-Passive-Scanner\Harddrive-Library-Passive-Scanner.csproj", "{13FC1823-BE62-43D2-94DF-91036EED4E45}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Harddrive-Library-Passive-Scanner", "..\Harddrive-Library-Passive-Scanner\Harddrive-Library-Passive-Scanner.csproj", "{13FC1823-BE62-43D2-94DF-91036EED4E45}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Harddrive-Library", "Harddrive-Library.csproj", "{C343F60F-5454-4FC5-A4C6-94AB97F6E116}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Harddrive-Library", "Harddrive-Library.csproj", "{C343F60F-5454-4FC5-A4C6-94AB97F6E116}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Harddrive-Library-Console-Client", "..\Harddrive-Library-Console-Client\Harddrive-Library-Console-Client.csproj", "{F6B94473-A138-41A8-91A5-CB3D707C57F5}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Harddrive-Library-Console-Client", "..\Harddrive-Library-Console-Client\Harddrive-Library-Console-Client.csproj", "{F6B94473-A138-41A8-91A5-CB3D707C57F5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

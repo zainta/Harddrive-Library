@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using System.Collections;
 using System.IO;
 using LiteDB;
-using HDDL.Disk;
+using HDDL.IO.Disk;
 
 namespace HDDL.Scanning
 {

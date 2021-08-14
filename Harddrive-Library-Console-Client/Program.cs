@@ -1,4 +1,5 @@
-﻿using HDDL.Scanning;
+﻿using HDDL.IO.Parameters;
+using HDDL.Scanning;
 using System;
 
 namespace HDSL
@@ -10,9 +11,15 @@ namespace HDSL
     {
         static void Main(string[] args)
         {
-            if (args.Length == 0) return;
-            var path = args[0];
-            var dbPath = args.Length > 1 ? args[0] : "files database.db";
+            ParameterHandler ph = new ParameterHandler();
+            ph.AddRules(
+                new ParameterRuleOption("path", true, 1, null, "-"),
+                new ParameterRuleOption("db", true, 1, "files database.db", " - ")
+                );
+            ph.Comb(args);
+
+            var path = ph.GetParam("path");
+            var dbPath = ph.GetParam("db");
 
             Console.WriteLine(string.Format("Starting Scan on {0}", path));
             var scanner = new DiskScan(dbPath, path);
