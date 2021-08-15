@@ -20,6 +20,10 @@ namespace HDDL.Scanning
         /// </summary>
         Scanning,
         /// <summary>
+        /// Deleting items that were previously found but no longer exist
+        /// </summary>
+        Deleting,
+        /// <summary>
         /// Terminating a scan early
         /// </summary>
         Interrupting,

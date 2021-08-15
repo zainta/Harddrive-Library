@@ -18,6 +18,9 @@ namespace HDDL.Scanning
         public delegate void ScanEventOccurredDelegate(DiskScan scanner, ScanEvent evnt);
         public delegate void ScanOperationStartedDelegate(DiskScan scanner);
         public delegate void ScanOperationCompletedDelegate(DiskScan scanner, ScanOperationOutcome outcome);
+        public delegate void ScanStatusEventDelegate(DiskScan scanner, ScanStatus newStatus, ScanStatus oldStatus);
+
+        public event ScanStatusEventDelegate StatusEventOccurred;
 
         /// <summary>
         /// Occurs when an item (file or directory) is scanned
@@ -59,10 +62,26 @@ namespace HDDL.Scanning
         /// </summary>
         public string StoragePath { get; private set; }
 
+        private ScanStatus _status;
         /// <summary>
         /// The scanner's current status
         /// </summary>
-        public ScanStatus Status { get; private set; }
+        public ScanStatus Status
+        {
+            get
+            {
+                return _status;
+            }
+            private set
+            {
+                if (value != _status)
+                {
+                    var oldStatus = _status;
+                    _status = value;
+                    StatusEventOccurred?.Invoke(this, _status, oldStatus);
+                }
+            }
+        }
 
         /// <summary>
         /// Create a disk scanner
@@ -102,7 +121,7 @@ namespace HDDL.Scanning
         /// </summary>
         public void InterruptScan()
         {
-            if (Status == ScanStatus.Scanning)
+            if (Status == ScanStatus.Scanning || Status == ScanStatus.Deleting)
             {
                 Status = ScanStatus.Interrupting;
                 ScanEnded?.Invoke(this, ScanOperationOutcome.Interrupted);
@@ -137,7 +156,7 @@ namespace HDDL.Scanning
                             DeleteUnfoundEntries(db, startingPaths);
                         }
                         db.Dispose();
-                        if (Status == ScanStatus.Scanning)
+                        if (Status == ScanStatus.Scanning || Status == ScanStatus.Deleting)
                         {
                             Status = ScanStatus.Ready;
                             ScanEnded?.Invoke(this, ScanOperationOutcome.Completed);
@@ -158,6 +177,8 @@ namespace HDDL.Scanning
             var totalDeletions = 0;
             if (Status == ScanStatus.Scanning)
             {
+                Status = ScanStatus.Deleting;
+
                 var records = db.GetCollection<DiskItemRecord>(TableName);
                 // get all old records (weren't updated by the most recent scan)
                 var old = records.Query()
