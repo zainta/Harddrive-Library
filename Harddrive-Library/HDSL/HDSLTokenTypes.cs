@@ -33,6 +33,7 @@ namespace HDDL.HDSL
         Dsc,
         Purge,
         Within,
+        Where,
 
         // Relational Operators
 

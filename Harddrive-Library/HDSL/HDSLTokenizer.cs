@@ -54,7 +54,7 @@ namespace HDDL.HDSL
         /// </summary>
         /// <param name="code">THe code to tokenize</param>
         /// <returns>A result output log detailing any errors encountered</returns>
-        public List<HDSLLogBase> Tokenize(string code)
+        public HDSLLogBase[] Tokenize(string code)
         {
             Outcome.Clear();
             buffer = new ListStack<char>(code);
@@ -106,7 +106,7 @@ namespace HDDL.HDSL
                 Tokens.Add(new HDSLToken(HDSLTokenTypes.EndOfFile, string.Empty, col, row, string.Empty));
             }
 
-            return Outcome;
+            return Outcome.ToArray();
         }
 
         #region Utility Methods
@@ -470,6 +470,10 @@ namespace HDDL.HDSL
                 else if (text == "within")
                 {
                     token = new HDSLToken(HDSLTokenTypes.Within, keyword.ToString(), row, col, text);
+                }
+                else if (text == "where")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Where, keyword.ToString(), row, col, text);
                 }
                 else
                 {

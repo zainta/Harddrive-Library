@@ -1,4 +1,5 @@
-﻿using HDDL.IO.Display;
+﻿using HDDL.HDSL;
+using HDDL.IO.Display;
 using HDDL.IO.Parameters;
 using HDDL.Scanning;
 using System;
@@ -58,13 +59,37 @@ namespace HDSL
             // Execute a line of code
             if (!string.IsNullOrWhiteSpace(runScript))
             {
-                
+                var result = HDSLProvider.ExecuteCode(runScript, dbPath);
+                DisplayResult(result);
             }
 
             // Execute the contents of a code file
             if (!string.IsNullOrWhiteSpace(executeFile))
             {
+                var result = HDSLProvider.ExecuteScript(runScript, dbPath);
+                DisplayResult(result);
+            }
+        }
 
+        /// <summary>
+        /// Displays the appropriate its from the HDSLResult instance
+        /// </summary>
+        /// <param name="result">The result to process</param>
+        private static void DisplayResult(HDSLResult result)
+        {
+            if (result.Errors.Length > 0)
+            {
+                foreach (var error in result.Errors)
+                {
+                    Console.WriteLine(error);
+                }
+            }
+            else
+            {
+                foreach (var path in result.Paths)
+                {
+                    Console.WriteLine(path);
+                }
             }
         }
 
