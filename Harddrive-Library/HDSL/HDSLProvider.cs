@@ -1,5 +1,6 @@
 ﻿using HDDL.Collections;
 using HDDL.HDSL.Logging;
+using LiteDB;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -23,7 +24,7 @@ namespace HDDL.HDSL
         public static HDSLResult ExecuteCode(string code, string dbPath)
         {
             HDSLResult result;
-            var t = new HDSLTokenizer(false);
+            var t = new HDSLTokenizer(true);
             var logs = t.Tokenize(code);
             if (logs.Length == 0)
             {
@@ -66,7 +67,7 @@ namespace HDDL.HDSL
             if (result == null)
             {
                 var results = new List<string>();
-                var t = new HDSLTokenizer(false);
+                var t = new HDSLTokenizer(true);
                 var logs = t.Tokenize(code);
                 if (logs.Length == 0)
                 {
@@ -89,7 +90,14 @@ namespace HDDL.HDSL
         /// <returns>An HDSLResult containing either errors or the results of the query</returns>
         private static HDSLResult Execute(ListStack<HDSLToken> tokens, string dbPath)
         {
-            return null;
+            HDSLResult result;
+            using (var db = new LiteDatabase(dbPath))
+            {
+                var interpreter = new HDSLInterpreter(tokens, db);
+                result = interpreter.Interpret(false);
+            }
+
+            return result;
         }
     }
 }

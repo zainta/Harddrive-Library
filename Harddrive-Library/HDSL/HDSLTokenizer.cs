@@ -65,51 +65,57 @@ namespace HDDL.HDSL
             // Loop through the code and pick out the tokens one by one, in order of discovery
             while (!buffer.Empty)
             {
-                if (char.IsWhiteSpace(Peek()) && GetWhitespace())
+                if (More() && char.IsWhiteSpace(Peek()) && GetWhitespace())
                 {
                     continue;
                 }
-                else if (Peek() == '#' && GetDatetime()) // DateTime
+                else if (More() && Peek() == '#' && GetDatetime()) // DateTime
                 {
                     continue;
                 }
-                else if (Peek() == '<' && GetBookmarkReference()) // Bookmark Reference
+                else if (More() && Peek() == '<' && GetBookmarkReference()) // Bookmark Reference
                 {
                     continue;
                 }
-                else if(Peek() == '"' && GetString()) // String (also stores paths)
+                else if(More() && Peek() == '\'' && GetString()) // String (also stores paths)
                 {
                     continue;
                 }
-                else if (char.IsDigit(Peek()) && GetNumbers()) // Whole and real numbers
-
+                else if (More() && char.IsDigit(Peek()) && GetNumbers()) // Whole and real numbers
                 {
                     continue;
                 }
-                else if (Peek() == '\'' && GetRegex()) // Regex
-
+                else if (More() && char.IsLetter(Peek()) && GetKeywords())
                 {
                     continue;
                 }
-                else if (char.IsLetter(Peek()) && GetKeywords())
+                else if (More() && GetOperators())
                 {
                     continue;
                 }
-                else if (GetOperators())
+                else if (More() && Peek() == ';'  && GetEoL())
                 {
                     continue;
                 }
             }
 
-            if (!ignoreWhitespace)
-            {
-                Tokens.Add(new HDSLToken(HDSLTokenTypes.EndOfFile, string.Empty, col, row, string.Empty));
-            }
+            Tokens.Add(new HDSLToken(HDSLTokenTypes.EndOfLine, ';', col, row, ";"));
+            Tokens.Add(new HDSLToken(HDSLTokenTypes.EndOfFile, string.Empty, col, row, string.Empty));
 
             return Outcome.ToArray();
         }
 
         #region Utility Methods
+
+        /// <summary>
+        /// Returns a value indicating whether or not there are more characters beyond the given minimum
+        /// </summary>
+        /// <param name="min">The minimum number of characters to test for</param>
+        /// <returns>True if there are more than min, false otherwise</returns>
+        private bool More(int min = 0)
+        {
+            return buffer.Count > min;
+        }
 
         /// <summary>
         /// Returns the given index in the buffer
@@ -256,9 +262,9 @@ namespace HDDL.HDSL
                         else
                         {
                             encoded.Append(end);
-                            done = true;
                         }
                         Pop();
+                        done = true;
                     }
                     else
                     {
@@ -301,7 +307,7 @@ namespace HDDL.HDSL
         /// <returns>Whether or not a token was generated (if not, implies an error)</returns>
         bool GetString()
         {
-            var bookmark = GetPairedSet('"', '"', '\\');
+            var bookmark = GetPairedSet('\'', '\'', '\\');
             if (bookmark != null)
             {
                 Tokens.Add(new HDSLToken(HDSLTokenTypes.String, bookmark[1], row, col, bookmark[0]));
@@ -366,21 +372,6 @@ namespace HDDL.HDSL
 
             Tokens.Add(new HDSLToken(decimaled ? HDSLTokenTypes.RealNumber : HDSLTokenTypes.WholeNumber, number.ToString(), row, col, number.ToString()));
             return true;
-        }
-
-        /// <summary>
-        /// Gathers a regular expression token and add it to the list
-        /// </summary>
-        /// <returns>Whether or not a token was generated (if not, implies an error)</returns>
-        bool GetRegex()
-        {
-            var bookmark = GetPairedSet('\'', '\'', '\\');
-            if (bookmark != null)
-            {
-                Tokens.Add(new HDSLToken(HDSLTokenTypes.Regex, bookmark[1], row, col, bookmark[0]));
-                return true;
-            }
-            return false;
         }
 
         /// <summary>
@@ -475,6 +466,14 @@ namespace HDDL.HDSL
                 {
                     token = new HDSLToken(HDSLTokenTypes.Where, keyword.ToString(), row, col, text);
                 }
+                else if (text == "size")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Size, keyword.ToString(), row, col, text);
+                }
+                else if (text == "all")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.All, keyword.ToString(), row, col, text);
+                }
                 else
                 {
                     Outcome.Add(new HDSLLogBase(col, row, string.Format("Unknown keyword: '{0}'", keyword.ToString())));
@@ -536,6 +535,21 @@ namespace HDDL.HDSL
                 Tokens.Add(token);
             }
             return token != null;
+        }
+
+        /// <summary>
+        /// Gathers an End of Line token and add it to the list
+        /// </summary>
+        /// <returns>Whether or not a token was generated (if not, implies an error)</returns>
+        private bool GetEoL()
+        {
+            if (Peek() == ';')
+            {
+                Tokens.Add(new HDSLToken(HDSLTokenTypes.EndOfLine, Pop(), row, col, ";"));
+                return true;
+            }
+
+            return false;
         }
     }
 }

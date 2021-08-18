@@ -14,10 +14,9 @@ namespace HDDL.HDSL
         // Data Types
 
         BookmarkReference, // <...>
-        String, // " (also stores paths)
+        String, // ' (also stores paths)
         WholeNumber, // a number without a decimal point
         RealNumber, // a number with a decimal point
-        Regex, // '
         DateTime, // #
 
         // Special
@@ -34,6 +33,8 @@ namespace HDDL.HDSL
         Purge,
         Within,
         Where,
+        Size,
+        All,
 
         // Relational Operators
 

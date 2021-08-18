@@ -312,6 +312,7 @@ namespace HDDL.Scanning
                             LastScanned = scanMarker,
                             IsFile = true,
                             Path = file.FullName,
+                            ItemName = file.Name,
                             Extension = file.Extension,
                             SizeInBytes = file.Length
                         };
@@ -391,6 +392,7 @@ namespace HDDL.Scanning
                             LastScanned = scanMarker,
                             IsFile = false,
                             Path = directory.FullName,
+                            ItemName = directory.Name,
                             Extension = null,
                             SizeInBytes = null
                         };

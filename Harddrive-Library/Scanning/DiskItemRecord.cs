@@ -38,6 +38,11 @@ namespace HDDL.Scanning
         public string Path { get; set; }
 
         /// <summary>
+        /// The name of the item
+        /// </summary>
+        public string ItemName { get; set; }
+
+        /// <summary>
         /// Whether or not the item is a file (or a directory)
         /// </summary>
         public bool IsFile { get; set; }

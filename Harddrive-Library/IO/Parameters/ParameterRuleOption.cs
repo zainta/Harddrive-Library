@@ -69,6 +69,10 @@ namespace HDDL.IO.Parameters
                     var sb = new StringBuilder();
                     while (index < args.Length && remaining > 0)
                     {
+                        if (sb.Length > 0)
+                        {
+                            sb.Append(" ");
+                        }
                         sb.Append(args[index]);
                         index++;
                         remaining--;

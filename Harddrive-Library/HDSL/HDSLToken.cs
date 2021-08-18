@@ -30,7 +30,6 @@ namespace HDDL.HDSL
                     case HDSLTokenTypes.String:
                     case HDSLTokenTypes.WholeNumber:
                     case HDSLTokenTypes.RealNumber:
-                    case HDSLTokenTypes.Regex:
                     case HDSLTokenTypes.DateTime:
                         Family = HDSLTokenFamilies.DataTypes;
                         break;
