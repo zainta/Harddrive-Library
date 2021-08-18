@@ -33,18 +33,16 @@ namespace HDSL
             // Do the scan first
             if (!string.IsNullOrWhiteSpace(scanPath))
             {
-                Console.WriteLine("Scouting structure...");
-                int fileCount = Directory.GetFiles(scanPath, "*.*", SearchOption.AllDirectories).Length;
-                int directorycount = Directory.GetDirectories(scanPath, "*.*", SearchOption.AllDirectories).Length;
-                _progress = new ProgressBar(-1, -1, 60, 0, 0, fileCount + directorycount);
-
                 Console.Write($"Performing scan on '{scanPath}' ");
                 var scanner = new DiskScan(dbPath, scanPath);
-                scanner.StartScan();
+
+                scanner.ScanStarted += Scanner_ScanStarted;
                 scanner.ScanEventOccurred += Scanner_ScanEventOccurred;
                 scanner.StatusEventOccurred += Scanner_StatusEventOccurred;
+                scanner.StartScan();
 
-                while (scanner.Status == ScanStatus.Scanning ||
+                while (scanner.Status == ScanStatus.InitiatingScan ||
+                    scanner.Status == ScanStatus.Scanning ||
                     scanner.Status == ScanStatus.Deleting)
                 {
                     if (scanner.Status == ScanStatus.Scanning)
@@ -91,6 +89,11 @@ namespace HDSL
                     Console.WriteLine(path);
                 }
             }
+        }
+
+        private static void Scanner_ScanStarted(DiskScan scanner, int directoryCount, int fileCount)
+        {
+            _progress = new ProgressBar(-1, -1, 60, 0, 0, fileCount + directoryCount);
         }
 
         private static void Scanner_StatusEventOccurred(DiskScan scanner, ScanStatus newStatus, ScanStatus oldStatus)

@@ -16,6 +16,10 @@ namespace HDDL.Scanning
         /// </summary>
         Ready,
         /// <summary>
+        /// Preparing to perform a scan
+        /// </summary>
+        InitiatingScan,
+        /// <summary>
         /// Performing a scan
         /// </summary>
         Scanning,

@@ -16,8 +16,8 @@ namespace HDDL.Scanning
     public class DiskScan
     {
         public delegate void ScanEventOccurredDelegate(DiskScan scanner, ScanEvent evnt);
-        public delegate void ScanOperationStartedDelegate(DiskScan scanner);
-        public delegate void ScanOperationCompletedDelegate(DiskScan scanner, ScanOperationOutcome outcome);
+        public delegate void ScanOperationStartedDelegate(DiskScan scanner, int directoryCount, int fileCount);
+        public delegate void ScanOperationCompletedDelegate(DiskScan scanner, int totalDeleted, ScanOperationOutcome outcome);
         public delegate void ScanStatusEventDelegate(DiskScan scanner, ScanStatus newStatus, ScanStatus oldStatus);
 
         public event ScanStatusEventDelegate StatusEventOccurred;
@@ -124,45 +124,64 @@ namespace HDDL.Scanning
             if (Status == ScanStatus.Scanning || Status == ScanStatus.Deleting)
             {
                 Status = ScanStatus.Interrupting;
-                ScanEnded?.Invoke(this, ScanOperationOutcome.Interrupted);
+                ScanEnded?.Invoke(this, -1, ScanOperationOutcome.Interrupted);
             }
         }
 
         /// <summary>
         /// Starts the scanning process
         /// </summary>
-        /// <param name="removeOldEntries">Whether or not to delete entries that were not added / updated during the scan upon completion</param>
-        public void StartScan()
+        /// <param name="info">Information on the full structure of the target</param>
+        private void StartScan(PathSetData info)
         {
-            if (Status == ScanStatus.Ready || Status == ScanStatus.Interrupted)
+            if (Status == ScanStatus.Ready || Status == ScanStatus.Interrupted || Status == ScanStatus.InitiatingScan)
             {
                 Status = ScanStatus.Scanning;
+                ScanStarted?.Invoke(this, info.TotalDirectories, info.TotalFiles);
                 scanMarker = DateTime.Now;
                 var db = new LiteDatabase(StoragePath);
 
                 scanningTasks.Clear();
-                foreach (var path in startingPaths)
+                foreach (var driveLetter in info.TargetInformation.Keys)
                 {
                     scanningTasks.Add(Task.Run(() =>
-                        {
-                            RecursiveFullScan(path, db);
-                        }));
+                    {
+                        FullScan(info.TargetInformation[driveLetter], db);
+                    }));
                 }
 
                 Task.WhenAll(scanningTasks).ContinueWith((t) =>
+                {
+                    var deleteCount = -1;
+                    if (Status == ScanStatus.Scanning)
                     {
-                        if (Status == ScanStatus.Scanning)
-                        {
-                            DeleteUnfoundEntries(db, startingPaths);
-                        }
-                        db.Dispose();
-                        if (Status == ScanStatus.Scanning || Status == ScanStatus.Deleting)
-                        {
-                            Status = ScanStatus.Ready;
-                            ScanEnded?.Invoke(this, ScanOperationOutcome.Completed);
-                        }
-                    });
+                        deleteCount = DeleteUnfoundEntries(db, startingPaths);
+                    }
+                    db.Dispose();
+                    if (Status == ScanStatus.Scanning || Status == ScanStatus.Deleting)
+                    {
+                        Status = ScanStatus.Ready;
+                        ScanEnded?.Invoke(this, deleteCount, ScanOperationOutcome.Completed);
+                    }
+                });
             }
+        }
+
+        /// <summary>
+        /// Starts the scanning process
+        /// </summary>
+        public void StartScan()
+        {
+            PathSetData info = null;
+            Status = ScanStatus.InitiatingScan;
+            var task = Task.Run(() =>
+                {
+                    info = PathComparison.GetContentsSortedByRoot(startingPaths);
+                });
+            Task.WhenAll(task).ContinueWith((t) =>
+                {
+                    StartScan(info);
+                });
         }
 
         /// <summary>
@@ -217,36 +236,26 @@ namespace HDDL.Scanning
         }
 
         /// <summary>
-        /// Scans the given path and stores all items (files and directories) found within in the database
+        /// Records each of the given paths
         /// </summary>
-        /// <param name="path">The path to scan</param>
-        /// <param name="db">the database</param>
-        private void RecursiveFullScan(string path, LiteDatabase db)
+        /// <param name="scanTargets">The targets to scan</param>
+        /// <param name="db">The database</param>
+        private void FullScan(List<DiskItemType> scanTargets, LiteDatabase db)
         {
             if (Status == ScanStatus.Scanning)
             {
                 db.BeginTrans();
                 try
                 {
-                    if (File.Exists(path))
+                    foreach (var item in scanTargets)
                     {
-                        WriteRecord(new FileInfo(path), db);
-                    }
-                    else if (Directory.Exists(path))
-                    {
-                        var di = new DirectoryInfo(path);
-                        WriteRecord(di, db);
-
-                        var fullstructure = di.GetDirectories("*.*", SearchOption.AllDirectories);
-
-                        foreach (var d in fullstructure)
+                        if (item.IsFile)
                         {
-                            WriteRecord(d, db);
-
-                            foreach (var f in d.GetFiles())
-                            {
-                                WriteRecord(f, db);
-                            }
+                            WriteRecord(item.FInfo, db);
+                        }
+                        else
+                        {
+                            WriteRecord(item.DInfo, db);
                         }
                     }
                     db.Commit();
@@ -263,6 +272,54 @@ namespace HDDL.Scanning
                 }
             }
         }
+
+        /// <summary>
+        /// Scans the given path and stores all items (files and directories) found within in the database
+        /// </summary>
+        /// <param name="path">The path to scan</param>
+        /// <param name="db">the database</param>
+        //private void RecursiveFullScan(string path, LiteDatabase db)
+        //{
+        //    if (Status == ScanStatus.Scanning)
+        //    {
+        //        db.BeginTrans();
+        //        try
+        //        {
+        //            if (File.Exists(path))
+        //            {
+        //                WriteRecord(new FileInfo(path), db);
+        //            }
+        //            else if (Directory.Exists(path))
+        //            {
+        //                var di = new DirectoryInfo(path);
+        //                WriteRecord(di, db);
+
+        //                var fullstructure = di.GetDirectories("*.*", SearchOption.AllDirectories);
+
+        //                foreach (var d in fullstructure)
+        //                {
+        //                    WriteRecord(d, db);
+
+        //                    foreach (var f in d.GetFiles())
+        //                    {
+        //                        WriteRecord(f, db);
+        //                    }
+        //                }
+        //            }
+        //            db.Commit();
+        //        }
+        //        catch (LiteException ex)
+        //        {
+        //            ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.DatabaseError, null, false, ex));
+        //            db.Rollback();
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.UnknownError, null, false, ex));
+        //            db.Rollback();
+        //        }
+        //    }
+        //}
 
         /// <summary>
         /// Writes the given file to the database

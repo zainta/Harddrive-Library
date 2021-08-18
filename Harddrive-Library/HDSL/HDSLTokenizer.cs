@@ -223,7 +223,7 @@ namespace HDDL.HDSL
         {
             var literal = new StringBuilder();
             var encoded = new StringBuilder();
-            if (Peek() == start)
+            if (More() && Peek() == start)
             {
                 encoded.Append(Pop());
 
@@ -277,7 +277,7 @@ namespace HDDL.HDSL
             }
             else
             {
-                Outcome.Add(new HDSLLogBase(col, row, string.Format("Unexpected character '{0}' found instead of '{1}'.", Peek(), start)));
+                Outcome.Add(new HDSLLogBase(col, row, string.Format("Unexpected character found.  Expected '{1}'.", start)));
                 return null;
             }
         }
@@ -327,7 +327,7 @@ namespace HDDL.HDSL
             var decimaled = false;
             while (!done)
             {
-                if (!char.IsDigit(Peek()))
+                if (More() && !char.IsDigit(Peek()))
                 {
                     done = true;
                 }
@@ -343,7 +343,7 @@ namespace HDDL.HDSL
                         return false;
                     }
                 }
-                else if (Peek() == '.')
+                else if (More() && Peek() == '.')
                 {
                     if (!decimaled)
                     {
@@ -401,7 +401,7 @@ namespace HDDL.HDSL
         bool GetWhitespace()
         {
             var ws = new StringBuilder();
-            while (char.IsWhiteSpace(Peek()))
+            while (More() && char.IsWhiteSpace(Peek()))
             {
                 ws.Append(Pop());
             }
@@ -425,7 +425,7 @@ namespace HDDL.HDSL
         bool GetKeywords()
         {
             var keyword = new StringBuilder();
-            while (char.IsLetter(Peek()))
+            while (More() && char.IsLetter(Peek()))
             {
                 keyword.Append(Pop());
             }
