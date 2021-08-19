@@ -274,54 +274,6 @@ namespace HDDL.Scanning
         }
 
         /// <summary>
-        /// Scans the given path and stores all items (files and directories) found within in the database
-        /// </summary>
-        /// <param name="path">The path to scan</param>
-        /// <param name="db">the database</param>
-        //private void RecursiveFullScan(string path, LiteDatabase db)
-        //{
-        //    if (Status == ScanStatus.Scanning)
-        //    {
-        //        db.BeginTrans();
-        //        try
-        //        {
-        //            if (File.Exists(path))
-        //            {
-        //                WriteRecord(new FileInfo(path), db);
-        //            }
-        //            else if (Directory.Exists(path))
-        //            {
-        //                var di = new DirectoryInfo(path);
-        //                WriteRecord(di, db);
-
-        //                var fullstructure = di.GetDirectories("*.*", SearchOption.AllDirectories);
-
-        //                foreach (var d in fullstructure)
-        //                {
-        //                    WriteRecord(d, db);
-
-        //                    foreach (var f in d.GetFiles())
-        //                    {
-        //                        WriteRecord(f, db);
-        //                    }
-        //                }
-        //            }
-        //            db.Commit();
-        //        }
-        //        catch (LiteException ex)
-        //        {
-        //            ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.DatabaseError, null, false, ex));
-        //            db.Rollback();
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.UnknownError, null, false, ex));
-        //            db.Rollback();
-        //        }
-        //    }
-        //}
-
-        /// <summary>
         /// Writes the given file to the database
         /// </summary>
         /// <param name="file">The file to write</param>
