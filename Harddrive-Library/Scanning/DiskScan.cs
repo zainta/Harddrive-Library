@@ -5,8 +5,9 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Collections;
 using System.IO;
-using LiteDB;
 using HDDL.IO.Disk;
+using HDDL.Data;
+using Microsoft.Data.Sqlite;
 
 namespace HDDL.Scanning
 {
@@ -56,6 +57,11 @@ namespace HDDL.Scanning
         /// Used as the "last scanned" timestamp for all items altered during the scan
         /// </summary>
         private DateTime scanMarker;
+
+        /// <summary>
+        /// The database instance in use
+        /// </summary>
+        private HDDLDataContext _db;
         
         /// <summary>
         /// The location of the database file
@@ -99,9 +105,26 @@ namespace HDDL.Scanning
         }
 
         /// <summary>
+        /// Create a disk scanner
+        /// </summary>
+        /// <param name="dbPath">Where the tracking database is located</param>
+        /// <param name="scanPaths">The paths to start scans from</param>
+        /// <param name="recreate">If true, deletes and rebuilds the file database</param>
+        public DiskScan(string dbPath, bool recreate, params string[] scanPaths)
+        {
+            startingPaths = new List<string>(scanPaths);
+            scanMarker = DateTime.Now;
+            StoragePath = dbPath;
+            scanningTasks = new List<Task>();
+
+            InitializeDatabase(recreate);
+        }
+
+        /// <summary>
         /// Initializes the database at the indicated path.
         /// Recreates it if it already exists
         /// </summary>
+        /// <param name="recreate">If true, deletes and rebuilds the file database</param>
         public void InitializeDatabase(bool recreate = false)
         {
             if (recreate && File.Exists(StoragePath))
@@ -109,11 +132,7 @@ namespace HDDL.Scanning
                 File.Delete(StoragePath);
             }
 
-            using (var db = new LiteDatabase(StoragePath))
-            {
-                var records = db.GetCollection<DiskItemRecord>(TableName);
-                records.EnsureIndex(r => r.Path, unique: true);
-            }
+            HDDLDataContext.EnsureDatabase(StoragePath);
         }
 
         /// <summary>
@@ -139,14 +158,14 @@ namespace HDDL.Scanning
                 Status = ScanStatus.Scanning;
                 ScanStarted?.Invoke(this, info.TotalDirectories, info.TotalFiles);
                 scanMarker = DateTime.Now;
-                var db = new LiteDatabase(StoragePath);
+                _db = new HDDLDataContext(StoragePath);
 
                 scanningTasks.Clear();
                 foreach (var driveLetter in info.TargetInformation.Keys)
                 {
                     scanningTasks.Add(Task.Run(() =>
                     {
-                        FullScan(info.TargetInformation[driveLetter], db);
+                        return FullScan(info.TargetInformation[driveLetter]);
                     }));
                 }
 
@@ -155,9 +174,9 @@ namespace HDDL.Scanning
                     var deleteCount = -1;
                     if (Status == ScanStatus.Scanning)
                     {
-                        deleteCount = DeleteUnfoundEntries(db, startingPaths);
+                        deleteCount = DeleteUnfoundEntries(startingPaths);
                     }
-                    db.Dispose();
+                    _db.Dispose();
                     if (Status == ScanStatus.Scanning || Status == ScanStatus.Deleting)
                     {
                         Status = ScanStatus.Ready;
@@ -189,31 +208,26 @@ namespace HDDL.Scanning
         /// These items no longer exist
         /// </summary>
         /// <param name="paths">The paths originally searched</param>
-        /// <param name="db">the database</param>
         /// <returns>The total number of items deleted</returns>
-        private int DeleteUnfoundEntries(LiteDatabase db, IEnumerable<string>  paths)
+        private int DeleteUnfoundEntries(IEnumerable<string>  paths)
         {
             var totalDeletions = 0;
             if (Status == ScanStatus.Scanning)
             {
                 Status = ScanStatus.Deleting;
 
-                var records = db.GetCollection<DiskItemRecord>(TableName);
                 // get all old records (weren't updated by the most recent scan)
-                var old = records.Query()
-                    .Where(r => r.LastScanned < scanMarker)
-                    .ToArray();
+                var old = _db.DiskItems.Where(r => r.LastScanned < scanMarker).ToArray();
 
                 // We want to delete all records that are under the scanned path but were not updated (are no longer present)
-
-                db.BeginTrans();
                 foreach (var r in old)
                 {
                     if (PathComparison.IsWithinPaths(r.Path, paths))
                     {
                         try
                         {
-                            if (records.Delete(r.Id))
+                            _db.Remove(r);
+                            if (_db.SaveChanges() > 0)
                             {
                                 totalDeletions++;
                                 ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.Delete, r.Path, r.IsFile));
@@ -229,7 +243,6 @@ namespace HDDL.Scanning
                         }
                     }
                 }
-                db.Commit();
             }
 
             return totalDeletions;
@@ -239,60 +252,82 @@ namespace HDDL.Scanning
         /// Records each of the given paths
         /// </summary>
         /// <param name="scanTargets">The targets to scan</param>
-        /// <param name="db">The database</param>
-        private void FullScan(List<DiskItemType> scanTargets, LiteDatabase db)
+        /// <returns>True if scan was successful, false otherwise</returns>
+        private bool FullScan(List<DiskItemType> scanTargets)
         {
             if (Status == ScanStatus.Scanning)
             {
-                db.BeginTrans();
                 try
                 {
                     foreach (var item in scanTargets)
                     {
                         if (item.IsFile)
                         {
-                            WriteRecord(item.FInfo, db);
+                            if (!WriteRecord(item.FInfo))
+                            {
+                                ReboundDatabase();
+                                return false;
+                            }
                         }
                         else
                         {
-                            WriteRecord(item.DInfo, db);
+                            if (!WriteRecord(item.DInfo))
+                            {
+                                ReboundDatabase();
+                                return false;
+                            }
                         }
                     }
-                    db.Commit();
+                    var changes = _db.SaveChanges();
                 }
-                catch (LiteException ex)
+                catch (SqliteException ex)
                 {
                     ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.DatabaseError, null, false, ex));
-                    db.Rollback();
+                    ReboundDatabase();
+                    return false;
                 }
                 catch (Exception ex)
                 {
                     ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.UnknownError, null, false, ex));
-                    db.Rollback();
+                    ReboundDatabase();
+                    return false;
                 }
             }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Disposes and reinstantiates the database context to cancel all changes
+        /// </summary>
+        private void ReboundDatabase()
+        {
+            _db.Dispose();
+            _db = new HDDLDataContext(StoragePath);
         }
 
         /// <summary>
         /// Writes the given file to the database
         /// </summary>
         /// <param name="file">The file to write</param>
-        /// <param name="db">The database to write to</param>
         /// <returns>True upon successs, false upon failure</returns>
-        private bool WriteRecord(FileInfo file, LiteDatabase db)
+        private bool WriteRecord(FileInfo file)
         {
             try
             {
-                var records = db.GetCollection<DiskItemRecord>(TableName);
-                var record = records.Query()
-                    .Where(r => r.Path == file.FullName)
-                    .SingleOrDefault();
-                DiskItemRecord parent = null;
+                var record = GetByPath(file.FullName);
+                DiskItem parent = null;
                 if (file.Directory != null)
                 {
-                    parent = records.Query()
-                        .Where(r => r.Path == file.Directory.FullName)
-                        .SingleOrDefault();
+                    parent = GetByPath(file.Directory.FullName);
+
+                    if (parent == null)
+                    {
+                        // if this file's parent folder is not already in the system
+                        // then this will create records for the entire path all the way to the root
+                        WriteRecord(file.Directory);
+                        parent = GetByPath(file.Directory.FullName);
+                    }
                 }
 
                 if (record != null)
@@ -300,7 +335,7 @@ namespace HDDL.Scanning
                     try
                     {
                         record.LastScanned = scanMarker;
-                        records.Update(record);
+                        _db.DiskItems.Update(record);
                         ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.Update, file.FullName, true));
                     }
                     catch (Exception ex)
@@ -313,10 +348,10 @@ namespace HDDL.Scanning
                 {
                     try
                     {
-                        record = new DiskItemRecord()
+                        record = new DiskItem()
                         {
                             Id = Guid.NewGuid(),
-                            ParentItemId = parent?.Id,
+                            ParentId = parent?.Id,
                             FirstScanned = scanMarker,
                             LastScanned = scanMarker,
                             IsFile = true,
@@ -324,8 +359,8 @@ namespace HDDL.Scanning
                             ItemName = file.Name,
                             Extension = file.Extension,
                             SizeInBytes = file.Length
-                        };
-                        records.Insert(record);
+                        };                        
+                        _db.DiskItems.Add(record);
                         ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.Add, file.FullName, true));
                     }
                     catch (Exception ex)
@@ -348,30 +383,22 @@ namespace HDDL.Scanning
         /// Writes the given directory to the database
         /// </summary>
         /// <param name="directory">The directory to write</param>
-        /// <param name="db">The database to write to</param>
         /// <returns>True upon successs, false upon failure</returns>
-        private bool WriteRecord(DirectoryInfo directory, LiteDatabase db)
+        private bool WriteRecord(DirectoryInfo directory)
         {
             try
             {
-                var records = db.GetCollection<DiskItemRecord>(TableName);
-                var record = records.Query()
-                    .Where(r => r.Path == directory.FullName)
-                    .SingleOrDefault();
-                DiskItemRecord parent = null;
+                var record = GetByPath(directory.FullName);
+                DiskItem parent = null;
                 if (directory.Parent != null)
                 {
-                    parent = records.Query()
-                        .Where(r => r.Path == directory.Parent.FullName)
-                        .SingleOrDefault();
+                    parent = GetByPath(directory.Parent.FullName);
                     if (parent == null)
                     {
                         // if we are writing a directory that is within a structure,
                         // this will write the entire path back to the root
-                        WriteRecord(directory.Parent, db);
-                        parent = records.Query()
-                            .Where(r => r.Path == directory.Parent.FullName)
-                            .SingleOrDefault();
+                        WriteRecord(directory.Parent);
+                        parent = GetByPath(directory.Parent.FullName);
                     }
                 }
 
@@ -380,7 +407,7 @@ namespace HDDL.Scanning
                     try
                     {
                         record.LastScanned = scanMarker;
-                        records.Update(record);
+                        _db.DiskItems.Update(record);
                         ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.Update, directory.FullName, false));
                     }
                     catch (Exception ex)
@@ -393,10 +420,10 @@ namespace HDDL.Scanning
                 {
                     try
                     {
-                        record = new DiskItemRecord()
+                        record = new DiskItem()
                         {
                             Id = Guid.NewGuid(),
-                            ParentItemId = parent?.Id,
+                            ParentId = parent?.Id,
                             FirstScanned = scanMarker,
                             LastScanned = scanMarker,
                             IsFile = false,
@@ -405,7 +432,7 @@ namespace HDDL.Scanning
                             Extension = null,
                             SizeInBytes = null
                         };
-                        records.Insert(record);
+                        _db.DiskItems.Add(record);
                         ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.Add, directory.FullName, false));
                     }
                     catch (Exception ex)
@@ -422,6 +449,27 @@ namespace HDDL.Scanning
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Searches the database and then the local cache for an item with the given path
+        /// </summary>
+        /// <param name="path">The path to search for</param>
+        /// <returns>The DiskItem if found, otherwise null</returns>
+        private DiskItem GetByPath(string path)
+        {
+            var record = _db.DiskItems
+                    .Where(r => r.Path == path)
+                    .SingleOrDefault();
+
+            if (record == null)
+            {
+                record = _db.DiskItems.Local
+                    .Where(r => r.Path == path)
+                    .SingleOrDefault();
+            }
+
+            return record;
         }
     }
 }

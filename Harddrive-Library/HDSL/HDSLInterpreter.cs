@@ -1,5 +1,4 @@
-﻿using LiteDB;
-using HDDL.Collections;
+﻿using HDDL.Collections;
 using HDDL.HDSL.Logging;
 using System;
 using System.Collections.Generic;
@@ -9,6 +8,7 @@ using System.Threading.Tasks;
 using HDDL.Scanning;
 using Microsoft.VisualBasic.CompilerServices;
 using HDDL.IO.Disk;
+using HDDL.Data;
 
 namespace HDDL.HDSL
 {
@@ -25,7 +25,7 @@ namespace HDDL.HDSL
         /// <summary>
         /// The database
         /// </summary>
-        private LiteDatabase _fileDatabase;
+        private HDDLDataContext _db;
 
         /// <summary>
         /// The list of errors
@@ -37,10 +37,10 @@ namespace HDDL.HDSL
         /// </summary>
         /// <param name="tokenizer">The tokenizer whose tokens should be consumed</param>
         /// <param name="db">The database to use</param>
-        public HDSLInterpreter(ListStack<HDSLToken> tokens, LiteDatabase db)
+        public HDSLInterpreter(ListStack<HDSLToken> tokens, HDDLDataContext db)
         {
             _tokens = new ListStack<HDSLToken>(tokens.ToList());
-            _fileDatabase = db;
+            _db = db;
             _errors = new List<HDSLLogBase>();
         }
 
@@ -150,16 +150,6 @@ namespace HDDL.HDSL
             return _tokens.Pop();
         }
 
-        /// <summary>
-        /// Returns the DiskItemRecord table
-        /// </summary>
-        /// <returns></returns>
-        private ILiteCollection<DiskItemRecord> GetTable()
-        {
-            var records = _fileDatabase.GetCollection<DiskItemRecord>(DiskScan.TableName);
-            return records;
-        }
-
         #endregion
 
         #region Statement Handlers
@@ -178,8 +168,8 @@ namespace HDDL.HDSL
             // eat the purge
             Pop();
 
-            var table = GetTable();
-            table.DeleteAll();
+            _db.DiskItems.RemoveRange(_db.DiskItems);
+            _db.SaveChanges();
         }
 
         /// <summary>
@@ -192,9 +182,9 @@ namespace HDDL.HDSL
         /// find <file regular expression> in <path> where *stuffs*
         /// </summary>
         /// <returns>The results find statement</returns>
-        private DiskItemRecord[] HandleFindStatement()
+        private DiskItem[] HandleFindStatement()
         {
-            List<DiskItemRecord> results = new List<DiskItemRecord>();
+            List<DiskItem> results = new List<DiskItem>();
 
             if (More() && Peek().Type == HDSLTokenTypes.Find)
             {
@@ -202,7 +192,6 @@ namespace HDDL.HDSL
                 if (More() && Peek().Type == HDSLTokenTypes.String)
                 {
                     var wildcardExpression = Pop().Literal;
-                    var table = GetTable();
                     
                     if (More() && Peek().Type == HDSLTokenTypes.In)
                     {
@@ -210,20 +199,14 @@ namespace HDDL.HDSL
                         if (More() && Peek().Type == HDSLTokenTypes.String)
                         {
                             var path = Pop().Literal;
-                            //var records = (from r in table.Query()
-                            //               where
-                            //                    PathComparison.IsWithinPath(r.Path, path, true) &&
-                            //                    LikeOperator.LikeString(r.ItemName, wildcardExpression, Microsoft.VisualBasic.CompareMethod.Binary)
-                            //               select r).ToArray();
+                            var records = _db.DiskItems
+                                .Where(r =>
+                                    PathComparison.IsWithinPath(r.Path, path, true) &&
+                                    LikeOperator.LikeString(r.ItemName, wildcardExpression, Microsoft.VisualBasic.CompareMethod.Binary))
+                                .Select(r => r)
+                                .ToArray();
 
-                            //var records = table.Query()
-                            //    .Where(r =>
-                            //        PathComparison.IsWithinPath(r.Path, path, true) &&
-                            //        LikeOperator.LikeString(r.ItemName, wildcardExpression, Microsoft.VisualBasic.CompareMethod.Binary))
-                            //    .Select(r => r)
-                            //    .ToEnumerable();
-
-                            //results.AddRange(HandleWhereClause(records));
+                            results.AddRange(HandleWhereClause(records));
                         }
                         else
                         {
@@ -253,9 +236,9 @@ namespace HDDL.HDSL
         /// </summary>
         /// <param name="records">The records to filter</param>
         /// <returns>The results of the where clause filtration</returns>
-        private DiskItemRecord[] HandleWhereClause(IEnumerable<DiskItemRecord> records)
+        private DiskItem[] HandleWhereClause(IEnumerable<DiskItem> records)
         {
-            var results = new List<DiskItemRecord>();
+            var results = new List<DiskItem>();
 
             if (More() && Peek().Type == HDSLTokenTypes.Where)
             {

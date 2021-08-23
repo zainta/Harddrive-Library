@@ -34,7 +34,7 @@ namespace HDSL
             if (!string.IsNullOrWhiteSpace(scanPath))
             {
                 Console.Write($"Performing scan on '{scanPath}' ");
-                var scanner = new DiskScan(dbPath, scanPath);
+                var scanner = new DiskScan(dbPath, true, scanPath);
 
                 scanner.ScanStarted += Scanner_ScanStarted;
                 scanner.ScanEventOccurred += Scanner_ScanEventOccurred;

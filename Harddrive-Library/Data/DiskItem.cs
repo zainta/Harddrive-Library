@@ -1,15 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using Microsoft.Data.Sqlite;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.ComponentModel.DataAnnotations.Schema;
 
-namespace HDDL.Scanning
+namespace HDDL.Data
 {
     /// <summary>
     /// Represents a disk item record (file or directory)
     /// </summary>
-    public class DiskItemRecord
+    [Table("DiskItem", Schema = "main")]
+    public class DiskItem
     {
         /// <summary>
         /// The unique identified
@@ -20,7 +24,12 @@ namespace HDDL.Scanning
         /// Indicates the containing directory.
         /// Only applies to files.
         /// </summary>
-        public Guid? ParentItemId { get; set; }
+        public Guid? ParentId { get; set; }
+
+        /// <summary>
+        /// The containing directory instance
+        /// </summary>
+        public DiskItem Parent { get; set; }
 
         /// <summary>
         /// When the item was first scanned
@@ -48,13 +57,13 @@ namespace HDDL.Scanning
         public bool IsFile { get; set; }
 
         /// <summary>
-        /// The file size in bytes
-        /// </summary>
-        public long? SizeInBytes { get; set; }
-
-        /// <summary>
         /// The file's extension
         /// </summary>
         public string Extension { get; set; }
+
+        /// <summary>
+        /// The file size in bytes
+        /// </summary>
+        public long? SizeInBytes { get; set; }
     }
 }

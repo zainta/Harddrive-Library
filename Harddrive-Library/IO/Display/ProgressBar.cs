@@ -143,7 +143,7 @@ namespace HDDL.IO.Display
         public void Display()
         {
             var pointsPerBlock = Maximum / Width;
-            var filled = Value / pointsPerBlock;
+            var filled = pointsPerBlock > 0 ? Value / pointsPerBlock : Width;
             var empty = Width - filled;
 
             var origX = Console.CursorLeft;

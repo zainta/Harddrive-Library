@@ -60,7 +60,6 @@ namespace HDDL.HDSL
             buffer = new ListStack<char>(code);
             col = 0;
             row = 0;
-            HDSLToken hopper = null;
 
             // Loop through the code and pick out the tokens one by one, in order of discovery
             while (!buffer.Empty)
