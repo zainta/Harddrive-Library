@@ -34,7 +34,7 @@ namespace HDDL.IO.Parameters
             // Set default values in Arguments
             foreach (var flagDef in AcceptedFlags)
             {
-                Arguments.Add(flagDef.Flag.ToString(), flagDef.Default.ToString());
+                Arguments.Add($"{flagDef.Flag}_0", flagDef.Default.ToString());
             }
 
             // check for duplicate flags within the rule
@@ -104,7 +104,7 @@ namespace HDDL.IO.Parameters
                         if (flagDef != null)
                         {
                             flagSet[flags[j]] = !flagDef.Default;
-                            Arguments[flags[j].ToString()] = (!flagDef.Default).ToString();
+                            Arguments[$"{flags[j]}_0"] = (!flagDef.Default).ToString();
                             if (multiFlag && !sb.ToString().StartsWith(CompoundFlagSet))
                             {
                                 sb.Insert(0, CompoundFlagSet);

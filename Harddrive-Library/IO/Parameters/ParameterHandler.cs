@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 
 namespace HDDL.IO.Parameters
 {
@@ -43,29 +44,47 @@ namespace HDDL.IO.Parameters
         /// Retrieves the parameter's value
         /// </summary>
         /// <param name="key">The name of the parameter to retrieve</param>
+        /// <param name="offset">The offset index of the subvalue</param>
         /// <returns>The value if found, null otherwise</returns>
-        public string GetParam(string key)
+        public string GetParam(string key, int offset = 0)
         {
             var val = (from rule in Rules
                         where
-                            rule.Arguments.ContainsKey(key)
-                        select rule.Arguments[key])
+                            rule.Arguments.ContainsKey($"{key}_{offset}")
+                        select rule.Arguments[$"{key}_{offset}"])
                         .SingleOrDefault();
 
             return val;
         }
 
         /// <summary>
+        /// Retrieves the parameter's value(s)
+        /// </summary>
+        /// <param name="key">The name of the parameter to retrieve</param>
+        /// <returns>The value if found, null otherwise</returns>
+        public string[] GetAllParam(string key)
+        {
+            var vals = (from rule in Rules
+                        where
+                            rule.Arguments.Keys.Where(k => Regex.IsMatch(k, $"{key}_\\d+")).Any()
+                        select rule.Arguments.Values.ToArray())
+                        .SingleOrDefault();
+
+            return vals;
+        }
+
+        /// <summary>
         /// Checks to see if the given parameter was supplied at execution time
         /// </summary>
         /// <param name="key">The name of the parameter to check for</param>
+        /// <param name="offset">The offset index of the subvalue</param>
         /// <returns>True if found, false otherwise</returns>
-        public bool HasParam(string key)
+        public bool HasParam(string key, int offset = 0)
         {
             var hasParm = (from rule in Rules
                         where
-                            rule.Arguments.ContainsKey(key)
-                        select rule.Arguments[key])
+                            rule.Arguments.ContainsKey($"{key}_{offset}")
+                        select rule.Arguments[$"{key}_{offset}"])
                         .SingleOrDefault() != null;
 
             return hasParm;

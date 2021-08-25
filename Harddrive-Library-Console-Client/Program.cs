@@ -4,6 +4,7 @@ using HDDL.IO.Parameters;
 using HDDL.Scanning;
 using System;
 using System.IO;
+using System.Linq;
 
 namespace HDSL
 {
@@ -18,23 +19,24 @@ namespace HDSL
         {
             ParameterHandler ph = new ParameterHandler();
             ph.AddRules(
-                new ParameterRuleOption("db", true, 1, "files database.db", " - "),
-                new ParameterRuleOption("scan", true, 1, null, "-"),
-                new ParameterRuleOption("run", true, 1, null, "-"),
-                new ParameterRuleOption("exec", true, 1, null, "-")
+                new ParameterRuleOption("db", false, true, "files database.db", " - "),
+                new ParameterRuleOption("scan", true, true, null, "-"),
+                new ParameterRuleOption("run", false, true, null, "-"),
+                new ParameterRuleOption("exec", false, true, null, "-")
                 );
             ph.Comb(args);
 
             var dbPath = ph.GetParam("db");
-            var scanPath = ph.GetParam("scan");
+            var scanPaths = ph.GetAllParam("scan");
             var runScript = ph.GetParam("run");
             var executeFile = ph.GetParam("exec");
 
             // Do the scan first
-            if (!string.IsNullOrWhiteSpace(scanPath))
+            var paths = (from p in scanPaths where !string.IsNullOrWhiteSpace(p) select p).ToArray();
+            if (paths.Length > 0)
             {
-                Console.Write($"Performing scan on '{scanPath}' ");
-                var scanner = new DiskScan(dbPath, true, scanPath);
+                Console.Write($"Performing scans on '{paths}' ");
+                var scanner = new DiskScan(dbPath, false, paths);
 
                 scanner.ScanStarted += Scanner_ScanStarted;
                 scanner.ScanEventOccurred += Scanner_ScanEventOccurred;

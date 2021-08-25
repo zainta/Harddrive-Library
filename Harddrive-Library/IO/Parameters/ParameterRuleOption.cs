@@ -12,11 +12,6 @@ namespace HDDL.IO.Parameters
     public class ParameterRuleOption : ParameterRuleBase
     {
         /// <summary>
-        /// The number of trailing paramters to coopt as arguments for this option
-        /// </summary>
-        public int ArgumentCount { get; private set; }
-
-        /// <summary>
         /// The text component of this option (ie, for "-path:" Option should be "path").  Used as the key to retrieve the parameter's value from the ParameterHandler, too
         /// </summary>
         public string Option { get; private set; }
@@ -27,24 +22,24 @@ namespace HDDL.IO.Parameters
         public bool UseColonTerminator { get; private set; }
 
         /// <summary>
+        /// Whether or not comma seperated lists will be recognized
+        /// </summary>
+        public bool AcceptsCommaLists { get; private set; }
+
+        /// <summary>
         /// Creates an option parameter definition
         /// </summary>
         /// <param name="option">The text component of this option</param>
+        /// <param name="takesCommaLists">Whether or not comma seperated lists will be recognized</param>
         /// <param name="useColonTerminator">Whether or not the option requires a colon at the end for recognition</param>
-        /// <param name="argumentCount">The number of trailing paramters to coopt as arguments for this option</param>
         /// <param name="flagOpeners"></param>
         /// <param name="optionDefault">The option's default value (if it is not explicitly set)</param>
-        public ParameterRuleOption(string option, bool useColonTerminator, int argumentCount, string optionDefault, params string[] flagOpeners) : base(flagOpeners)
+        public ParameterRuleOption(string option, bool takesCommaLists, bool useColonTerminator, string optionDefault, params string[] flagOpeners) : base(flagOpeners)
         {
-            if (argumentCount == 0 || argumentCount < -1)
-            {
-                throw new ArgumentException("ArgumentCount must be greater than 0 or -1");
-            }
-
+            AcceptsCommaLists = takesCommaLists;
             Option = option;
-            ArgumentCount = argumentCount;
             UseColonTerminator = useColonTerminator;
-            Arguments.Add(Option, optionDefault);
+            Arguments.Add($"{Option}_0", optionDefault);
         }
 
         /// <summary>
@@ -54,41 +49,88 @@ namespace HDDL.IO.Parameters
         /// <returns>Any unconsumed arguments</returns>
         public override string[] Comb(string[] args)
         {
+            // Calculates all valid appearances of the option
             var possibleOptions = (from opener in FlagDesignators
                                    select $"{opener}{Option}" + (UseColonTerminator ? ":" : string.Empty))
                                    .ToArray();
 
-            var results = new List<string>();
-            var found = false;
+            // arguments that were not consumed
+            var leftovers = new List<string>();
+
+            // indicates that we haven't obtained our value or there was a comma after the last value or before the next (current) value
+            var more = true;
+
+            // tracks the number of items
+            var count = 0; 
+
             for (int i = 0; i < args.Length; i++)
             {
-                if (possibleOptions.Contains(args[i]) && !found)
+                if (possibleOptions.Contains(args[i]))
                 {
-                    var index = i + 1;
-                    var remaining = ArgumentCount > 0 ? ArgumentCount : args.Length - index;
-                    var sb = new StringBuilder();
-                    while (index < args.Length && remaining > 0)
+                    while (more)
                     {
-                        if (sb.Length > 0)
-                        {
-                            sb.Append(" ");
-                        }
-                        sb.Append(args[index]);
-                        index++;
-                        remaining--;
-                    }
+                        i++;
 
-                    Arguments[Option] = sb.ToString();
-                    found = true;
-                    i = (index - 1);
+                        if (AcceptsCommaLists)
+                        {
+                            // We don't care if there is a comma at the beginning because we are here.
+                            // Therefore, there must be a comma at the start of this argument here or at the end of the last one
+                            if (!CommaEnd(args[i]) &&
+                                !((args.Length - 1) > i && CommaStart(args[i + 1])))
+                            {
+                                more = false;
+                            }
+                        }
+                        else
+                        {
+                            more = false;
+                        }
+
+                        // either way, we keep the option value
+                        Arguments[$"{Option}_{count}"] = GetCommaLess(args[i]);
+                        count++;
+                    }
                 }
                 else
                 {
-                    results.Add(args[i]);
+                    leftovers.Add(args[i]);
                 }
             }
 
-            return results.ToArray();
+            return leftovers.ToArray();
+        }
+
+        /// <summary>
+        /// Strips starting and ending commas from the argument
+        /// </summary>
+        /// <param name="arg">The argument</param>
+        /// <returns>The resulting string</returns>
+        private string GetCommaLess(string arg)
+        {
+            arg = CommaEnd(arg) ? arg.Substring(0, arg.Length - 1) : arg;
+            arg = CommaStart(arg) ? arg.Substring(1, arg.Length) : arg;
+
+            return arg;
+        }
+
+        /// <summary>
+        /// Checks to see if the given argument has a comma at the beginning
+        /// </summary>
+        /// <param name="arg">the argument to test</param>
+        /// <returns>true if found, false otherwise</returns>
+        private bool CommaStart(string arg)
+        {
+            return arg.StartsWith(",");
+        }
+
+        /// <summary>
+        /// Checks to see if the given argument has a comma at the end
+        /// </summary>
+        /// <param name="arg">the argument to test</param>
+        /// <returns>true if found, false otherwise</returns>
+        private bool CommaEnd(string arg)
+        {
+            return arg.EndsWith(",");
         }
 
         /// <summary>
