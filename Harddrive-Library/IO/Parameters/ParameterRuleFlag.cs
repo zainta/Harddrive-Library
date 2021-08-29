@@ -29,14 +29,6 @@ namespace HDDL.IO.Parameters
         /// <param name="flagOpeners">The text used to define a flag (typically '-' or '\', but sometimes can be things like '--').  Defaults to '-'</param>
         public ParameterRuleFlag(IEnumerable<FlagDefinition> flagList, params string[] flagOpeners) : base(flagOpeners)
         {
-            AcceptedFlags = new List<FlagDefinition>();
-
-            // Set default values in Arguments
-            foreach (var flagDef in AcceptedFlags)
-            {
-                Arguments.Add($"{flagDef.Flag}_0", flagDef.Default.ToString());
-            }
-
             // check for duplicate flags within the rule
             var duplicates = (from f in flagList
                               group f by f.Flag into fG
@@ -48,7 +40,13 @@ namespace HDDL.IO.Parameters
                 throw new InvalidOperationException("Duplicate flag definitions detected!");
             }
 
-            AcceptedFlags.AddRange(flagList);
+            AcceptedFlags = new List<FlagDefinition>(flagList);
+
+            // Set default values in Arguments
+            foreach (var flagDef in AcceptedFlags)
+            {
+                Arguments.Add($"{flagDef.Flag}_0", flagDef.Default.ToString());
+            }
         }
 
         /// <summary>

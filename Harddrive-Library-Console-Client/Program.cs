@@ -14,6 +14,8 @@ namespace HDSL
     class Program
     {
         private static ProgressBar _progress;
+        private static bool _showProgress;
+        private static bool _verbose;
 
         static void Main(string[] args)
         {
@@ -22,7 +24,8 @@ namespace HDSL
                 new ParameterRuleOption("db", false, true, "files database.db", " - "),
                 new ParameterRuleOption("scan", true, true, null, "-"),
                 new ParameterRuleOption("run", false, true, null, "-"),
-                new ParameterRuleOption("exec", false, true, null, "-")
+                new ParameterRuleOption("exec", false, true, null, "-"),
+                new ParameterRuleFlag(new FlagDefinition[] { new FlagDefinition('p', true, false), new FlagDefinition('v', true, true) }, "-")
                 );
             ph.Comb(args);
 
@@ -30,15 +33,27 @@ namespace HDSL
             var scanPaths = ph.GetAllParam("scan");
             var runScript = ph.GetParam("run");
             var executeFile = ph.GetParam("exec");
+            _showProgress = ph.GetFlag("p");
+            _verbose = ph.GetFlag("v");
 
             // Do the scan first
             var paths = (from p in scanPaths where !string.IsNullOrWhiteSpace(p) select p).ToArray();
             if (paths.Length > 0)
             {
-                Console.Write($"Performing scans on '{paths}' ");
+                if (_showProgress)
+                {
+                    Console.Write($"Performing scans on '{string.Join("\', \'", paths)}\': ");
+                }
+                else if (_verbose)
+                {
+                    Console.WriteLine($"Performing scans on '{string.Join("\', \'", paths)}\'... ");
+                }
                 var scanner = new DiskScan(dbPath, false, paths);
 
-                scanner.ScanStarted += Scanner_ScanStarted;
+                if (_showProgress)
+                {
+                    scanner.ScanStarted += Scanner_ScanStarted;
+                }
                 scanner.ScanEventOccurred += Scanner_ScanEventOccurred;
                 scanner.StatusEventOccurred += Scanner_StatusEventOccurred;
                 scanner.StartScan();
@@ -49,7 +64,10 @@ namespace HDSL
                 {
                     if (scanner.Status == ScanStatus.Scanning)
                     {
-                        _progress.Display();
+                        if (_showProgress)
+                        {
+                            _progress.Display();
+                        }
                     }
 
                     System.Threading.Thread.Sleep(100);
@@ -102,7 +120,14 @@ namespace HDSL
         {
             if (oldStatus == ScanStatus.Scanning)
             {
-                Console.WriteLine($"-- Done! {new String(' ', _progress.Width - 7)}");
+                if (_showProgress)
+                {
+                    Console.WriteLine($"-- Done! {new String(' ', _progress.Width - 7)}");
+                }
+                else if (_verbose)
+                {
+                    Console.WriteLine("-- Done!");
+                }
             }
         }
 
@@ -121,21 +146,46 @@ namespace HDSL
             else if (evnt.Nature == ScanEventType.Add)
             {
                 //_progress.Message = $"Discovered {itemType} @ '{evnt.Path}'.";
-                _progress.Value++;
+                if (_showProgress)
+                {
+                    _progress.Value++;
+                }
+                else if (_verbose)
+                {
+                    Console.WriteLine($"Discovered {itemType} @ '{evnt.Path}'.");
+                }
             }
             else if (evnt.Nature == ScanEventType.Update)
             {
                 //_progress.Message = $"Updated entry for {itemType} @ '{evnt.Path}'.";
-                _progress.Value++;
+                if (_showProgress)
+                {
+                    _progress.Value++;
+                }
+                else if (_verbose)
+                {
+                    Console.WriteLine($"Updated entry for {itemType} @ '{evnt.Path}'.");
+                }
             }
             else if (evnt.Nature == ScanEventType.Delete)
             {
                 //_progress.Message = $"Deleted entry for {itemType} @ '{evnt.Path}'.";
+                if (!_showProgress && _verbose)
+                {
+                    Console.WriteLine($"Deleted entry for {itemType} @ '{evnt.Path}'.");
+                }
             }
             else if (evnt.Nature == ScanEventType.DatabaseError)
             {
                 //_progress.Message = $"!!Database Error!! {evnt.Error.Message}";
-                _progress.Value++;
+                if (_showProgress)
+                {
+                    _progress.Value++;
+                }
+                else if (_verbose)
+                {
+                    Console.WriteLine($"!!Database Error!! {evnt.Error.Message}");
+                }
             }
         }
     }

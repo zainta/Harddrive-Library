@@ -58,6 +58,29 @@ namespace HDDL.IO.Parameters
         }
 
         /// <summary>
+        /// Retrieves the flag's value as a boolean
+        /// </summary>
+        /// <param name="key">The name of the parameter to retrieve</param>
+        /// <returns>The flag's boolean state</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the target is found but not a flag</exception>
+        public bool GetFlag(string key)
+        {
+            var offset = 0;
+            var val = (from rule in Rules
+                       where
+                           rule.Arguments.ContainsKey($"{key}_{offset}")
+                       select rule.Arguments[$"{key}_{offset}"])
+                        .SingleOrDefault();
+
+            bool result;
+            if (!bool.TryParse(val, out result))
+            {
+                throw new InvalidOperationException($"Parameter '{key}' must be a flag parameter.");
+            }
+            return result;
+        }
+
+        /// <summary>
         /// Retrieves the parameter's value(s)
         /// </summary>
         /// <param name="key">The name of the parameter to retrieve</param>
