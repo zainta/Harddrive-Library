@@ -108,7 +108,7 @@ namespace HDSL
             // Execute the contents of a code file
             if (!string.IsNullOrWhiteSpace(executeFile))
             {
-                var result = HDSLProvider.ExecuteScript(runScript, dbPath);
+                var result = HDSLProvider.ExecuteScript(executeFile, dbPath);
                 DisplayResult(ph.GetParam("columns", -1), result);
             }
         }

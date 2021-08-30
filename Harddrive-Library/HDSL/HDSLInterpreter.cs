@@ -169,7 +169,7 @@ namespace HDDL.HDSL
         /// A purge statement removes entries from the database
         /// 
         /// Syntax:
-        /// find <file regular expression> in <path> where *stuffs*
+        /// purge [where clause];
         /// </summary>
         private void HandlePurgeStatement()
         {
