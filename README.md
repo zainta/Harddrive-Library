@@ -6,6 +6,8 @@ The Hard Drive Library (HDL) is a utility that allows easy searching for any ite
 The system's main benefit is the implementation of a query language that allows filtering of files based on various properties (by size, last date access, etc).  This language will be further enhanced throughout development.
 
 ## Usage
+
+### Options
 The command utility supports the following parameters:
 * hdsl -db: `<database full path>`
   * Directs the utility to use the database file (or create one) at the given location with the given name.
@@ -38,6 +40,15 @@ Parameters are always handled in the following order:
 * -exec
 
 This allows a scan to be performed immediately followed by a script execution.
+
+### Flags 
+HDSL supports flags to assist with its output and behavior.  Note that all flags are toggles; if they default to true, setting them will set them to false.  Unless otherwise noted, all flags are nestable, i.e -hdsl, where h, d, s, and l are each seperate flags.
+* p - Progress Bar - defaults to off
+  * When on, causes scans to display progress bars indicating overall scan progression.  
+  * Mutually exclusive with v
+* v - Verbose - defaults to on
+  * When on, causes scans to output full paths as they are scanned to the console.  
+  * Mutually exclusive with p
 
 ## The Hard Drive Search Language
 HDSL is a simple query language designed for the retrieval of files and directories based on their locations and characteristics.  The system currently implements the following statements:
