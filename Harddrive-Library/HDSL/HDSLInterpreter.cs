@@ -9,6 +9,7 @@ using HDDL.Scanning;
 using Microsoft.VisualBasic.CompilerServices;
 using HDDL.IO.Disk;
 using HDDL.Data;
+using System.IO;
 
 namespace HDDL.HDSL
 {
@@ -58,7 +59,7 @@ namespace HDDL.HDSL
             {
                 var done = false;
 
-                while (!_tokens.Empty && !done)
+                while (!_tokens.Empty && _errors.Count == 0 && !done)
                 {
                     switch (Peek().Type)
                     {
@@ -67,6 +68,13 @@ namespace HDDL.HDSL
                             break;
                         case HDSLTokenTypes.Find:
                             files.AddRange(HandleFindStatement().Select(r => r.Path));
+                            break;
+                        case HDSLTokenTypes.EndOfFile:
+                            Pop();
+                            done = true;
+                            break;
+                        case HDSLTokenTypes.EndOfLine:
+                            Pop();
                             break;
                         default:
                             _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Unexpected token '{Peek().Code}'."));
@@ -86,7 +94,7 @@ namespace HDDL.HDSL
                 result = new HDSLResult(new HDSLLogBase[] { new HDSLLogBase(-1, -1, $"Exception thrown: {ex}") });
             }
 
-            if (_errors.Count == 0)
+            if (_errors.Count > 0)
             {
                 result = new HDSLResult(_errors);
             }
@@ -180,76 +188,98 @@ namespace HDDL.HDSL
         /// 
         /// Syntax:
         /// find <file regular expression> in <path> where *stuffs*
+        /// 
+        /// find [file pattern] [in [path[, path, path]] - defaults to current] [where clause];
         /// </summary>
         /// <returns>The results find statement</returns>
         private DiskItem[] HandleFindStatement()
         {
-            List<DiskItem> results = new List<DiskItem>();
-
             if (More() && Peek().Type == HDSLTokenTypes.Find)
             {
                 Pop();
+                // the wildcard expression defaults to "*.*".  Defining it explicitly is optional
+                var wildcardExpression = "*.*";
                 if (More() && Peek().Type == HDSLTokenTypes.String)
                 {
-                    var wildcardExpression = Pop().Literal;
-                    
-                    if (More() && Peek().Type == HDSLTokenTypes.In)
-                    {
-                        Pop();
-                        if (More() && Peek().Type == HDSLTokenTypes.String)
-                        {
-                            var path = Pop().Literal;
-                            var records = _db.DiskItems
-                                .Where(r =>
-                                    PathComparison.IsWithinPath(r.Path, path, true) &&
-                                    LikeOperator.LikeString(r.ItemName, wildcardExpression, Microsoft.VisualBasic.CompareMethod.Binary))
-                                .Select(r => r)
-                                .ToArray();
-
-                            results.AddRange(HandleWhereClause(records));
-                        }
-                        else
-                        {
-                            _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'string' expected."));
-                        }
-                    }
-                    else
-                    {
-                        _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'in' expected."));
-                    }
+                    wildcardExpression = Pop().Literal;
                 }
-                else
+
+                // the in clause is optional, and can take a comma seperated list of paths.
+                // if left out then the system assumes the current directory.
+                var targetPaths = new List<string>();
+                if (More() && Peek().Type == HDSLTokenTypes.In)
                 {
-                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'string' token containing a file search string is expected."));
+                    Pop();
+                    // get the list of paths
+                    while (More() && Peek().Type == HDSLTokenTypes.String)
+                    {
+                        targetPaths.Add(Pop().Literal);
+
+                        // check if we have at least 2 more tokens remaining, one is a comma and the next is a string
+                        // if so, then this is a list
+                        if (More(2) &&
+                            Peek().Type == HDSLTokenTypes.Comma &&
+                            Peek(1).Type == HDSLTokenTypes.String)
+                        {
+                            // strip the comma so the loop continues
+                            Pop();
+                        }
+                    }
+
+                    // validate the list of paths to ensure they exist
+                    foreach (var target in targetPaths)
+                    {
+                        try
+                        {
+                            if (!Directory.Exists(target))
+                            {
+                                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Invalid path: '{target}'."));
+                            }
+                        }
+                        catch (IOException ex)
+                        {
+                            _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Bad path: '{target}'."));
+                        }
+                    }
+
+                    if (_errors.Count > 0)
+                    {
+                        return new DiskItem[] { };
+                    }
                 }
+
+                var results = new List<DiskItem>();
+                try
+                {
+                    // done gathering information.  perform the query
+                    results.AddRange
+                        (from di in _db.DiskItems.AsEnumerable()
+                         where
+                            PathComparison.IsWithinPaths(di.Path, targetPaths, true) &&
+                            LikeOperator.LikeString(di.ItemName, wildcardExpression, Microsoft.VisualBasic.CompareMethod.Binary)
+                         select di);
+                }
+                catch (Exception ex)
+                {
+                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"IO Exception encountered: '{ex}'."));
+                }
+
+                // the where clause is optional.
+                // If pressent, it further filters the files selected from the path
+                if (More() && Peek().Type == HDSLTokenTypes.Where)
+                {
+
+                }
+
+                // Done
+                return results.ToArray();
             }
             else
             {
-                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'find' expected."));
+                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, "'find' expected."));
             }
 
-            return results.ToArray();
-        }
-
-        /// <summary>
-        /// Filters the given records based on the outstanding where clause
-        /// </summary>
-        /// <param name="records">The records to filter</param>
-        /// <returns>The results of the where clause filtration</returns>
-        private DiskItem[] HandleWhereClause(IEnumerable<DiskItem> records)
-        {
-            var results = new List<DiskItem>();
-
-            if (More() && Peek().Type == HDSLTokenTypes.Where)
-            {
-                results.AddRange(records);
-            }
-            else
-            {
-                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'where' expected."));
-            }
-
-            return results.ToArray();
+            return new DiskItem[] { };
         }
 
         #endregion

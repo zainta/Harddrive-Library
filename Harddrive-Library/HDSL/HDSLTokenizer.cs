@@ -80,6 +80,11 @@ namespace HDDL.HDSL
                 {
                     continue;
                 }
+                else if (More() && Peek() == ',') // Comma
+                {
+                    Tokens.Add(new HDSLToken(HDSLTokenTypes.Comma, Pop(), row, col, ","));
+                    continue;
+                }
                 else if (More() && char.IsDigit(Peek()) && GetNumbers()) // Whole and real numbers
                 {
                     continue;
@@ -226,46 +231,41 @@ namespace HDDL.HDSL
             {
                 encoded.Append(Pop());
 
-                bool escaped = false;
                 bool done = false;
                 while (!done)
                 {
-                    if (buffer.Empty)
+                    if (More() == false)
                     {
-                        Outcome.Add(new HDSLLogBase(col, row, string.Format("End of file before unescaped '{0}' located.", end)));
+                        Outcome.Add(new HDSLLogBase(col, row, string.Format("End of file before paired set closed.  '{0}' expected.", end)));
                         return null;
                     }
-                    else if (escape.HasValue &&
-                        Peek() == escape.Value)
+
+                    if (escape.HasValue &&
+                        Peek() == escape.Value) // found the escape character
                     {
-                        if (escaped)
-                        {
-                            encoded.Append(escape);
-                            literal.Append(escape);
-                            escaped = false;
+                        // check to see if the character after the escape is the ending character
+                        if (More(1) && Peek(1) == end) 
+                        { 
+                            // yes
+                            literal.Append(Peek());
+                            encoded.Append(Pop());
+                            encoded.Append(Pop());
                         }
                         else
-                        {
-                            encoded.Append(escape);
-                            escaped = true;
+                        { 
+                            // no
+                            literal.Append(Peek());
+                            literal.Append(Peek(1));
+                            encoded.Append(Pop());
+                            encoded.Append(Pop());
                         }
-                        Pop();
                     }
-                    else if (Peek() == end)
+                    else if (Peek() == end) // this is a non-escaped end.  we're done
                     {
-                        if (escaped)
-                        {
-                            encoded.Append(end);
-                            escaped = false;
-                        }
-                        else
-                        {
-                            encoded.Append(end);
-                        }
-                        Pop();
                         done = true;
+                        encoded.Append(Pop());
                     }
-                    else
+                    else // just copy everything else over
                     {
                         literal.Append(Peek());
                         encoded.Append(Pop());

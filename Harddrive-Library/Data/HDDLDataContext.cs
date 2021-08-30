@@ -59,6 +59,9 @@ namespace HDDL.Data
                             "\"Extension\"  TEXT, " +
                             "\"IsFile\"    INTEGER NOT NULL, " +
                             "\"SizeInBytes\"    INTEGER, " +
+                            "\"LastWritten\"   TEXT NOT NULL, " +
+                            "\"LastAccessed\"   TEXT NOT NULL, " +
+                            "\"CreationDate\"   TEXT NOT NULL, " +
                             "PRIMARY KEY(\"Id\"), " +
                             "FOREIGN KEY(\"ParentId\") REFERENCES DiskItem(\"Id\") " +
                         "); ";

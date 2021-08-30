@@ -22,6 +22,7 @@ namespace HDDL.HDSL
         // Special
 
         Whitespace,
+        Comma,
 
         // Keywords
 

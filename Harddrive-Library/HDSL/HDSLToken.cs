@@ -33,6 +33,7 @@ namespace HDDL.HDSL
                     case HDSLTokenTypes.DateTime:
                         Family = HDSLTokenFamilies.DataTypes;
                         break;
+                    case HDSLTokenTypes.Comma:
                     case HDSLTokenTypes.Whitespace:
                         Family = HDSLTokenFamilies.Whitespace;
                         break;

@@ -65,5 +65,25 @@ namespace HDDL.Data
         /// The file size in bytes
         /// </summary>
         public long? SizeInBytes { get; set; }
+
+        /// <summary>
+        /// When the item was last updated
+        /// </summary>
+        public DateTime LastWritten { get; set; }
+
+        /// <summary>
+        /// When the item was last accessed
+        /// </summary>
+        public DateTime LastAccessed { get; set; }
+
+        /// <summary>
+        /// When the file was created
+        /// </summary>
+        public DateTime CreationDate { get; set; }
+
+        public override string ToString()
+        {
+            return $"({SizeInBytes}) '{Path}'";
+        }
     }
 }

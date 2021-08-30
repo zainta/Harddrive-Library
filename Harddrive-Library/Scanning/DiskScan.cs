@@ -358,7 +358,10 @@ namespace HDDL.Scanning
                             Path = file.FullName,
                             ItemName = file.Name,
                             Extension = file.Extension,
-                            SizeInBytes = file.Length
+                            SizeInBytes = file.Length,
+                            LastAccessed = file.LastAccessTimeUtc,
+                            LastWritten = file.LastWriteTimeUtc,
+                            CreationDate = file.CreationTimeUtc
                         };                        
                         _db.DiskItems.Add(record);
                         ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.Add, file.FullName, true));
@@ -430,7 +433,10 @@ namespace HDDL.Scanning
                             Path = directory.FullName,
                             ItemName = directory.Name,
                             Extension = null,
-                            SizeInBytes = null
+                            SizeInBytes = null,
+                            LastAccessed = directory.LastAccessTimeUtc,
+                            LastWritten = directory.LastWriteTimeUtc,
+                            CreationDate = directory.CreationTimeUtc
                         };
                         _db.DiskItems.Add(record);
                         ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.Add, directory.FullName, false));
