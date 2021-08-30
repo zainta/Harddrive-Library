@@ -7,7 +7,7 @@ The system's main benefit is the implementation of a query language that allows 
 
 ## Usage
 The command utility supports the following parameters:
-* hdsl -db: `<database file name>`
+* hdsl -db: `<database full path>`
   * Directs the utility to use the database file (or create one) at the given location with the given name.
   * Defaults to creating `files database.db` in the utility's containing folder.
 * hdsl -scan: `<path>[, <path>, <path>]`
@@ -38,3 +38,12 @@ Parameters are always handled in the following order:
 * -exec
 
 This allows a scan to be performed immediately followed by a script execution.
+
+## The Hard Drive Search Language
+HDSL is a simple query language designed for the retrieval of files and directories based on their locations and characteristics.  The system currently implements the following statements:
+ * `find [file search pattern - defaults to *.*] [in [path[, path, path]] - defaults to current] [where clause];`
+   * Note that where clauses are not currently implemented
+   * Retrieves the items that match the query and displays them.
+ * `purge [where clause];`
+   * Note that where clauses are not currently implemented
+   * Removes matching entries from the current database.
