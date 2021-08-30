@@ -41,18 +41,33 @@ namespace HDDL.IO.Parameters
         }
 
         /// <summary>
-        /// Retrieves the parameter's value
+        /// Retrieves the parameter's value(s)
+        /// if the offset is -1, will return a comma seperated list of all provided values
         /// </summary>
         /// <param name="key">The name of the parameter to retrieve</param>
         /// <param name="offset">The offset index of the subvalue</param>
         /// <returns>The value if found, null otherwise</returns>
         public string GetParam(string key, int offset = 0)
         {
-            var val = (from rule in Rules
-                        where
-                            rule.Arguments.ContainsKey($"{key}_{offset}")
-                        select rule.Arguments[$"{key}_{offset}"])
-                        .SingleOrDefault();
+            string val = null;
+
+            if (offset > -1)
+            {
+                val = (from rule in Rules
+                       where
+                           rule.Arguments.ContainsKey($"{key}_{offset}")
+                       select rule.Arguments[$"{key}_{offset}"])
+                            .SingleOrDefault();
+            }
+            else if (offset == -1)
+            {
+                val = string.Join(',', 
+                    from rule in Rules
+                    from pair in rule.Arguments
+                    where
+                        Regex.IsMatch(pair.Key, $"{key}_\\d+$")
+                    select $"{pair.Value}");
+            }
 
             return val;
         }

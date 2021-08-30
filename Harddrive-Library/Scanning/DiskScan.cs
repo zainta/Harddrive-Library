@@ -157,7 +157,7 @@ namespace HDDL.Scanning
             {
                 Status = ScanStatus.Scanning;
                 ScanStarted?.Invoke(this, info.TotalDirectories, info.TotalFiles);
-                scanMarker = DateTime.Now;
+                scanMarker = DateTime.UtcNow;
                 _db = new HDDLDataContext(StoragePath);
 
                 scanningTasks.Clear();

@@ -1,4 +1,5 @@
-﻿using HDDL.HDSL.Logging;
+﻿using HDDL.Data;
+using HDDL.HDSL.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,7 +16,7 @@ namespace HDDL.HDSL
         /// <summary>
         /// The paths that matched the query
         /// </summary>
-        public string[] Paths { get; private set; }
+        public DiskItem[] Results { get; private set; }
 
         /// <summary>
         /// Any errors encountered during the process
@@ -25,10 +26,10 @@ namespace HDDL.HDSL
         /// <summary>
         /// Creates a success result with the resulting paths as its contents
         /// </summary>
-        /// <param name="paths">The paths matching the query</param>
-        public HDSLResult(IEnumerable<string> paths)
+        /// <param name="paths">The records matching the query</param>
+        public HDSLResult(IEnumerable<DiskItem> items)
         {
-            Paths = paths.ToArray();
+            Results = items.ToArray();
             Errors = new HDSLLogBase[] { };
         }
 
@@ -38,7 +39,7 @@ namespace HDDL.HDSL
         /// <param name="errors">The errors encountered during execution</param>
         public HDSLResult(IEnumerable<HDSLLogBase> errors)
         {
-            Paths = new string[] { };
+            Results = new DiskItem[] { };
             Errors = errors.ToArray();
         }
     }

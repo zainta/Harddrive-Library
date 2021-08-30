@@ -53,7 +53,7 @@ namespace HDDL.HDSL
         public HDSLResult Interpret(bool closeDb)
         {
             HDSLResult result = null;
-            var files = new List<string>();
+            var results = new List<DiskItem>();
 
             try
             {
@@ -67,7 +67,7 @@ namespace HDDL.HDSL
                             HandlePurgeStatement();
                             break;
                         case HDSLTokenTypes.Find:
-                            files.AddRange(HandleFindStatement().Select(r => r.Path));
+                            results.AddRange(HandleFindStatement());
                             break;
                         case HDSLTokenTypes.EndOfFile:
                             Pop();
@@ -100,7 +100,7 @@ namespace HDDL.HDSL
             }
             else
             {
-                result = new HDSLResult(files);
+                result = new HDSLResult(results);
             }
 
             return result;
