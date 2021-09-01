@@ -161,28 +161,50 @@ namespace HDDL.Scanning
                 _db = new HDDLDataContext(StoragePath);
 
                 scanningTasks.Clear();
-                foreach (var driveLetter in info.TargetInformation.Keys)
+                //foreach (var driveLetter in info.TargetInformation.Keys)
+                //{
+                //    scanningTasks.Add(Task.Run(() =>
+                //    {
+                //        return FullScan(info.TargetInformation[driveLetter]);
+                //    }));
+                //}
+                using (var dbTransaction = _db.Database.BeginTransaction())
                 {
-                    scanningTasks.Add(Task.Run(() =>
+                    foreach (var driveLetter in info.TargetInformation.Keys)
                     {
-                        return FullScan(info.TargetInformation[driveLetter]);
-                    }));
+                        FullScan(info.TargetInformation[driveLetter]);
+                    }
+
+
+                    _db.SaveChanges();
+                    dbTransaction.Commit();
                 }
 
-                Task.WhenAll(scanningTasks).ContinueWith((t) =>
+                //Task.WhenAll(scanningTasks).ContinueWith((t) =>
+                //{
+                //    var deleteCount = -1;
+                //    if (Status == ScanStatus.Scanning)
+                //    {
+                //        deleteCount = DeleteUnfoundEntries(startingPaths);
+                //    }
+                //    _db.Dispose();
+                //    if (Status == ScanStatus.Scanning || Status == ScanStatus.Deleting)
+                //    {
+                //        Status = ScanStatus.Ready;
+                //        ScanEnded?.Invoke(this, deleteCount, ScanOperationOutcome.Completed);
+                //    }
+                //});
+                var deleteCount = -1;
+                if (Status == ScanStatus.Scanning)
                 {
-                    var deleteCount = -1;
-                    if (Status == ScanStatus.Scanning)
-                    {
-                        deleteCount = DeleteUnfoundEntries(startingPaths);
-                    }
-                    _db.Dispose();
-                    if (Status == ScanStatus.Scanning || Status == ScanStatus.Deleting)
-                    {
-                        Status = ScanStatus.Ready;
-                        ScanEnded?.Invoke(this, deleteCount, ScanOperationOutcome.Completed);
-                    }
-                });
+                    deleteCount = DeleteUnfoundEntries(startingPaths);
+                }
+                _db.Dispose();
+                if (Status == ScanStatus.Scanning || Status == ScanStatus.Deleting)
+                {
+                    Status = ScanStatus.Ready;
+                    ScanEnded?.Invoke(this, deleteCount, ScanOperationOutcome.Completed);
+                }
             }
         }
 
@@ -278,7 +300,6 @@ namespace HDDL.Scanning
                             }
                         }
                     }
-                    var changes = _db.SaveChanges();
                 }
                 catch (SqliteException ex)
                 {

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -71,19 +72,81 @@ namespace HDDL.IO.Disk
         {
             var result = new PathSetData(new Dictionary<string, List<DiskItemType>>(), 0, 0);
 
-            var intermediate = new List<DiskItemType>();
+            var intermediate = new ConcurrentBag<DiskItemType>();
 
-            // Expand the search paths out to get the files and subdirectories
+            Action<string> recursor = null;
+            recursor = (path) =>
+            {
+                if (Directory.Exists(path))
+                {
+                    Parallel.ForEach(
+                        Directory.GetDirectories(path),
+                        (dir) =>
+                        {
+                            var dit = new DiskItemType(dir, false);
+                            intermediate.Add(dit);
+
+                            try
+                            {
+                                // handle files
+                                foreach (var file in dit.DInfo.GetFiles())
+                                {
+                                    intermediate.Add(new DiskItemType(file));
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+
+                            }
+
+                            try
+                            {
+                                // handle subdirectories
+                                foreach (var directory in dit.DInfo.GetDirectories())
+                                {
+                                    recursor(directory.FullName);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+
+                            }
+                        });
+                }
+            };
+
+            // Recursively expand the search paths out into a flat list of files and subdirectories
             foreach (var path in paths)
             {
                 if (File.Exists(path))
                 {
                     intermediate.Add(new DiskItemType(path, true));
                 }
-                else if (Directory.Exists(path))
+                else
                 {
-                    intermediate.AddRange(Directory.GetDirectories(path, "*.*", SearchOption.AllDirectories).Select(p => new DiskItemType(p, false)));
-                    intermediate.AddRange(Directory.GetFiles(path, "*.*", SearchOption.AllDirectories).Select(p => new DiskItemType(p, true)));
+                    recursor(path);
+                    //if (Directory.Exists(path))
+                    //{
+                    //    Parallel.ForEach(
+                    //        Directory.GetDirectories(path),
+                    //        (dir) =>
+                    //        {
+                    //            var dit = new DiskItemType(dir, false);
+                    //            intermediate.Add(dit);
+
+                    //            // handle files
+                    //            foreach (var file in dit.DInfo.GetFiles())
+                    //            {
+                    //                intermediate.Add(new DiskItemType(file));
+                    //            }
+
+                    //            // handle subdirectories
+                    //            foreach (var directory in dit.DInfo.GetDirectories())
+                    //            {
+
+                    //            }
+                    //        });
+                    //}
                 }
             }
 

@@ -176,7 +176,19 @@ namespace HDDL.HDSL
             // eat the purge
             Pop();
 
-            _db.DiskItems.RemoveRange(_db.DiskItems);
+            IEnumerable<DiskItem> targets;
+            // the where clause is optional.
+            // If pressent, it further filters the files selected from the path
+            if (More() && Peek().Type == HDSLTokenTypes.Where)
+            {
+                targets = HandleWhereClause(null);
+            }
+            else
+            {
+                targets = _db.DiskItems;
+            }
+
+            _db.DiskItems.RemoveRange(targets);
             _db.SaveChanges();
         }
 
@@ -268,7 +280,7 @@ namespace HDDL.HDSL
                 // If pressent, it further filters the files selected from the path
                 if (More() && Peek().Type == HDSLTokenTypes.Where)
                 {
-
+                    results = HandleWhereClause(results).ToList();
                 }
 
                 // Done
@@ -280,6 +292,24 @@ namespace HDDL.HDSL
             }
 
             return new DiskItem[] { };
+        }
+
+        /// <summary>
+        /// Consumes a where clause, filtering the provided disk items
+        /// 
+        /// If the items set is null, then it will query the entire database directly
+        /// </summary>
+        /// <param name="items">The disk items to filter</param>
+        private IEnumerable<DiskItem> HandleWhereClause(IEnumerable<DiskItem> items)
+        {
+            if (items != null)
+            {
+                return items;
+            }
+            else
+            {
+                return _db.DiskItems;
+            }
         }
 
         #endregion

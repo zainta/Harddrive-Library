@@ -37,6 +37,13 @@ namespace HDDL.HDSL
                     case HDSLTokenTypes.Whitespace:
                         Family = HDSLTokenFamilies.Whitespace;
                         break;
+                    case HDSLTokenTypes.Written:
+                    case HDSLTokenTypes.Accessed:
+                    case HDSLTokenTypes.Created:
+                    case HDSLTokenTypes.Extension:
+                    case HDSLTokenTypes.LastScan:
+                    case HDSLTokenTypes.FirstScan:
+                    case HDSLTokenTypes.Name:
                     case HDSLTokenTypes.Now:
                     case HDSLTokenTypes.In:
                     case HDSLTokenTypes.Find:
@@ -46,6 +53,8 @@ namespace HDDL.HDSL
                     case HDSLTokenTypes.Within:
                         Family = HDSLTokenFamilies.Keywords;
                         break;
+                    case HDSLTokenTypes.And:
+                    case HDSLTokenTypes.Or:
                     case HDSLTokenTypes.GreaterThan:
                     case HDSLTokenTypes.LessThan:
                     case HDSLTokenTypes.Equal:
@@ -57,6 +66,9 @@ namespace HDDL.HDSL
                     case HDSLTokenTypes.EndOfFile:
                     case HDSLTokenTypes.EndOfLine:
                         Family = HDSLTokenFamilies.Metadata;
+                        break;
+                    default:
+                        Family = HDSLTokenFamilies.Unknown;
                         break;
                 }
             }

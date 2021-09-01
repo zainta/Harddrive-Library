@@ -54,6 +54,28 @@ namespace HDDL.IO.Disk
             }
         }
 
+        /// <summary>
+        /// Create a DiskItemType
+        /// </summary>
+        /// <param name="file">The file info instance</param>
+        public DiskItemType(FileInfo file)
+        {
+            Path = file.FullName;
+            IsFile = true;
+            FInfo = file;
+        }
+
+        /// <summary>
+        /// Create a DiskItemType
+        /// </summary>
+        /// <param name="directory">The directory info instance</param>
+        public DiskItemType(DirectoryInfo directory)
+        {
+            Path = directory.FullName;
+            IsFile = false;
+            DInfo = directory;
+        }
+
         public override string ToString()
         {
             return $"{Path}";

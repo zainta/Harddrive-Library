@@ -11,6 +11,7 @@ namespace HDDL.HDSL
     /// </summary>
     enum HDSLTokenFamilies
     {
+        Unknown,
         DataTypes,
         Whitespace,
         Keywords,

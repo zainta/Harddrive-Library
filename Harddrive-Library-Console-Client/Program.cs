@@ -113,6 +113,8 @@ namespace HDSL
             }
         }
 
+        #region Column Configuration and Result Display
+
         /// <summary>
         /// Takes in a column string and returns a list containing the column identifier, the column index, and the column width
         /// </summary>
@@ -399,6 +401,8 @@ namespace HDSL
             }
             return location;
         }
+
+        #endregion
 
         #region Events
 

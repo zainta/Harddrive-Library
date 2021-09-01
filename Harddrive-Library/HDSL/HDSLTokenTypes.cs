@@ -34,8 +34,16 @@ namespace HDDL.HDSL
         Purge,
         Within,
         Where,
+
+        // * attribute keywords
         Size,
-        All,
+        Written,
+        Accessed,
+        Created,
+        Extension,
+        LastScan,
+        FirstScan,
+        Name,
 
         // Relational Operators
 
@@ -45,6 +53,11 @@ namespace HDDL.HDSL
         NotEqual,
         GreaterOrEqual,
         LessThanOrEqual,
+
+        // Logical Operators
+
+        And,
+        Or,
 
         // Metadata
         EndOfFile,

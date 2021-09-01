@@ -469,9 +469,41 @@ namespace HDDL.HDSL
                 {
                     token = new HDSLToken(HDSLTokenTypes.Size, keyword.ToString(), row, col, text);
                 }
-                else if (text == "all")
+                else if (text == "written")
                 {
-                    token = new HDSLToken(HDSLTokenTypes.All, keyword.ToString(), row, col, text);
+                    token = new HDSLToken(HDSLTokenTypes.Written, keyword.ToString(), row, col, text);
+                }
+                else if (text == "accessed")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Accessed, keyword.ToString(), row, col, text);
+                }
+                else if (text == "created")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Created, keyword.ToString(), row, col, text);
+                }
+                else if (text == "ext")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Extension, keyword.ToString(), row, col, text);
+                }
+                else if (text == "last")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.LastScan, keyword.ToString(), row, col, text);
+                }
+                else if (text == "first")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.FirstScan, keyword.ToString(), row, col, text);
+                }
+                else if (text == "name")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Name, keyword.ToString(), row, col, text);
+                }
+                else if (text == "and")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.And, keyword.ToString(), row, col, text);
+                }
+                else if (text == "or")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Or, keyword.ToString(), row, col, text);
                 }
                 else
                 {
