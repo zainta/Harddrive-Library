@@ -420,7 +420,7 @@ namespace HDSL
             }
         }
 
-        private static void Scanner_ScanEnded(DiskScan scanner, int totalDeleted, TimeSpan elapsed, ScanOperationOutcome outcome)
+        private static void Scanner_ScanEnded(DiskScan scanner, int totalDeleted, Timings elapsed, ScanOperationOutcome outcome)
         {
             if (_showProgress)
             {
@@ -428,7 +428,7 @@ namespace HDSL
             }
             else if (_verbose)
             {
-                Console.WriteLine(string.Format("Done -- Total time: {0}:{1}:{2}.{3}", elapsed.Hours, elapsed.Minutes, elapsed.Seconds, elapsed.Milliseconds));
+                Console.WriteLine(string.Format("Done -- Total time: {0}", elapsed.GetScanDuration()));
             }
         }
 

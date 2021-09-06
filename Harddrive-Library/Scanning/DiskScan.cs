@@ -24,7 +24,7 @@ namespace HDDL.Scanning
 
         public delegate void ScanEventOccurredDelegate(DiskScan scanner, ScanEvent evnt);
         public delegate void ScanOperationStartedDelegate(DiskScan scanner, int directoryCount, int fileCount);
-        public delegate void ScanOperationCompletedDelegate(DiskScan scanner, int totalDeleted, TimeSpan elapsed, ScanOperationOutcome outcome);
+        public delegate void ScanOperationCompletedDelegate(DiskScan scanner, int totalDeleted, Timings elapsed, ScanOperationOutcome outcome);
         public delegate void ScanStatusEventDelegate(DiskScan scanner, ScanStatus newStatus, ScanStatus oldStatus);
 
         public event ScanStatusEventDelegate StatusEventOccurred;
@@ -92,7 +92,7 @@ namespace HDDL.Scanning
 
         // These variables are used to track the duration of various parts of the process
         DateTime _scanStart, _directoryStructureScanStart, _directoryStructureProcessingStart, _databaseWriteStart;
-        TimeSpan _scanDuration, _directoryStructureScanDuration, _directoryStructureProcessingDuration, _databaseWriteDuration;
+        Timings _durations;
 
         /// <summary>
         /// The location of the database file
@@ -134,6 +134,7 @@ namespace HDDL.Scanning
             _lookupTable = new ConcurrentDictionary<string, Guid>();
             _recordCache = new ConcurrentBag<DiskItemOperation>();
             _anchoredPaths = new List<string>();
+            _durations = null;
 
             InitializeDatabase();
         }
@@ -153,6 +154,7 @@ namespace HDDL.Scanning
             _lookupTable = new ConcurrentDictionary<string, Guid>();
             _recordCache = new ConcurrentBag<DiskItemOperation>();
             _anchoredPaths = new List<string>();
+            _durations = null;
 
             InitializeDatabase(recreate);
         }
@@ -184,7 +186,7 @@ namespace HDDL.Scanning
             if (Status == ScanStatus.Scanning || Status == ScanStatus.Deleting)
             {
                 Status = ScanStatus.Interrupting;
-                ScanEnded?.Invoke(this, -1, TimeSpan.MinValue, ScanOperationOutcome.Interrupted);
+                ScanEnded?.Invoke(this, -1, null, ScanOperationOutcome.Interrupted);
             }
         }
 
@@ -193,10 +195,13 @@ namespace HDDL.Scanning
         /// </summary>
         public void StartScan()
         {
+            _durations = new Timings();
             PathSetData info = null;
             Status = ScanStatus.InitiatingScan;
             var task = Task.Run(() =>
                 {
+                    _scanStart = DateTime.Now;
+                    _directoryStructureScanStart = DateTime.Now;
                     info = PathHelper.GetContentsSortedByRoot(startingPaths);
                 });
             Task.WhenAll(task).ContinueWith((t) =>
@@ -239,6 +244,7 @@ namespace HDDL.Scanning
                         var sorted = new List<List<DiskItemType>>();
                         sorted.AddRange(sortedDirectories);
                         sorted.AddRange(sortedFiles);
+                        _durations.DirectoryStructureScanDuration = DateTime.Now.Subtract(_directoryStructureScanStart);
 
                         // reclaim the memory from this...
                         sortedFiles = null;
@@ -253,7 +259,7 @@ namespace HDDL.Scanning
 
                         // Perform the work
                         var queue = new ThreadedQueue<DiskItemType>((work) => WorkerMethod(work), 2);
-                        var time = DateTime.Now;
+                        _directoryStructureProcessingStart = DateTime.Now;
                         while (dependencyOrderedQueues.Count > 0)
                         {
                             queue.Start(dependencyOrderedQueues.Dequeue());
@@ -263,13 +269,22 @@ namespace HDDL.Scanning
                             }
                         }
 
-                        var duration = DateTime.Now.Subtract(time);
+                        _durations.DirectoryStructureProcessingDuration = DateTime.Now.Subtract(_directoryStructureProcessingStart);
+
+                        // Database
+                        _databaseWriteStart = DateTime.Now;
+                        // Do the database thing
+                        // Do the database thing
+                        // Do the database thing
+                        _durations.DatabaseWriteDuration = DateTime.Now.Subtract(_databaseWriteStart);
+
+                        _durations.ScanDuration = DateTime.Now.Subtract(_scanStart);
 
                         _db.Dispose();
                         if (Status == ScanStatus.Scanning || Status == ScanStatus.Deleting)
                         {
                             Status = ScanStatus.Ready;
-                            ScanEnded?.Invoke(this, -1, duration, ScanOperationOutcome.Completed);
+                            ScanEnded?.Invoke(this, -1, _durations, ScanOperationOutcome.Completed);
                         }
                     }
                 });
