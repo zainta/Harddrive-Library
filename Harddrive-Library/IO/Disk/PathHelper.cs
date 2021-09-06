@@ -11,8 +11,46 @@ namespace HDDL.IO.Disk
     /// <summary>
     /// Contains static methods for path comparison
     /// </summary>
-    class PathComparison
+    class PathHelper
     {
+        /// <summary>
+        /// Takes a DiskItemType and regresses until it reaches the drive root
+        /// </summary>
+        /// <param name="diskItemType">A path to anchor to the root</param>
+        /// <returns>Returns all directories found during the regression</returns>
+        public static IEnumerable<DiskItemType> AnchorPath(DiskItemType diskItemType)
+        {
+            var results = new List<DirectoryInfo>();
+            var dir = diskItemType.IsFile ? diskItemType.FInfo.Directory : diskItemType.DInfo;
+            while (dir != null && dir.Parent != null)
+            {
+                if (dir.Parent != null)
+                {
+                    results.Add(dir.Parent);
+                    dir = dir.Parent;
+                }
+            }
+
+            return (from d in results orderby d.FullName.Count(f => f == '\\') ascending select new DiskItemType(d));
+        }
+
+        /// <summary>
+        /// Takes a DiskItemType and returns the number of levels from the root it is (including the root)
+        /// Adds 1 for files
+        /// </summary>
+        /// <param name="diskItemType">The item to find the dependency count of</param>
+        /// <returns>The number of dependencies</returns>
+        public static int GetDependencyCount(DiskItemType diskItemType)
+        {
+            var dependencyLevel = AnchorPath(diskItemType).Count();
+            if (diskItemType.IsFile)
+            {
+                dependencyLevel++;
+            }
+
+            return dependencyLevel;
+        }
+
         /// <summary>
         /// Case insensitively compares paths to check if the query is or is within the container
         /// </summary>
@@ -125,28 +163,6 @@ namespace HDDL.IO.Disk
                 else
                 {
                     recursor(path);
-                    //if (Directory.Exists(path))
-                    //{
-                    //    Parallel.ForEach(
-                    //        Directory.GetDirectories(path),
-                    //        (dir) =>
-                    //        {
-                    //            var dit = new DiskItemType(dir, false);
-                    //            intermediate.Add(dit);
-
-                    //            // handle files
-                    //            foreach (var file in dit.DInfo.GetFiles())
-                    //            {
-                    //                intermediate.Add(new DiskItemType(file));
-                    //            }
-
-                    //            // handle subdirectories
-                    //            foreach (var directory in dit.DInfo.GetDirectories())
-                    //            {
-
-                    //            }
-                    //        });
-                    //}
                 }
             }
 
@@ -170,6 +186,7 @@ namespace HDDL.IO.Disk
 
                 // Add it
                 result.TargetInformation[root].Add(item);
+                result.TargetInformation[root].AddRange(AnchorPath(item));
             }
 
             // Remove duplicates from each root

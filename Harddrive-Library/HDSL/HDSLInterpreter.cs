@@ -10,6 +10,7 @@ using Microsoft.VisualBasic.CompilerServices;
 using HDDL.IO.Disk;
 using HDDL.Data;
 using System.IO;
+using LiteDB;
 
 namespace HDDL.HDSL
 {
@@ -26,7 +27,7 @@ namespace HDDL.HDSL
         /// <summary>
         /// The database
         /// </summary>
-        private HDDLDataContext _db;
+        private LiteDatabase _db;
 
         /// <summary>
         /// The list of errors
@@ -38,7 +39,7 @@ namespace HDDL.HDSL
         /// </summary>
         /// <param name="tokenizer">The tokenizer whose tokens should be consumed</param>
         /// <param name="db">The database to use</param>
-        public HDSLInterpreter(ListStack<HDSLToken> tokens, HDDLDataContext db)
+        public HDSLInterpreter(ListStack<HDSLToken> tokens, LiteDatabase db)
         {
             _tokens = new ListStack<HDSLToken>(tokens.ToList());
             _db = db;
@@ -109,6 +110,16 @@ namespace HDDL.HDSL
         #region Utility Methods
 
         /// <summary>
+        /// Returns the DiskItemRecord table
+        /// </summary>
+        /// <returns></returns>
+        private ILiteCollection<DiskItem> GetTable()
+        {
+            var records = _db.GetCollection<DiskItem>(DiskScan.TableName);
+            return records;
+        }
+
+        /// <summary>
         /// Returns a value indicating whether or not there are more tokens beyond the given minimum
         /// </summary>
         /// <param name="min">The minimum number of tokens to test for</param>
@@ -176,20 +187,25 @@ namespace HDDL.HDSL
             // eat the purge
             Pop();
 
+            _db.BeginTrans();
             IEnumerable<DiskItem> targets;
             // the where clause is optional.
             // If pressent, it further filters the files selected from the path
             if (More() && Peek().Type == HDSLTokenTypes.Where)
             {
                 targets = HandleWhereClause(null);
+                var records = GetTable();
+                foreach (var r in targets)
+                {
+                    records.Delete(r.Id);
+                }
             }
             else
             {
-                targets = _db.DiskItems;
+                GetTable().DeleteAll();
             }
 
-            _db.DiskItems.RemoveRange(targets);
-            _db.SaveChanges();
+            _db.Commit();
         }
 
         /// <summary>
@@ -265,9 +281,9 @@ namespace HDDL.HDSL
                 {
                     // done gathering information.  perform the query
                     results.AddRange
-                        (from di in _db.DiskItems.AsEnumerable()
+                        (from di in GetTable().FindAll().AsEnumerable()
                          where
-                            PathComparison.IsWithinPaths(di.Path, targetPaths, true) &&
+                            PathHelper.IsWithinPaths(di.Path, targetPaths, true) &&
                             LikeOperator.LikeString(di.ItemName, wildcardExpression, Microsoft.VisualBasic.CompareMethod.Binary)
                          select di);
                 }
@@ -308,7 +324,7 @@ namespace HDDL.HDSL
             }
             else
             {
-                return _db.DiskItems;
+                return GetTable().FindAll().AsEnumerable();
             }
         }
 

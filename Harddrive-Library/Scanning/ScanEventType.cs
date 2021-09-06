@@ -36,7 +36,15 @@ namespace HDDL.Scanning
         /// </summary>
         DeleteAttempted,
         /// <summary>
-        /// Occurs when the provided key is not found for deletion
+        /// Occurs when an error occurs during an add
+        /// </summary>
+        AddRequired,
+        /// <summary>
+        /// Occurs an add operation is queued
+        /// </summary>
+        UpdateRequired,
+        /// <summary>
+        /// Occurs an delete operation is queued
         /// </summary>
         KeyNotDeleted,
         /// <summary>

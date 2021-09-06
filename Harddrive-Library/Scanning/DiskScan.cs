@@ -7,7 +7,11 @@ using System.Collections;
 using System.IO;
 using HDDL.IO.Disk;
 using HDDL.Data;
-using Microsoft.Data.Sqlite;
+using LiteDB;
+using System.Collections.Concurrent;
+using System.Threading;
+using HDDL.Collections;
+using HDDL.Threading;
 
 namespace HDDL.Scanning
 {
@@ -16,9 +20,11 @@ namespace HDDL.Scanning
     /// </summary>
     public class DiskScan
     {
+        private const int Min_Remaining_Processing_Records = 200;
+
         public delegate void ScanEventOccurredDelegate(DiskScan scanner, ScanEvent evnt);
         public delegate void ScanOperationStartedDelegate(DiskScan scanner, int directoryCount, int fileCount);
-        public delegate void ScanOperationCompletedDelegate(DiskScan scanner, int totalDeleted, ScanOperationOutcome outcome);
+        public delegate void ScanOperationCompletedDelegate(DiskScan scanner, int totalDeleted, TimeSpan elapsed, ScanOperationOutcome outcome);
         public delegate void ScanStatusEventDelegate(DiskScan scanner, ScanStatus newStatus, ScanStatus oldStatus);
 
         public event ScanStatusEventDelegate StatusEventOccurred;
@@ -56,13 +62,38 @@ namespace HDDL.Scanning
         /// <summary>
         /// Used as the "last scanned" timestamp for all items altered during the scan
         /// </summary>
-        private DateTime scanMarker;
+        private DateTime _scanMarker;
 
         /// <summary>
         /// The database instance in use
         /// </summary>
-        private HDDLDataContext _db;
-        
+        private LiteDatabase _db;
+
+        /// <summary>
+        /// The DiskItem table
+        /// </summary>
+        private ILiteCollection<DiskItem> _table;
+
+        /// <summary>
+        /// Used to store record batches between writes
+        /// </summary>
+        private ConcurrentBag<DiskItemOperation> _recordCache;
+
+        /// <summary>
+        /// Used to cache directory ids for quick lookups
+        /// </summary>
+        private ConcurrentDictionary<string, Guid> _lookupTable;
+
+        /// <summary>
+        /// Contains paths that were written as a result of a requirement by another work item
+        /// </summary>
+        private List<string> _anchoredPaths;
+        private readonly object _Anchored_Paths_Lock = new object();
+
+        // These variables are used to track the duration of various parts of the process
+        DateTime _scanStart, _directoryStructureScanStart, _directoryStructureProcessingStart, _databaseWriteStart;
+        TimeSpan _scanDuration, _directoryStructureScanDuration, _directoryStructureProcessingDuration, _databaseWriteDuration;
+
         /// <summary>
         /// The location of the database file
         /// </summary>
@@ -97,9 +128,12 @@ namespace HDDL.Scanning
         public DiskScan(string dbPath, params string[] scanPaths)
         {
             startingPaths = new List<string>(scanPaths);
-            scanMarker = DateTime.Now;
+            _scanMarker = DateTime.Now;
             StoragePath = dbPath;
             scanningTasks = new List<Task>();
+            _lookupTable = new ConcurrentDictionary<string, Guid>();
+            _recordCache = new ConcurrentBag<DiskItemOperation>();
+            _anchoredPaths = new List<string>();
 
             InitializeDatabase();
         }
@@ -113,9 +147,12 @@ namespace HDDL.Scanning
         public DiskScan(string dbPath, bool recreate, params string[] scanPaths)
         {
             startingPaths = new List<string>(scanPaths);
-            scanMarker = DateTime.Now;
+            _scanMarker = DateTime.Now;
             StoragePath = dbPath;
             scanningTasks = new List<Task>();
+            _lookupTable = new ConcurrentDictionary<string, Guid>();
+            _recordCache = new ConcurrentBag<DiskItemOperation>();
+            _anchoredPaths = new List<string>();
 
             InitializeDatabase(recreate);
         }
@@ -132,7 +169,11 @@ namespace HDDL.Scanning
                 File.Delete(StoragePath);
             }
 
-            HDDLDataContext.EnsureDatabase(StoragePath);
+            // Forces the creation of the table
+            using (var db = new LiteDatabase(StoragePath))
+            {
+                var records = db.GetCollection<DiskItem>(TableName);
+            }
         }
 
         /// <summary>
@@ -143,68 +184,7 @@ namespace HDDL.Scanning
             if (Status == ScanStatus.Scanning || Status == ScanStatus.Deleting)
             {
                 Status = ScanStatus.Interrupting;
-                ScanEnded?.Invoke(this, -1, ScanOperationOutcome.Interrupted);
-            }
-        }
-
-        /// <summary>
-        /// Starts the scanning process
-        /// </summary>
-        /// <param name="info">Information on the full structure of the target</param>
-        private void StartScan(PathSetData info)
-        {
-            if (Status == ScanStatus.Ready || Status == ScanStatus.Interrupted || Status == ScanStatus.InitiatingScan)
-            {
-                Status = ScanStatus.Scanning;
-                ScanStarted?.Invoke(this, info.TotalDirectories, info.TotalFiles);
-                scanMarker = DateTime.UtcNow;
-                _db = new HDDLDataContext(StoragePath);
-
-                scanningTasks.Clear();
-                //foreach (var driveLetter in info.TargetInformation.Keys)
-                //{
-                //    scanningTasks.Add(Task.Run(() =>
-                //    {
-                //        return FullScan(info.TargetInformation[driveLetter]);
-                //    }));
-                //}
-                using (var dbTransaction = _db.Database.BeginTransaction())
-                {
-                    foreach (var driveLetter in info.TargetInformation.Keys)
-                    {
-                        FullScan(info.TargetInformation[driveLetter]);
-                    }
-
-
-                    _db.SaveChanges();
-                    dbTransaction.Commit();
-                }
-
-                //Task.WhenAll(scanningTasks).ContinueWith((t) =>
-                //{
-                //    var deleteCount = -1;
-                //    if (Status == ScanStatus.Scanning)
-                //    {
-                //        deleteCount = DeleteUnfoundEntries(startingPaths);
-                //    }
-                //    _db.Dispose();
-                //    if (Status == ScanStatus.Scanning || Status == ScanStatus.Deleting)
-                //    {
-                //        Status = ScanStatus.Ready;
-                //        ScanEnded?.Invoke(this, deleteCount, ScanOperationOutcome.Completed);
-                //    }
-                //});
-                var deleteCount = -1;
-                if (Status == ScanStatus.Scanning)
-                {
-                    deleteCount = DeleteUnfoundEntries(startingPaths);
-                }
-                _db.Dispose();
-                if (Status == ScanStatus.Scanning || Status == ScanStatus.Deleting)
-                {
-                    Status = ScanStatus.Ready;
-                    ScanEnded?.Invoke(this, deleteCount, ScanOperationOutcome.Completed);
-                }
+                ScanEnded?.Invoke(this, -1, TimeSpan.MinValue, ScanOperationOutcome.Interrupted);
             }
         }
 
@@ -217,12 +197,250 @@ namespace HDDL.Scanning
             Status = ScanStatus.InitiatingScan;
             var task = Task.Run(() =>
                 {
-                    info = PathComparison.GetContentsSortedByRoot(startingPaths);
+                    info = PathHelper.GetContentsSortedByRoot(startingPaths);
                 });
             Task.WhenAll(task).ContinueWith((t) =>
                 {
-                    StartScan(info);
+                    if (Status == ScanStatus.Ready || Status == ScanStatus.Interrupted || Status == ScanStatus.InitiatingScan)
+                    {
+                        Status = ScanStatus.Scanning;
+                        ScanStarted?.Invoke(this, info.TotalDirectories, info.TotalFiles);
+                        _scanMarker = DateTime.UtcNow;
+                        OpenConnection();
+
+                        // The below processing allows us to run through the work items
+                        // without having to perform any checks around existence
+                        // (other to see if we are updating vs inserting)
+
+                        // We have to process the results into a single queue because they come in sorted by root drive in a dictionary
+                        // first merge them into sets of files and directories
+                        var allFiles = new List<DiskItemType>();
+                        var allDirectories = new List<DiskItemType>();
+                        foreach (var root in info.TargetInformation.Keys)
+                        {
+                            allFiles.AddRange(from f in info.TargetInformation[root] where f.IsFile select f);
+                            allDirectories.AddRange(from d in info.TargetInformation[root] orderby PathHelper.GetDependencyCount(d) ascending where !d.IsFile select d);
+                        }
+
+                        // then group the items by and sort the groups by their distance from the root (called Dependency Count)
+                        var sortedFiles =
+                            (from work in allFiles
+                             group work by PathHelper.GetDependencyCount(work) into dependyLevel
+                             orderby dependyLevel.Key
+                             select dependyLevel.ToList()).ToList();
+
+                        var sortedDirectories =
+                            (from work in allDirectories
+                             group work by PathHelper.GetDependencyCount(work) into dependyLevel
+                             orderby dependyLevel.Key
+                             select dependyLevel.ToList()).ToList();
+
+                        // now that we have everything sorted and ready to go, merge the groups with the directories first
+                        var sorted = new List<List<DiskItemType>>();
+                        sorted.AddRange(sortedDirectories);
+                        sorted.AddRange(sortedFiles);
+
+                        // reclaim the memory from this...
+                        sortedFiles = null;
+                        sortedDirectories = null;
+
+                        // populate the queue
+                        var dependencyOrderedQueues = new Queue<List<DiskItemType>>();
+                        sorted.ForEach((x) =>
+                        {
+                            dependencyOrderedQueues.Enqueue(x);
+                        });
+
+                        // Perform the work
+                        var queue = new ThreadedQueue<DiskItemType>((work) => WorkerMethod(work), 2);
+                        var time = DateTime.Now;
+                        while (dependencyOrderedQueues.Count > 0)
+                        {
+                            queue.Start(dependencyOrderedQueues.Dequeue());
+                            while (queue.Status != ThreadQueueStatus.Idle)
+                            {
+
+                            }
+                        }
+
+                        var duration = DateTime.Now.Subtract(time);
+
+                        _db.Dispose();
+                        if (Status == ScanStatus.Scanning || Status == ScanStatus.Deleting)
+                        {
+                            Status = ScanStatus.Ready;
+                            ScanEnded?.Invoke(this, -1, duration, ScanOperationOutcome.Completed);
+                        }
+                    }
                 });
+        }
+
+        /// <summary>
+        /// Takes in a list of DiskItemTypes and returns them in a queue
+        /// </summary>
+        /// <param name="diskItemTypes">The disk item types to transfer over</param>
+        /// <returns></returns>
+        private Queue<DiskItemType> GetQueue(List<DiskItemType> diskItemTypes)
+        {
+            Queue<DiskItemType> result = new Queue<DiskItemType>(diskItemTypes);
+            return result;
+        }
+
+        /// <summary>
+        /// The worker thread method used by the record scanner
+        /// </summary>
+        /// <param name="item"></param>
+        private void WorkerMethod(DiskItemType item)
+        {
+            DiskItem record = null;
+            try
+            {
+                var parentId = GetParentDirectoryId(item);
+                var fullName = item.IsFile ? item.FInfo.FullName : item.DInfo.FullName;
+                // see if the record exists
+                record = _table.Query()
+                    .Where(r => r.Path == fullName)
+                    .SingleOrDefault();
+
+                // if we found a record then we're doing an update
+                var isInsert = record == null;
+                if (record == null)
+                {
+                    // it doesn't
+                    if (item.IsFile)
+                    {
+                        record = new DiskItem()
+                        {
+                            Id = Guid.NewGuid(),
+                            ParentId = parentId,
+                            FirstScanned = _scanMarker,
+                            LastScanned = _scanMarker,
+                            IsFile = true,
+                            Path = item.FInfo.FullName,
+                            ItemName = item.FInfo.Name,
+                            Extension = item.FInfo.Extension,
+                            SizeInBytes = item.FInfo.Length,
+                            LastAccessed = item.FInfo.LastAccessTimeUtc,
+                            LastWritten = item.FInfo.LastWriteTimeUtc,
+                            CreationDate = item.FInfo.CreationTimeUtc
+                        };
+                    }
+                    else
+                    {
+                        record = new DiskItem()
+                        {
+                            Id = Guid.NewGuid(),
+                            ParentId = parentId,
+                            FirstScanned = _scanMarker,
+                            LastScanned = _scanMarker,
+                            IsFile = false,
+                            Path = item.DInfo.FullName,
+                            ItemName = item.DInfo.Name,
+                            Extension = null,
+                            SizeInBytes = null,
+                            LastAccessed = item.DInfo.LastAccessTimeUtc,
+                            LastWritten = item.DInfo.LastWriteTimeUtc,
+                            CreationDate = item.DInfo.CreationTimeUtc
+                        };
+                    }
+                }
+                else
+                {
+                    // it does
+                    // update the record to the new values
+                    if (item.IsFile)
+                    {
+                        record.LastScanned = _scanMarker;
+                        record.LastAccessed = item.FInfo.LastAccessTimeUtc;
+                        record.LastWritten = item.FInfo.LastWriteTimeUtc;
+                    }
+                    else
+                    {
+                        record.LastScanned = _scanMarker;
+                        record.LastAccessed = item.DInfo.LastAccessTimeUtc;
+                        record.LastWritten = item.DInfo.LastWriteTimeUtc;
+                    }
+                }
+
+                // Cache and update the lookup
+                _recordCache.Add(
+                    new DiskItemOperation()
+                    {
+                        Item = record,
+                        IsInsert = isInsert
+                    });
+                if (!record.IsFile)
+                {
+                    AddRecordToLookup(record);
+                }
+
+                if (isInsert)
+                {
+                    ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.AddRequired, record.Path, record.IsFile));
+                }
+                else
+                {
+                    ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.UpdateRequired, record.Path, record.IsFile));
+                }
+            }
+            catch (Exception ex)
+            {
+                ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.UnknownError, record?.Path, record == null ? false : record.IsFile, ex));
+            }
+        }
+
+        /// <summary>
+        /// Returns the item's containing directory's id
+        /// </summary>
+        /// <param name="item"></param>
+        /// <returns></returns>
+        private Guid? GetParentDirectoryId(DiskItemType item)
+        {
+            DirectoryInfo parent = null;
+            if (item.IsFile)
+            {
+                parent = item.FInfo.Directory;
+            }
+            else
+            {
+                parent = item.DInfo.Parent;
+            }
+
+            if (parent != null)
+            {
+                return _lookupTable[parent.FullName];
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Ensures that a record is added to the lookup table
+        /// </summary>
+        /// <param name="record">The record to add</param>
+        private void AddRecordToLookup(DiskItem record)
+        {
+            if (!_lookupTable.ContainsKey(record.Path))
+            {
+                var counter = 0;
+                while (!_lookupTable.TryAdd(record.Path, record.Id))
+                {
+                    if (counter > 10)
+                    {
+                        break;
+                    }
+                    counter++;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Opens the connection
+        /// </summary>
+        private void OpenConnection()
+        {
+            _db = new LiteDatabase(StoragePath);
+            _table = _db.GetCollection<DiskItem>(TableName);
         }
 
         /// <summary>
@@ -231,32 +449,31 @@ namespace HDDL.Scanning
         /// </summary>
         /// <param name="paths">The paths originally searched</param>
         /// <returns>The total number of items deleted</returns>
-        private int DeleteUnfoundEntries(IEnumerable<string>  paths)
+        private int DeleteUnfoundEntries(IEnumerable<string> paths)
         {
             var totalDeletions = 0;
             if (Status == ScanStatus.Scanning)
             {
                 Status = ScanStatus.Deleting;
 
+                var records = _db.GetCollection<DiskItem>(TableName);
                 // get all old records (weren't updated by the most recent scan)
-                var old = _db.DiskItems.Where(r => r.LastScanned < scanMarker).ToArray();
+                var old = records.Query()
+                    .Where(r => r.LastScanned < _scanMarker)
+                    .ToArray();
 
+                _db.BeginTrans();
                 // We want to delete all records that are under the scanned path but were not updated (are no longer present)
                 foreach (var r in old)
                 {
-                    if (PathComparison.IsWithinPaths(r.Path, paths))
+                    if (PathHelper.IsWithinPaths(r.Path, paths))
                     {
                         try
                         {
-                            _db.Remove(r);
-                            if (_db.SaveChanges() > 0)
+                            if (records.Delete(r.Id))
                             {
                                 totalDeletions++;
                                 ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.Delete, r.Path, r.IsFile));
-                            }
-                            else
-                            {
-                                ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.KeyNotDeleted, r.Path, r.IsFile, null));
                             }
                         }
                         catch (Exception ex)
@@ -265,238 +482,10 @@ namespace HDDL.Scanning
                         }
                     }
                 }
+                _db.Commit();
             }
 
             return totalDeletions;
-        }
-
-        /// <summary>
-        /// Records each of the given paths
-        /// </summary>
-        /// <param name="scanTargets">The targets to scan</param>
-        /// <returns>True if scan was successful, false otherwise</returns>
-        private bool FullScan(List<DiskItemType> scanTargets)
-        {
-            if (Status == ScanStatus.Scanning)
-            {
-                try
-                {
-                    foreach (var item in scanTargets)
-                    {
-                        if (item.IsFile)
-                        {
-                            if (!WriteRecord(item.FInfo))
-                            {
-                                ReboundDatabase();
-                                return false;
-                            }
-                        }
-                        else
-                        {
-                            if (!WriteRecord(item.DInfo))
-                            {
-                                ReboundDatabase();
-                                return false;
-                            }
-                        }
-                    }
-                }
-                catch (SqliteException ex)
-                {
-                    ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.DatabaseError, null, false, ex));
-                    ReboundDatabase();
-                    return false;
-                }
-                catch (Exception ex)
-                {
-                    ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.UnknownError, null, false, ex));
-                    ReboundDatabase();
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        /// <summary>
-        /// Disposes and reinstantiates the database context to cancel all changes
-        /// </summary>
-        private void ReboundDatabase()
-        {
-            _db.Dispose();
-            _db = new HDDLDataContext(StoragePath);
-        }
-
-        /// <summary>
-        /// Writes the given file to the database
-        /// </summary>
-        /// <param name="file">The file to write</param>
-        /// <returns>True upon successs, false upon failure</returns>
-        private bool WriteRecord(FileInfo file)
-        {
-            try
-            {
-                var record = GetByPath(file.FullName);
-                DiskItem parent = null;
-                if (file.Directory != null)
-                {
-                    parent = GetByPath(file.Directory.FullName);
-
-                    if (parent == null)
-                    {
-                        // if this file's parent folder is not already in the system
-                        // then this will create records for the entire path all the way to the root
-                        WriteRecord(file.Directory);
-                        parent = GetByPath(file.Directory.FullName);
-                    }
-                }
-
-                if (record != null)
-                {
-                    try
-                    {
-                        record.LastScanned = scanMarker;
-                        _db.DiskItems.Update(record);
-                        ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.Update, file.FullName, true));
-                    }
-                    catch (Exception ex)
-                    {
-                        ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.UpdateAttempted, file.FullName, true, ex));
-                        return false;
-                    }
-                }
-                else
-                {
-                    try
-                    {
-                        record = new DiskItem()
-                        {
-                            Id = Guid.NewGuid(),
-                            ParentId = parent?.Id,
-                            FirstScanned = scanMarker,
-                            LastScanned = scanMarker,
-                            IsFile = true,
-                            Path = file.FullName,
-                            ItemName = file.Name,
-                            Extension = file.Extension,
-                            SizeInBytes = file.Length,
-                            LastAccessed = file.LastAccessTimeUtc,
-                            LastWritten = file.LastWriteTimeUtc,
-                            CreationDate = file.CreationTimeUtc
-                        };                        
-                        _db.DiskItems.Add(record);
-                        ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.Add, file.FullName, true));
-                    }
-                    catch (Exception ex)
-                    {
-                        ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.AddAttempted, file.FullName, true, ex));
-                        return false;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.UnknownError, file.FullName, true, ex));
-                return false;
-            }
-
-            return true;
-        }
-
-        /// <summary>
-        /// Writes the given directory to the database
-        /// </summary>
-        /// <param name="directory">The directory to write</param>
-        /// <returns>True upon successs, false upon failure</returns>
-        private bool WriteRecord(DirectoryInfo directory)
-        {
-            try
-            {
-                var record = GetByPath(directory.FullName);
-                DiskItem parent = null;
-                if (directory.Parent != null)
-                {
-                    parent = GetByPath(directory.Parent.FullName);
-                    if (parent == null)
-                    {
-                        // if we are writing a directory that is within a structure,
-                        // this will write the entire path back to the root
-                        WriteRecord(directory.Parent);
-                        parent = GetByPath(directory.Parent.FullName);
-                    }
-                }
-
-                if (record != null)
-                {
-                    try
-                    {
-                        record.LastScanned = scanMarker;
-                        _db.DiskItems.Update(record);
-                        ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.Update, directory.FullName, false));
-                    }
-                    catch (Exception ex)
-                    {
-                        ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.UpdateAttempted, directory.FullName, false, ex));
-                        return false;
-                    }
-                }
-                else
-                {
-                    try
-                    {
-                        record = new DiskItem()
-                        {
-                            Id = Guid.NewGuid(),
-                            ParentId = parent?.Id,
-                            FirstScanned = scanMarker,
-                            LastScanned = scanMarker,
-                            IsFile = false,
-                            Path = directory.FullName,
-                            ItemName = directory.Name,
-                            Extension = null,
-                            SizeInBytes = null,
-                            LastAccessed = directory.LastAccessTimeUtc,
-                            LastWritten = directory.LastWriteTimeUtc,
-                            CreationDate = directory.CreationTimeUtc
-                        };
-                        _db.DiskItems.Add(record);
-                        ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.Add, directory.FullName, false));
-                    }
-                    catch (Exception ex)
-                    {
-                        ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.AddAttempted, directory.FullName, false, ex));
-                        return false;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.UnknownError, directory.FullName, false, ex));
-                return false;
-            }
-
-            return true;
-        }
-
-        /// <summary>
-        /// Searches the database and then the local cache for an item with the given path
-        /// </summary>
-        /// <param name="path">The path to search for</param>
-        /// <returns>The DiskItem if found, otherwise null</returns>
-        private DiskItem GetByPath(string path)
-        {
-            var record = _db.DiskItems
-                    .Where(r => r.Path == path)
-                    .SingleOrDefault();
-
-            if (record == null)
-            {
-                record = _db.DiskItems.Local
-                    .Where(r => r.Path == path)
-                    .SingleOrDefault();
-            }
-
-            return record;
         }
     }
 }

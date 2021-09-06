@@ -1,5 +1,5 @@
 ﻿using HDDL.HDSL;
-using HDDL.IO.Display;
+using HDDL.UI;
 using HDDL.IO.Parameters;
 using HDDL.Scanning;
 using System;
@@ -80,6 +80,7 @@ namespace HDSL
                 }
                 scanner.ScanEventOccurred += Scanner_ScanEventOccurred;
                 scanner.StatusEventOccurred += Scanner_StatusEventOccurred;
+                scanner.ScanEnded += Scanner_ScanEnded;
                 scanner.StartScan();
 
                 while (scanner.Status == ScanStatus.InitiatingScan ||
@@ -415,14 +416,19 @@ namespace HDSL
         {
             if (oldStatus == ScanStatus.Scanning)
             {
-                if (_showProgress)
-                {
-                    Console.WriteLine($"-- Done! {new String(' ', _progress.Width - 7)}");
-                }
-                else if (_verbose)
-                {
-                    Console.WriteLine("-- Done!");
-                }
+                
+            }
+        }
+
+        private static void Scanner_ScanEnded(DiskScan scanner, int totalDeleted, TimeSpan elapsed, ScanOperationOutcome outcome)
+        {
+            if (_showProgress)
+            {
+                Console.WriteLine($"-- Done! {new String(' ', _progress.Width - 7)}");
+            }
+            else if (_verbose)
+            {
+                Console.WriteLine(string.Format("Done -- Total time: {0}:{1}:{2}.{3}", elapsed.Hours, elapsed.Minutes, elapsed.Seconds, elapsed.Milliseconds));
             }
         }
 
@@ -438,7 +444,7 @@ namespace HDSL
             {
                 // We aren't interested in these right now.  We'll implement this later.
             }
-            else if (evnt.Nature == ScanEventType.Add)
+            else if (evnt.Nature == ScanEventType.AddRequired)
             {
                 //_progress.Message = $"Discovered {itemType} @ '{evnt.Path}'.";
                 if (_showProgress)
@@ -450,7 +456,7 @@ namespace HDSL
                     Console.WriteLine($"Discovered {itemType} @ '{evnt.Path}'.");
                 }
             }
-            else if (evnt.Nature == ScanEventType.Update)
+            else if (evnt.Nature == ScanEventType.UpdateRequired)
             {
                 //_progress.Message = $"Updated entry for {itemType} @ '{evnt.Path}'.";
                 if (_showProgress)

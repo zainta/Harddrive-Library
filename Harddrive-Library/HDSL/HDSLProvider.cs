@@ -1,6 +1,7 @@
 ﻿using HDDL.Collections;
 using HDDL.Data;
 using HDDL.HDSL.Logging;
+using LiteDB;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -91,7 +92,7 @@ namespace HDDL.HDSL
         private static HDSLResult Execute(ListStack<HDSLToken> tokens, string dbPath)
         {
             HDSLResult result;
-            using (var db = new HDDLDataContext(dbPath))
+            using (var db = new LiteDatabase(dbPath))
             {
                 var interpreter = new HDSLInterpreter(tokens, db);
                 result = interpreter.Interpret(false);

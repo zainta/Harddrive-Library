@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using Microsoft.Data.Sqlite;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -83,7 +82,27 @@ namespace HDDL.Data
 
         public override string ToString()
         {
-            return $"({SizeInBytes}) '{Path}'";
+            if (IsFile)
+            {
+                return $"({SizeInBytes}) '{Path}'";
+            }
+            else
+            {
+                return Path;
+            }
+        }
+
+        /// <summary>
+        /// Overwrites the method instance with the given instance's values 
+        /// (excluding id, parentid, firstscanned, itemname, extension, isfile, creationdate, and path)
+        /// </summary>
+        /// <param name="item">The item to copy from</param>
+        public void CopyFrom(DiskItem item)
+        {
+            LastScanned = item.LastScanned;
+            SizeInBytes = item.SizeInBytes;
+            LastWritten = item.LastWritten;
+            LastAccessed = item.LastAccessed;
         }
     }
 }
