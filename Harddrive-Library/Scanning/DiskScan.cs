@@ -20,12 +20,11 @@ namespace HDDL.Scanning
     /// </summary>
     public class DiskScan
     {
-        private const int Min_Remaining_Processing_Records = 200;
-
         public delegate void ScanEventOccurredDelegate(DiskScan scanner, ScanEvent evnt);
         public delegate void ScanOperationStartedDelegate(DiskScan scanner, int directoryCount, int fileCount);
         public delegate void ScanOperationCompletedDelegate(DiskScan scanner, int totalDeleted, Timings elapsed, ScanOperationOutcome outcome);
         public delegate void ScanStatusEventDelegate(DiskScan scanner, ScanStatus newStatus, ScanStatus oldStatus);
+        public delegate void ScanEventMassAdditionDelegate(DiskScan scanner, int additions);
 
         public event ScanStatusEventDelegate StatusEventOccurred;
 
@@ -43,6 +42,11 @@ namespace HDDL.Scanning
         /// Occurs when a scan ends
         /// </summary>
         public event ScanOperationCompletedDelegate ScanEnded;
+
+        /// <summary>
+        /// Occurs after the bulk insert operation for new records
+        /// </summary>
+        public event ScanEventMassAdditionDelegate ScanInsertsCompleted;
 
         /// <summary>
         /// This is the table in the database where items discovered via scan are stored
@@ -199,95 +203,126 @@ namespace HDDL.Scanning
             PathSetData info = null;
             Status = ScanStatus.InitiatingScan;
             var task = Task.Run(() =>
-                {
-                    _scanStart = DateTime.Now;
-                    _directoryStructureScanStart = DateTime.Now;
-                    info = PathHelper.GetContentsSortedByRoot(startingPaths);
-                });
+            {
+                _scanStart = DateTime.Now;
+                _directoryStructureScanStart = DateTime.Now;
+                info = PathHelper.GetContentsSortedByRoot(startingPaths);
+            });
             Task.WhenAll(task).ContinueWith((t) =>
+            {
+                if (Status == ScanStatus.Ready || Status == ScanStatus.Interrupted || Status == ScanStatus.InitiatingScan)
                 {
-                    if (Status == ScanStatus.Ready || Status == ScanStatus.Interrupted || Status == ScanStatus.InitiatingScan)
+                    Status = ScanStatus.Scanning;
+                    ScanStarted?.Invoke(this, info.TotalDirectories, info.TotalFiles);
+                    _scanMarker = DateTime.UtcNow;
+                    OpenConnection();
+
+                    // The below processing allows us to run through the work items
+                    // without having to perform any checks around existence
+                    // (other to see if we are updating vs inserting)
+
+                    // We have to process the results into a single queue because they come in sorted by root drive in a dictionary
+                    // first merge them into sets of files and directories
+                    var allFiles = new List<DiskItemType>();
+                    var allDirectories = new List<DiskItemType>();
+                    foreach (var root in info.TargetInformation.Keys)
                     {
-                        Status = ScanStatus.Scanning;
-                        ScanStarted?.Invoke(this, info.TotalDirectories, info.TotalFiles);
-                        _scanMarker = DateTime.UtcNow;
-                        OpenConnection();
+                        allFiles.AddRange(from f in info.TargetInformation[root] where f.IsFile select f);
+                        allDirectories.AddRange(from d in info.TargetInformation[root] orderby PathHelper.GetDependencyCount(d) ascending where !d.IsFile select d);
+                    }
 
-                        // The below processing allows us to run through the work items
-                        // without having to perform any checks around existence
-                        // (other to see if we are updating vs inserting)
+                    // then group the items by and sort the groups by their distance from the root (called Dependency Count)
+                    var sortedFiles =
+                        (from work in allFiles
+                         group work by PathHelper.GetDependencyCount(work) into dependyLevel
+                         orderby dependyLevel.Key
+                         select dependyLevel.ToList()).ToList();
 
-                        // We have to process the results into a single queue because they come in sorted by root drive in a dictionary
-                        // first merge them into sets of files and directories
-                        var allFiles = new List<DiskItemType>();
-                        var allDirectories = new List<DiskItemType>();
-                        foreach (var root in info.TargetInformation.Keys)
-                        {
-                            allFiles.AddRange(from f in info.TargetInformation[root] where f.IsFile select f);
-                            allDirectories.AddRange(from d in info.TargetInformation[root] orderby PathHelper.GetDependencyCount(d) ascending where !d.IsFile select d);
-                        }
+                    var sortedDirectories =
+                        (from work in allDirectories
+                         group work by PathHelper.GetDependencyCount(work) into dependyLevel
+                         orderby dependyLevel.Key
+                         select dependyLevel.ToList()).ToList();
 
-                        // then group the items by and sort the groups by their distance from the root (called Dependency Count)
-                        var sortedFiles =
-                            (from work in allFiles
-                             group work by PathHelper.GetDependencyCount(work) into dependyLevel
-                             orderby dependyLevel.Key
-                             select dependyLevel.ToList()).ToList();
+                    // now that we have everything sorted and ready to go, merge the groups with the directories first
+                    var sorted = new List<List<DiskItemType>>();
+                    sorted.AddRange(sortedDirectories);
+                    sorted.AddRange(sortedFiles);
+                    _durations.DirectoryStructureScanDuration = DateTime.Now.Subtract(_directoryStructureScanStart);
 
-                        var sortedDirectories =
-                            (from work in allDirectories
-                             group work by PathHelper.GetDependencyCount(work) into dependyLevel
-                             orderby dependyLevel.Key
-                             select dependyLevel.ToList()).ToList();
+                    // reclaim the memory from this...
+                    sortedFiles = null;
+                    sortedDirectories = null;
 
-                        // now that we have everything sorted and ready to go, merge the groups with the directories first
-                        var sorted = new List<List<DiskItemType>>();
-                        sorted.AddRange(sortedDirectories);
-                        sorted.AddRange(sortedFiles);
-                        _durations.DirectoryStructureScanDuration = DateTime.Now.Subtract(_directoryStructureScanStart);
+                    // populate the queue
+                    var dependencyOrderedQueues = new Queue<List<DiskItemType>>();
+                    sorted.ForEach((x) =>
+                    {
+                        dependencyOrderedQueues.Enqueue(x);
+                    });
 
-                        // reclaim the memory from this...
-                        sortedFiles = null;
-                        sortedDirectories = null;
+                    // Define the threadqueue here because we need to refer to it
+                    var queue = new ThreadedQueue<DiskItemType>((work) => WorkerMethod(work), 2);
 
-                        // populate the queue
-                        var dependencyOrderedQueues = new Queue<List<DiskItemType>>();
-                        sorted.ForEach((x) =>
-                        {
-                            dependencyOrderedQueues.Enqueue(x);
-                        });
-
-                        // Perform the work
-                        var queue = new ThreadedQueue<DiskItemType>((work) => WorkerMethod(work), 2);
-                        _directoryStructureProcessingStart = DateTime.Now;
-                        while (dependencyOrderedQueues.Count > 0)
+                    // Perform the processing work
+                    _directoryStructureProcessingStart = DateTime.Now;
+                    while (dependencyOrderedQueues.Count > 0)
+                    {
+                        if (queue.Status == ThreadQueueStatus.Idle)
                         {
                             queue.Start(dependencyOrderedQueues.Dequeue());
-                            while (queue.Status != ThreadQueueStatus.Idle)
-                            {
-
-                            }
-                        }
-
-                        _durations.DirectoryStructureProcessingDuration = DateTime.Now.Subtract(_directoryStructureProcessingStart);
-
-                        // Database
-                        _databaseWriteStart = DateTime.Now;
-                        // Do the database thing
-                        // Do the database thing
-                        // Do the database thing
-                        _durations.DatabaseWriteDuration = DateTime.Now.Subtract(_databaseWriteStart);
-
-                        _durations.ScanDuration = DateTime.Now.Subtract(_scanStart);
-
-                        _db.Dispose();
-                        if (Status == ScanStatus.Scanning || Status == ScanStatus.Deleting)
-                        {
-                            Status = ScanStatus.Ready;
-                            ScanEnded?.Invoke(this, -1, _durations, ScanOperationOutcome.Completed);
                         }
                     }
-                });
+
+                    _durations.DirectoryStructureProcessingDuration = DateTime.Now.Subtract(_directoryStructureProcessingStart);
+
+                    _db.BeginTrans();
+                    // start the database writer task
+                    var writeTask =
+                        Task.Run(() =>
+                        {
+                            // keep looking for records in the cache while:
+                            // there are sets of work to perform or
+                            // the threadqueue is running or
+                            // there are records ready to write
+                            _databaseWriteStart = DateTime.Now;
+
+                            // Mass insert the new records
+                            var inserts = from i in _recordCache where i.IsInsert select i.Item;
+                            _table.InsertBulk(inserts);
+                            ScanInsertsCompleted?.Invoke(this, inserts.Count());
+
+                            // Handle the updates
+                            var updates = from u in _recordCache where !u.IsInsert select u.Item;
+                            foreach (var item in updates)
+                            {
+                                try
+                                {
+                                    _table.Update(item);
+                                    ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.Update, item.Path, item.IsFile));
+                                }
+                                catch (Exception ex)
+                                {
+                                    ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.DatabaseError, null, false, ex));
+                                }
+                            }
+                        }).ContinueWith((tsk) =>
+                        {
+                            _db.Commit();
+                            _db.Dispose();
+                            _durations.DatabaseWriteDuration = DateTime.Now.Subtract(_databaseWriteStart);
+
+                            _durations.ScanDuration = DateTime.Now.Subtract(_scanStart);
+
+                            if (Status == ScanStatus.Scanning || Status == ScanStatus.Deleting)
+                            {
+                                Status = ScanStatus.Ready;
+                                ScanEnded?.Invoke(this, -1, _durations, ScanOperationOutcome.Completed);
+                            }
+                        });
+                    writeTask.Wait();
+                }
+            });
         }
 
         /// <summary>
@@ -397,6 +432,10 @@ namespace HDDL.Scanning
                 {
                     ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.UpdateRequired, record.Path, record.IsFile));
                 }
+            }
+            catch (LiteException ex)
+            {
+                ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.DatabaseError, record?.Path, record == null ? false : record.IsFile, ex));
             }
             catch (Exception ex)
             {

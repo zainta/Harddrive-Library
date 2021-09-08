@@ -59,6 +59,35 @@ namespace HDSL
             var executeFile = ph.GetParam("exec");
             _showProgress = ph.GetFlag("p");
             _verbose = ph.GetFlag("v");
+            var recreate = false;
+
+            if (File.Exists(dbPath))
+            {
+                // If the file exists, the scan will be significantly slower.
+                // Ask the user if they would like to recreate the database, rather than update it.
+                Console.Write($"Database '{dbPath}' already exists.  This will significantly slow the operation.\nWould you like to recreate the database? (y/n/c): ");
+                ConsoleKeyInfo k;
+                do
+                {
+                    k = Console.ReadKey();
+                } while (
+                    char.ToLower(k.KeyChar) != 'y' &&
+                    char.ToLower(k.KeyChar) != 'n' &&
+                    char.ToLower(k.KeyChar) != 'c');
+                if (char.ToLower(k.KeyChar) == 'c')
+                {
+                    Environment.Exit(0);
+                }
+                else if (char.ToLower(k.KeyChar) == 'y')
+                {
+                    recreate = true;
+                }
+                else if (char.ToLower(k.KeyChar) == 'n')
+                {
+                    recreate = false;
+                }
+                Console.WriteLine();
+            }
 
             // Do the scan first
             var paths = (from p in scanPaths where !string.IsNullOrWhiteSpace(p) select p).ToArray();
@@ -72,7 +101,7 @@ namespace HDSL
                 {
                     Console.WriteLine($"Performing scans on '{string.Join("\', \'", paths)}\'... ");
                 }
-                var scanner = new DiskScan(dbPath, false, paths);
+                var scanner = new DiskScan(dbPath, recreate, paths);
 
                 if (_showProgress)
                 {
@@ -81,6 +110,7 @@ namespace HDSL
                 scanner.ScanEventOccurred += Scanner_ScanEventOccurred;
                 scanner.StatusEventOccurred += Scanner_StatusEventOccurred;
                 scanner.ScanEnded += Scanner_ScanEnded;
+                scanner.ScanInsertsCompleted += Scanner_ScanInsertsCompleted;
                 scanner.StartScan();
 
                 while (scanner.Status == ScanStatus.InitiatingScan ||
@@ -409,7 +439,7 @@ namespace HDSL
 
         private static void Scanner_ScanStarted(DiskScan scanner, int directoryCount, int fileCount)
         {
-            _progress = new ProgressBar(-1, -1, 60, 0, 0, fileCount + directoryCount);
+            _progress = new ProgressBar(-1, -1, 60, 0, 0, (fileCount + directoryCount) * 2);
         }
 
         private static void Scanner_StatusEventOccurred(DiskScan scanner, ScanStatus newStatus, ScanStatus oldStatus)
@@ -436,9 +466,7 @@ namespace HDSL
         {
             var itemType = evnt.IsFile ? "file" : "directory";
 
-            if (evnt.Nature == ScanEventType.AddAttempted ||
-                evnt.Nature == ScanEventType.UpdateAttempted ||
-                evnt.Nature == ScanEventType.DeleteAttempted ||
+            if (evnt.Nature == ScanEventType.DeleteAttempted ||
                 evnt.Nature == ScanEventType.KeyNotDeleted ||
                 evnt.Nature == ScanEventType.UnknownError)
             {
@@ -446,7 +474,6 @@ namespace HDSL
             }
             else if (evnt.Nature == ScanEventType.AddRequired)
             {
-                //_progress.Message = $"Discovered {itemType} @ '{evnt.Path}'.";
                 if (_showProgress)
                 {
                     _progress.Value++;
@@ -458,19 +485,28 @@ namespace HDSL
             }
             else if (evnt.Nature == ScanEventType.UpdateRequired)
             {
-                //_progress.Message = $"Updated entry for {itemType} @ '{evnt.Path}'.";
                 if (_showProgress)
                 {
                     _progress.Value++;
                 }
                 else if (_verbose)
                 {
-                    Console.WriteLine($"Updated entry for {itemType} @ '{evnt.Path}'.");
+                    Console.WriteLine($"Rediscovered {itemType} @ '{evnt.Path}'.");
+                }
+            }
+            else if (evnt.Nature == ScanEventType.Update)
+            {
+                if (_showProgress)
+                {
+                    _progress.Value++;
+                }
+                else if (_verbose)
+                {
+                    Console.WriteLine($"Updated {itemType} @ '{evnt.Path}'.");
                 }
             }
             else if (evnt.Nature == ScanEventType.Delete)
             {
-                //_progress.Message = $"Deleted entry for {itemType} @ '{evnt.Path}'.";
                 if (!_showProgress && _verbose)
                 {
                     Console.WriteLine($"Deleted entry for {itemType} @ '{evnt.Path}'.");
@@ -478,7 +514,6 @@ namespace HDSL
             }
             else if (evnt.Nature == ScanEventType.DatabaseError)
             {
-                //_progress.Message = $"!!Database Error!! {evnt.Error.Message}";
                 if (_showProgress)
                 {
                     _progress.Value++;
@@ -487,6 +522,18 @@ namespace HDSL
                 {
                     Console.WriteLine($"!!Database Error!! {evnt.Error.Message}");
                 }
+            }
+        }
+
+        private static void Scanner_ScanInsertsCompleted(DiskScan scanner, int additions)
+        {
+            if (_showProgress)
+            {
+                _progress.Value += additions;
+            }
+            else if (_verbose)
+            {
+                Console.WriteLine($"Successfully added {additions} records to the database.");
             }
         }
 

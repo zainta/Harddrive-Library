@@ -110,39 +110,15 @@ namespace HDDL.Threading
                     Status = ThreadQueueStatus.Starting;
                     for (int i = 0; i < _desiredThreads; i++)
                     {
+                        // setup the queue for this thread
+                        Guid threadId = Guid.NewGuid();
+                        _workerJobs.TryAdd(threadId, null);
+
+                        // get the action this thread will perform
+                        var action = i < _actions.Count ? _actions[i] : _actions.Last();
+
                         // get the task
-                        _threads.Add(Task.Run(() =>
-                        {
-                            Guid threadId = Guid.NewGuid();
-
-                            // setup the queue for this thread
-                            _workerJobs.TryAdd(threadId, null);
-
-                            // get the action this thread will perform
-                            var action = i < _actions.Count ? _actions[i] : _actions.Last();
-
-                            // loop while we have work waiting and we are executing or we have work in our bucket
-                            while (Status == ThreadQueueStatus.Starting || Status == ThreadQueueStatus.Active)
-                            {
-                                if (Status == ThreadQueueStatus.Active)
-                                {
-                                    if (_workerJobs[threadId] != null)
-                                    {
-                                        try
-                                        {
-                                            //Console.WriteLine($"Work Found: {_workerJobs[Thread.CurrentThread.ManagedThreadId]}");
-                                            action(_workerJobs[threadId]);
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            Status = ThreadQueueStatus.Faulted;
-                                            FaultCause = ex;
-                                        }
-                                        _workerJobs[threadId] = null;
-                                    }
-                                }
-                            }
-                        }));
+                        _threads.Add(Task.Run(() => ActionRunner(threadId, action)));
                     }
 
                     Status = ThreadQueueStatus.Active;
@@ -185,6 +161,35 @@ namespace HDDL.Threading
             else
             {
                 throw new InvalidOperationException($"ThreadedQueue is active.");
+            }
+        }
+
+        /// <summary>
+        /// Task execution method
+        /// </summary>
+        /// <param name="taskWorkQueueId">Used to obtain work from the _workerJobs dictionary</param>
+        /// <param name="action">The action to execute the job with</param>
+        public void ActionRunner(Guid taskWorkQueueId, Action<T> action)
+        {
+            // loop while we have work waiting and we are executing or we have work in our bucket
+            while (Status == ThreadQueueStatus.Starting || Status == ThreadQueueStatus.Active)
+            {
+                if (Status == ThreadQueueStatus.Active)
+                {
+                    if (_workerJobs[taskWorkQueueId] != null)
+                    {
+                        try
+                        {
+                            action(_workerJobs[taskWorkQueueId]);
+                        }
+                        catch (Exception ex)
+                        {
+                            Status = ThreadQueueStatus.Faulted;
+                            FaultCause = ex;
+                        }
+                        _workerJobs[taskWorkQueueId] = null;
+                    }
+                }
             }
         }
 
