@@ -93,6 +93,14 @@ namespace HDSL
             var paths = (from p in scanPaths where !string.IsNullOrWhiteSpace(p) select p).ToArray();
             if (paths.Length > 0)
             {
+                var scanner = new DiskScan(dbPath, paths);
+                scanner.DatabaseResetRequested += Scanner_DatabaseResetRequested;
+                scanner.InitializeDatabase(recreate);
+
+                if (recreate)
+                {
+                    Console.WriteLine("Done.");
+                }
                 if (_showProgress)
                 {
                     Console.Write($"Performing scans on '{string.Join("\', \'", paths)}\': ");
@@ -101,7 +109,6 @@ namespace HDSL
                 {
                     Console.WriteLine($"Performing scans on '{string.Join("\', \'", paths)}\'... ");
                 }
-                var scanner = new DiskScan(dbPath, recreate, paths);
 
                 if (_showProgress)
                 {
@@ -534,6 +541,14 @@ namespace HDSL
             else if (_verbose)
             {
                 Console.WriteLine($"Successfully added {additions} records to the database.");
+            }
+        }
+
+        private static void Scanner_DatabaseResetRequested(DiskScan scanner)
+        {
+            if (_verbose)
+            {
+                Console.Write($"Resetting database...");
             }
         }
 

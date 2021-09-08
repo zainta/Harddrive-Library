@@ -25,6 +25,7 @@ namespace HDDL.Scanning
         public delegate void ScanOperationCompletedDelegate(DiskScan scanner, int totalDeleted, Timings elapsed, ScanOperationOutcome outcome);
         public delegate void ScanStatusEventDelegate(DiskScan scanner, ScanStatus newStatus, ScanStatus oldStatus);
         public delegate void ScanEventMassAdditionDelegate(DiskScan scanner, int additions);
+        public delegate void ScanDatabaseResetRequested(DiskScan scanner);
 
         public event ScanStatusEventDelegate StatusEventOccurred;
 
@@ -47,6 +48,11 @@ namespace HDDL.Scanning
         /// Occurs after the bulk insert operation for new records
         /// </summary>
         public event ScanEventMassAdditionDelegate ScanInsertsCompleted;
+
+        /// <summary>
+        /// Occurs when the database initialization is set to recreate the database.
+        /// </summary>
+        public event ScanDatabaseResetRequested DatabaseResetRequested;
 
         /// <summary>
         /// This is the table in the database where items discovered via scan are stored
@@ -139,28 +145,7 @@ namespace HDDL.Scanning
             _recordCache = new ConcurrentBag<DiskItemOperation>();
             _anchoredPaths = new List<string>();
             _durations = null;
-
-            InitializeDatabase();
-        }
-
-        /// <summary>
-        /// Create a disk scanner
-        /// </summary>
-        /// <param name="dbPath">Where the tracking database is located</param>
-        /// <param name="scanPaths">The paths to start scans from</param>
-        /// <param name="recreate">If true, deletes and rebuilds the file database</param>
-        public DiskScan(string dbPath, bool recreate, params string[] scanPaths)
-        {
-            startingPaths = new List<string>(scanPaths);
-            _scanMarker = DateTime.Now;
-            StoragePath = dbPath;
-            scanningTasks = new List<Task>();
-            _lookupTable = new ConcurrentDictionary<string, Guid>();
-            _recordCache = new ConcurrentBag<DiskItemOperation>();
-            _anchoredPaths = new List<string>();
-            _durations = null;
-
-            InitializeDatabase(recreate);
+            _db = null;
         }
 
         /// <summary>
@@ -170,15 +155,19 @@ namespace HDDL.Scanning
         /// <param name="recreate">If true, deletes and rebuilds the file database</param>
         public void InitializeDatabase(bool recreate = false)
         {
-            if (recreate && File.Exists(StoragePath))
-            {
-                File.Delete(StoragePath);
-            }
-
-            // Forces the creation of the table
             using (var db = new LiteDatabase(StoragePath))
             {
-                var records = db.GetCollection<DiskItem>(TableName);
+                if (recreate && File.Exists(StoragePath))
+                {
+                    DatabaseResetRequested?.Invoke(this);
+                    var records = db.GetCollection<DiskItem>(TableName);
+                    db.DropCollection(TableName);
+                }
+                else
+                {
+                    // Forces the creation of the table
+                    var records = db.GetCollection<DiskItem>(TableName);
+                }
             }
         }
 
