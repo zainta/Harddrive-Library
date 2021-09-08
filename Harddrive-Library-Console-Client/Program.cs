@@ -8,6 +8,8 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
+using HDDL.Data;
 
 namespace HDSL
 {
@@ -36,6 +38,12 @@ namespace HDSL
         private const string Column_Name_LastAccessed = "Accessed";
         private const string Column_Name_Creation = "Created";
 
+        private const int Default_Page_Row_Count = 32;
+        private const int Default_Page_Index = -1;
+        private const int Min_Page_Row_Count = 10;
+        private const string Page_Size_Entry = "pagesize";
+        private const string Page_Index = "pageindex";
+
         private static ProgressBar _progress;
         private static bool _showProgress;
         private static bool _verbose;
@@ -44,11 +52,12 @@ namespace HDSL
         {
             ParameterHandler ph = new ParameterHandler();
             ph.AddRules(
+                new ParameterRuleOption("columns", true, true, "psc", "-"),
+                new ParameterRuleOption("paging", false, true, "-1:-1", "-"),
                 new ParameterRuleOption("db", false, true, "files database.db", " - "),
                 new ParameterRuleOption("scan", true, true, null, "-"),
                 new ParameterRuleOption("run", false, true, null, "-"),
                 new ParameterRuleOption("exec", false, true, null, "-"),
-                new ParameterRuleOption("columns", true, true, "psc", "-"),
                 new ParameterRuleFlag(new FlagDefinition[] { new FlagDefinition('p', true, false), new FlagDefinition('v', true, true) }, "-")
                 );
             ph.Comb(args);
@@ -61,38 +70,38 @@ namespace HDSL
             _verbose = ph.GetFlag("v");
             var recreate = false;
 
-            if (File.Exists(dbPath))
-            {
-                // If the file exists, the scan will be significantly slower.
-                // Ask the user if they would like to recreate the database, rather than update it.
-                Console.Write($"Database '{dbPath}' already exists.  This will significantly slow the operation.\nWould you like to recreate the database? (y/n/c): ");
-                ConsoleKeyInfo k;
-                do
-                {
-                    k = Console.ReadKey();
-                } while (
-                    char.ToLower(k.KeyChar) != 'y' &&
-                    char.ToLower(k.KeyChar) != 'n' &&
-                    char.ToLower(k.KeyChar) != 'c');
-                if (char.ToLower(k.KeyChar) == 'c')
-                {
-                    Environment.Exit(0);
-                }
-                else if (char.ToLower(k.KeyChar) == 'y')
-                {
-                    recreate = true;
-                }
-                else if (char.ToLower(k.KeyChar) == 'n')
-                {
-                    recreate = false;
-                }
-                Console.WriteLine();
-            }
-
             // Do the scan first
             var paths = (from p in scanPaths where !string.IsNullOrWhiteSpace(p) select p).ToArray();
             if (paths.Length > 0)
             {
+                if (File.Exists(dbPath))
+                {
+                    // If the file exists, the scan will be significantly slower.
+                    // Ask the user if they would like to recreate the database, rather than update it.
+                    Console.Write($"Database '{dbPath}' already exists.  This will significantly slow the operation.\nWould you like to recreate the database? (y/n/c): ");
+                    ConsoleKeyInfo k;
+                    do
+                    {
+                        k = Console.ReadKey();
+                    } while (
+                        char.ToLower(k.KeyChar) != 'y' &&
+                        char.ToLower(k.KeyChar) != 'n' &&
+                        char.ToLower(k.KeyChar) != 'c');
+                    if (char.ToLower(k.KeyChar) == 'c')
+                    {
+                        Environment.Exit(0);
+                    }
+                    else if (char.ToLower(k.KeyChar) == 'y')
+                    {
+                        recreate = true;
+                    }
+                    else if (char.ToLower(k.KeyChar) == 'n')
+                    {
+                        recreate = false;
+                    }
+                    Console.WriteLine();
+                }
+
                 var scanner = new DiskScan(dbPath, paths);
                 scanner.DatabaseResetRequested += Scanner_DatabaseResetRequested;
                 scanner.InitializeDatabase(recreate);
@@ -139,15 +148,17 @@ namespace HDSL
             // Execute a line of code
             if (!string.IsNullOrWhiteSpace(runScript))
             {
+                var pagingData = GetPagingData(ph.GetParam("paging", -1));
                 var result = HDSLProvider.ExecuteCode(runScript, dbPath);
-                DisplayResult(ph.GetParam("columns", -1), result);
+                DisplayResult(ph.GetParam("columns", -1), pagingData, result);
             }
 
             // Execute the contents of a code file
             if (!string.IsNullOrWhiteSpace(executeFile))
             {
+                var pagingData = GetPagingData(ph.GetParam("paging", -1));
                 var result = HDSLProvider.ExecuteScript(executeFile, dbPath);
-                DisplayResult(ph.GetParam("columns", -1), result);
+                DisplayResult(ph.GetParam("columns", -1), pagingData, result);
             }
         }
 
@@ -309,6 +320,47 @@ namespace HDSL
         }
 
         /// <summary>
+        /// Takes an encoded paging string and converts it into page index / page size
+        /// Defaults to -1:-1, where those values equal unlimited / 32
+        /// </summary>
+        /// <param name="paging">The encoded paging string</param>
+        /// <returns></returns>
+        private static Dictionary<string, int> GetPagingData(string paging)
+        {
+            var result = new Dictionary<string, int>();
+            if (paging.Contains(":"))
+            {
+                // there are 3 possibilities that are acceptable:
+                // :n, n: or n:n
+                // where n is a positive integer
+                var m = Regex.Match(paging, @"^(-1|\d*):(-1|[\d]*)$");
+                if (m.Groups.Count == 3)
+                {
+                    var pageIndex = string.IsNullOrWhiteSpace(m.Groups[1].Value) || m.Groups[1].Value == "-1" ? Default_Page_Index : int.Parse(m.Groups[1].Value);
+                    var rowsInPage = string.IsNullOrWhiteSpace(m.Groups[2].Value) || m.Groups[2].Value == "-1" ? Default_Page_Row_Count : int.Parse(m.Groups[2].Value);
+
+                    result.Add(Page_Size_Entry, rowsInPage >= Min_Page_Row_Count ? rowsInPage : Min_Page_Row_Count);
+                    result.Add(Page_Index, pageIndex > 0 ? pageIndex - 1 : pageIndex);
+                }
+                else
+                {
+                    Console.Write("Invalid paging string provided.  \nMust be in the form: n:n, where n is an optional integer value.  One or both must be supplied.");
+                    Console.WriteLine("  The first value is the page to display, omitting it will display all pages of results.  The second value is the number of rows to display per page.");
+                    return null;
+                }
+            }
+
+            // Set default values if the parameter was badly formatted
+            if (result.Count < 2)
+            {
+                result.Add(Page_Size_Entry, Default_Page_Row_Count);
+                result.Add(Page_Index, Default_Page_Index);
+            }
+
+            return result;
+        }
+
+        /// <summary>
         /// Checks to see if the container already contains the column
         /// </summary>
         /// <param name="container">The columns to check</param>
@@ -323,9 +375,12 @@ namespace HDSL
         /// Displays the appropriate its from the HDSLResult instance
         /// </summary>
         /// <param name="result">The result to process</param>
+        /// <param name="paging">The paging data dictionary</param>
         /// <param name="columns">A character encoded column string</param>
-        private static void DisplayResult(string columns, HDSLResult result)
+        private static void DisplayResult(string columns, Dictionary<string, int> paging, HDSLResult result)
         {
+            if (paging == null) return;
+
             if (result.Errors.Length > 0)
             {
                 foreach (var error in result.Errors)
@@ -336,12 +391,23 @@ namespace HDSL
             else
             {
                 var cols = GetColumnTable(columns);
+
+                DiskItem[] pagedSet = null;
+                if (paging[Page_Index] != -1)
+                {
+                    pagedSet = result.Results.Skip(paging[Page_Index] * paging[Page_Size_Entry]).Take(paging[Page_Size_Entry]).ToArray();
+                }
+                else
+                {
+                    pagedSet = result.Results;
+                }
+
                 StringBuilder sb = new StringBuilder();
-                for (var i = 0; i < result.Results.Length; i++)
+                for (var i = 0; i < pagedSet.Length; i++)
                 {
                     sb.Clear();
-                    // immediately, and every 32 lines, display the column headers
-                    if (i == 0 || i % 32 == 0)
+                    // immediately, and at the top of each page, display the column headers
+                    if (i == 0 || i % paging[Page_Size_Entry] == 0)
                     {
                         for (var j = 0; j < cols.Count; j++)
                         {
@@ -360,7 +426,7 @@ namespace HDSL
                         sb.Clear();
                     }
 
-                    var di = result.Results[i];
+                    var di = pagedSet[i];
                     for (var j = 0; j < cols.Count; j++)
                     {
                         var col = cols[j];

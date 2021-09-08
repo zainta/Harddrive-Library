@@ -101,6 +101,11 @@ namespace HDDL.HDSL
                 {
                     continue;
                 }
+                else
+                {
+                    Outcome.Add(new HDSLLogBase(col, row, $"Unknown character '{Peek()}'."));
+                    break;
+                }
             }
 
             Tokens.Add(new HDSLToken(HDSLTokenTypes.EndOfLine, ';', col, row, ";"));
