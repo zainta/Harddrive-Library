@@ -32,6 +32,9 @@ The command utility supports the following parameters:
   * Column Format Strings (use either, but not both)
     * -columns: `<any combination of column letters, e.g "psc" (quotes optional) for the full path, followed by size and finally creation date>`
     * -columns: `<a comma seperated series of letter keys followed by a colon and then a number, where that number is the width of the column.  e.g "p:100,s:40,c:70" (no quotes)>`
+* hdsl -paging: `<a paging string in the form [n]:[n]>`, where n is a non-negative integer.
+  * The first value is the page index.  If omitted, all pages are displayed.
+  * The second value is the number of rows per page.  If omitted, defaults to 32.
 
 Parameters are always handled in the following order:
 * -db
