@@ -52,6 +52,9 @@ HDSL supports flags to assist with its output and behavior.  Note that all flags
 * v - Verbose - defaults to on
   * When on, causes scans to output full paths as they are scanned to the console.  
   * Mutually exclusive with p
+* e - Embellish - defaults to on
+  * When on, query results display column names for all represented columns immediately and at the top of each page.
+  * When off, no headers are shown, and columns are seperated by tabs instead of pipes.
 
 ## The Hard Drive Search Language
 HDSL is a simple query language designed for the retrieval of files and directories based on their locations and characteristics.  The system currently implements the following statements:
