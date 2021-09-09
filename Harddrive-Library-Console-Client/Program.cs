@@ -24,7 +24,7 @@ namespace HDSL
         private const int Column_Default_Width_ItemName = 100;
         private const int Column_Default_Width_Extension = 5;
         private const int Column_Default_Width_IsFile = 1;
-        private const int Column_Default_Width_Size = 6;
+        private const int Column_Default_Width_Size = 10;
         private const int Column_Default_Width_LastWrite = 23;
         private const int Column_Default_Width_LastAccess = 23;
         private const int Column_Default_Width_Creation = 23;
@@ -48,6 +48,7 @@ namespace HDSL
         private static ProgressBar _progress;
         private static bool _showProgress;
         private static bool _verbose;
+        private static bool _embelish;
 
         static void Main(string[] args)
         {
@@ -59,7 +60,10 @@ namespace HDSL
                 new ParameterRuleOption("scan", true, true, null, "-"),
                 new ParameterRuleOption("run", false, true, null, "-"),
                 new ParameterRuleOption("exec", false, true, null, "-"),
-                new ParameterRuleFlag(new FlagDefinition[] { new FlagDefinition('p', true, false), new FlagDefinition('v', true, true) }, "-")
+                new ParameterRuleFlag(new FlagDefinition[] {
+                    new FlagDefinition('e', true, true),
+                    new FlagDefinition('p', true, false), 
+                    new FlagDefinition('v', true, true) }, "-")
                 );
             ph.Comb(args);
 
@@ -69,6 +73,7 @@ namespace HDSL
             var executeFile = ph.GetParam("exec");
             _showProgress = ph.GetFlag("p");
             _verbose = ph.GetFlag("v");
+            _embelish = ph.GetFlag("e");
             var recreate = false;
 
             // Do the scan first
@@ -407,24 +412,27 @@ namespace HDSL
                 for (var i = 0; i < pagedSet.Length; i++)
                 {
                     sb.Clear();
-                    // immediately, and at the top of each page, display the column headers
-                    if (i == 0 || i % paging[Page_Size_Entry] == 0)
+                    if (_embelish)
                     {
-                        for (var j = 0; j < cols.Count; j++)
+                        // immediately, and at the top of each page, display the column headers
+                        if (i == 0 || i % paging[Page_Size_Entry] == 0)
                         {
-                            var col = cols[j];
-                            if (sb.Length > 0)
+                            for (var j = 0; j < cols.Count; j++)
                             {
-                                sb.Append(" | ");
+                                var col = cols[j];
+                                if (sb.Length > 0)
+                                {
+                                    sb.Append(" | ");
+                                }
+
+                                var format = string.Empty;
+                                format = $"{{0, -{col.Item3}}}";
+                                sb.Append(string.Format(format, col.Item1));
                             }
 
-                            var format = string.Empty;
-                            format = $"{{0, -{col.Item3}}}";
-                            sb.Append(string.Format(format, col.Item1));
+                            Console.WriteLine(sb.ToString());
+                            sb.Clear();
                         }
-
-                        Console.WriteLine(sb.ToString());
-                        sb.Clear();
                     }
 
                     var di = pagedSet[i];
@@ -433,7 +441,14 @@ namespace HDSL
                         var col = cols[j];
                         if (sb.Length > 0)
                         {
-                            sb.Append(" | ");
+                            if (_embelish)
+                            {
+                                sb.Append(" | ");
+                            }
+                            else
+                            {
+                                sb.Append("\t");
+                            }
                         }
 
                         var format = string.Empty;
@@ -463,19 +478,19 @@ namespace HDSL
                                 sb.Append(string.Format(format, di.IsFile ? "y" : "n"));
                                 break;
                             case Column_Name_Size:
-                                format = $"{{0, -{col.Item3}}}";
-                                sb.Append(string.Format(format, di.SizeInBytes));
+                                format = $"{{0, {col.Item3}}}";
+                                sb.Append(string.Format(format, ShortenSize(di.SizeInBytes)));
                                 break;
                             case Column_Name_LastWritten:
-                                format = $"{{0, {col.Item3}}}";
+                                format = $"{{0, -{col.Item3}}}";
                                 sb.Append(string.Format(format, di.LastWritten.ToLocalTime()));
                                 break;
                             case Column_Name_LastAccessed:
-                                format = $"{{0, {col.Item3}}}";
+                                format = $"{{0, -{col.Item3}}}";
                                 sb.Append(string.Format(format, di.LastAccessed.ToLocalTime()));
                                 break;
                             case Column_Name_Creation:
-                                format = $"{{0, {col.Item3}}}";
+                                format = $"{{0, -{col.Item3}}}";
                                 sb.Append(string.Format(format, di.CreationDate.ToLocalTime()));
                                 break;
                         }
@@ -529,6 +544,36 @@ namespace HDSL
             while (pulse.Length > maxLength);
 
             return pulse;
+        }
+
+        /// <summary>
+        /// Takes in a numerical value and reduces it to a textual representation (e.g 1.1mb)
+        /// </summary>
+        /// <param name="value">The value to shorten</param>
+        /// <returns></returns>
+        public static string ShortenSize(long? value)
+        {
+            if (value.HasValue)
+            {
+                var abbreviations = new string[] { "B", "KB", "MB", "GB", "TB", "ZB", "PB" };
+                var degrees = 1;
+                var denomination = 1024;
+                while (value > denomination)
+                {
+                    degrees++;
+                    denomination *= 1024;
+                }
+                degrees--;
+                denomination /= 1024;
+
+                var displayValue = Math.Truncate(100 * ((double)value) / denomination) / 100;
+                var result = $"{displayValue}{abbreviations[degrees]}";
+                return result;
+            }
+            else
+            {
+                return "0B";
+            }
         }
 
         #endregion
