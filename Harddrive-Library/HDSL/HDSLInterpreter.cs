@@ -279,17 +279,16 @@ namespace HDDL.HDSL
                 var results = new List<DiskItem>();
                 try
                 {
-                    // done gathering information.  perform the query
                     results.AddRange
                         (from di in GetTable().FindAll().AsEnumerable()
                          where
-                            PathHelper.IsWithinPaths(di.Path, targetPaths, true) &&
+                            targetPaths.Where(tp => di.Path.StartsWith(tp)).Any() &&
                             LikeOperator.LikeString(di.ItemName, wildcardExpression, Microsoft.VisualBasic.CompareMethod.Binary)
                          select di);
                 }
                 catch (Exception ex)
                 {
-                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"IO Exception encountered: '{ex}'."));
+                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Exception encountered: '{ex}'."));
                 }
 
                 // the where clause is optional.
