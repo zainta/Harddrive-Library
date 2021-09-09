@@ -150,6 +150,21 @@ namespace HDDL.IO.Disk
 
                             }
                         });
+
+                    var dit = new DiskItemType(path, false);
+                    intermediate.Add(dit);
+                    try
+                    {
+                        // handle files
+                        foreach (var file in dit.DInfo.GetFiles())
+                        {
+                            intermediate.Add(new DiskItemType(file));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+
+                    }
                 }
             };
 
