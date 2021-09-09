@@ -48,7 +48,7 @@ namespace HDSL
         private static ProgressBar _progress;
         private static bool _showProgress;
         private static bool _verbose;
-        private static bool _embelish;
+        private static bool _embellish;
 
         static void Main(string[] args)
         {
@@ -73,7 +73,7 @@ namespace HDSL
             var executeFile = ph.GetParam("exec");
             _showProgress = ph.GetFlag("p");
             _verbose = ph.GetFlag("v");
-            _embelish = ph.GetFlag("e");
+            _embellish = ph.GetFlag("e");
             var recreate = false;
 
             // Do the scan first
@@ -412,7 +412,7 @@ namespace HDSL
                 for (var i = 0; i < pagedSet.Length; i++)
                 {
                     sb.Clear();
-                    if (_embelish)
+                    if (_embellish)
                     {
                         // immediately, and at the top of each page, display the column headers
                         if (i == 0 || i % paging[Page_Size_Entry] == 0)
@@ -441,7 +441,7 @@ namespace HDSL
                         var col = cols[j];
                         if (sb.Length > 0)
                         {
-                            if (_embelish)
+                            if (_embellish)
                             {
                                 sb.Append(" | ");
                             }
@@ -555,7 +555,7 @@ namespace HDSL
         {
             if (value.HasValue)
             {
-                var abbreviations = new string[] { "B", "KB", "MB", "GB", "TB", "ZB", "PB" };
+                var abbreviations = new string[] { "B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB", "XB", "SB", "DB" };
                 var degrees = 1;
                 var denomination = 1024;
                 while (value > denomination)
