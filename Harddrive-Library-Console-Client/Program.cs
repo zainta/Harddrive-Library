@@ -1,6 +1,7 @@
 ﻿using HDDL.HDSL;
 using HDDL.UI;
 using HDDL.IO.Parameters;
+using HDDL.IO.Disk;
 using HDDL.Scanning;
 using System;
 using System.Collections.Generic;
@@ -436,18 +437,18 @@ namespace HDSL
                         }
 
                         var format = string.Empty;
-                        StringBuilder buffer = new StringBuilder(col.Item3);
+                        var shortened = string.Empty;
                         switch (col.Item1) // column name
                         {
                             case Column_Name_Location:
                                 format = $"{{0, -{col.Item3}}}";
-                                GetShortPathName(GetLocation(di), buffer, (uint)buffer.Capacity);
-                                sb.Append(string.Format(format,  buffer.ToString()));
+                                shortened = ShortenString(di.Path, col.Item3);
+                                sb.Append(string.Format(format,  shortened));
                                 break;
                             case Column_Name_FullPath:
                                 format = $"{{0, -{col.Item3}}}";
-                                GetShortPathName(di.Path, buffer, (uint)buffer.Capacity);
-                                sb.Append(string.Format(format, buffer.ToString()));
+                                shortened = ShortenString(di.Path, col.Item3);
+                                sb.Append(string.Format(format, shortened));
                                 break;
                             case Column_Name_ItemName:
                                 format = $"{{0, -{col.Item3}}}";
@@ -486,24 +487,48 @@ namespace HDSL
         }
 
         /// <summary>
-        /// Uses the appropriate info object to extract the target's location
+        /// Takes a path and removes folders until it is under the given length
         /// </summary>
-        /// <param name="rec">The target record</param>
-        /// <returns></returns>
-        private static string GetLocation(HDDL.Data.DiskItem rec)
+        /// <param name="path">The path to shorten</param>
+        /// <param name="maxLength">The desired maximum length</param>
+        /// <param name="delimiter">The delimiter to shorten baseed on</param>
+        /// <returns>The resultant string</returns>
+        public static string ShortenString(string path, int maxLength = 30, char delimiter = '\\')
         {
-            string location;
-            if (rec.IsFile)
+            if (path.Length <= maxLength)
             {
-                var fi = new FileInfo(rec.Path);
-                location = fi.Directory.FullName;
+                return path;
             }
-            else
+
+            int startPartsRemoved = 1, endPartsRemoved = 1;
+            var parts = path.Split(delimiter).ToList();
+            int start = (parts.Count / 2), end = (parts.Count / 2);
+            var pulse = string.Empty;
+            var moveStart = true;
+            do
             {
-                var di = new DirectoryInfo(rec.Path);
-                location = di.Parent.FullName;
+                pulse = string.Join(delimiter, from p in parts where parts.IndexOf(p) <= start select p);
+                pulse += $"{new string(delimiter, startPartsRemoved)}...{new string(delimiter, endPartsRemoved)}";
+                pulse += string.Join(delimiter, from p in parts where parts.IndexOf(p) >= end select p);
+
+                if (pulse.Length > maxLength)
+                {
+                    if (moveStart && start > 0)
+                    {
+                        start--;
+                        startPartsRemoved++;
+                    }
+                    else if (!moveStart && end < parts.Count)
+                    {
+                        end++;
+                        endPartsRemoved++;
+                    }
+                    moveStart = !moveStart;
+                }
             }
-            return location;
+            while (pulse.Length > maxLength);
+
+            return pulse;
         }
 
         #endregion
@@ -617,16 +642,6 @@ namespace HDSL
                 Console.Write($"Resetting database...");
             }
         }
-
-        #endregion
-
-        #region Externals
-
-        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        static extern uint GetShortPathName([MarshalAs(UnmanagedType.LPTStr)]string lpszLongPath, [MarshalAs(UnmanagedType.LPTStr)]StringBuilder lpszShortPath, uint cchBuffer);
-
-        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        static extern uint GetShortPathName(string lpszLongPath, char[] lpszShortPath, int cchBuffer);
 
         #endregion
     }
