@@ -11,6 +11,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using HDDL.Data;
+using HDDL.IO.Settings;
 
 namespace HDSL
 {
@@ -52,11 +53,15 @@ namespace HDSL
 
         static void Main(string[] args)
         {
+            var manager = IniFileManager.Explore("db location.ini", true, false, false,
+                new IniSubsection("HDSL_DB", null, 
+                    new IniValue("DatabaseLocation", defaultValue: "file database.db")));
+
             ParameterHandler ph = new ParameterHandler();
             ph.AddRules(
                 new ParameterRuleOption("columns", true, true, "psc", "-"),
                 new ParameterRuleOption("paging", false, true, "-1:-1", "-"),
-                new ParameterRuleOption("db", false, true, "files database.db", " - "),
+                new ParameterRuleOption("db", false, true, manager[@"HDSL_DB>DatabaseLocation"]?.Value, " - "),
                 new ParameterRuleOption("scan", true, true, null, "-"),
                 new ParameterRuleOption("run", false, true, null, "-"),
                 new ParameterRuleOption("exec", false, true, null, "-"),
