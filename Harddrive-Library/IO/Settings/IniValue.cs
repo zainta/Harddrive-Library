@@ -71,15 +71,6 @@ namespace HDDL.IO.Settings
         }
 
         /// <summary>
-        /// Converts the ini value to a line of text to be written to disk
-        /// </summary>
-        /// <returns></returns>
-        public override string GetDecoratedString()
-        {
-            return ToString();
-        }
-
-        /// <summary>
         /// Returns a deep clone of the IniSubsection (omitting parenting structure)
         /// </summary>
         /// <returns>The cloned instance</returns>

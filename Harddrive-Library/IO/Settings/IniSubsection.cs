@@ -107,22 +107,6 @@ namespace HDDL.IO.Settings
         }
 
         /// <summary>
-        /// Converts the ini value to a line of text to be written to disk
-        /// </summary>
-        /// <returns></returns>
-        public override string GetDecoratedString()
-        {
-            if (SubSection == null && !string.IsNullOrWhiteSpace(RootKey))
-            {
-                return $"[{RootKey}{IniFileManager.File_Content_Designation}{Label}]";
-            }
-            else
-            {
-                return $"[{Label}]";
-            }
-        }
-
-        /// <summary>
         /// Returns a deep clone of the IniSubsection (omitting parenting structure)
         /// </summary>
         /// <returns>The cloned instance</returns>

@@ -66,8 +66,9 @@ namespace HDDL.IO.Settings
         /// Returns the item's complete path to the root
         /// </summary>
         /// <param name="includeSelf">If true, incluse the calling instance.  Otherwise, omits it</param>
+        /// <param name="includeFileDesignation">Whether or not to include the file designation (:)</param>
         /// <returns></returns>
-        public virtual string GetPath(bool includeSelf = true)
+        public virtual string GetPath(bool includeFileDesignation = false, bool includeSelf = true)
         {
             var sb = new StringBuilder();
 
@@ -83,7 +84,13 @@ namespace HDDL.IO.Settings
                 {
                     sb.Append(IniFileManager.SubSection_Content_Designation);
                 }
-                sb.Append(item.GetDecoratedString());
+                else if (includeFileDesignation && 
+                         item is IniSubsection &&
+                         !string.IsNullOrWhiteSpace(((IniSubsection)item).RootKey))
+                {
+                    sb.Append($"{RootKey}{IniFileManager.File_Content_Designation}");
+                }
+                sb.Append(item.Label);
             };
 
             if (includeSelf)
@@ -152,15 +159,6 @@ namespace HDDL.IO.Settings
         /// </summary>
         /// <returns></returns>
         public virtual object Clone()
-        {
-            throw new NotImplementedException();
-        }
-
-        /// <summary>
-        /// Returns the IniItemBase as a qualified string
-        /// </summary>
-        /// <returns></returns>
-        public virtual string GetDecoratedString()
         {
             throw new NotImplementedException();
         }
