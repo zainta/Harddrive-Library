@@ -72,7 +72,7 @@ namespace HDDL.HDSL
                 {
                     continue;
                 }
-                else if (More() && Peek() == '<' && GetBookmarkReference()) // Bookmark Reference
+                else if (More() && Peek() == '[' && GetBookmarkReference()) // Bookmark Reference
                 {
                     continue;
                 }
@@ -296,7 +296,7 @@ namespace HDDL.HDSL
         /// <returns>Whether or not a token was generated (if not, implies an error)</returns>
         bool GetBookmarkReference()
         {
-            var bookmark = GetPairedSet('<', '>', '\\');
+            var bookmark = GetPairedSet('[', ']', '\\');
             if (bookmark != null)
             {
                 Tokens.Add(new HDSLToken(HDSLTokenTypes.BookmarkReference, bookmark[1], row, col, bookmark[0]));
@@ -561,7 +561,7 @@ namespace HDDL.HDSL
                     }
                     else if (PeekStr(0, 2) == "<=")
                     {
-                        token = new HDSLToken(HDSLTokenTypes.LessThanOrEqual, PopStr(0, 2), row, col, "<=");
+                        token = new HDSLToken(HDSLTokenTypes.LessOrEqual, PopStr(0, 2), row, col, "<=");
                     }
                 }
             }

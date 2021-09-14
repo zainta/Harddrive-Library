@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.ComponentModel.DataAnnotations.Schema;
+using LiteDB;
 
 namespace HDDL.Data
 {
@@ -79,6 +80,27 @@ namespace HDDL.Data
         /// When the file was created
         /// </summary>
         public DateTime CreationDate { get; set; }
+
+        /// <summary>
+        /// Default constructor
+        /// </summary>
+        public DiskItem()
+        {
+
+        }
+
+        /// <summary>
+        /// Creates an instance from the current record in the data reader
+        /// </summary>
+        /// <param name="record"></param>
+        public DiskItem(BsonValue record)
+        {
+            // Use reflection to copy the values over
+            foreach (var prop in GetType().GetProperties())
+            {
+                prop.SetValue(this, record[prop.Name == "Id" ? "_id" : prop.Name].RawValue);
+            }
+        }
 
         public override string ToString()
         {

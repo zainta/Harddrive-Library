@@ -11,6 +11,7 @@ using HDDL.IO.Disk;
 using HDDL.Data;
 using System.IO;
 using LiteDB;
+using HDDL.HDSL.Where;
 
 namespace HDDL.HDSL
 {
@@ -279,12 +280,21 @@ namespace HDDL.HDSL
                 var results = new List<DiskItem>();
                 try
                 {
-                    results.AddRange
-                        (from di in GetTable().FindAll().AsEnumerable()
-                         where
-                            targetPaths.Where(tp => di.Path.StartsWith(tp)).Any() &&
-                            LikeOperator.LikeString(di.ItemName, wildcardExpression, Microsoft.VisualBasic.CompareMethod.Binary)
-                         select di);
+                    //results.AddRange
+                    //    (from di in GetTable().FindAll().AsEnumerable()
+                    //     where
+                    //        targetPaths.Where(tp => di.Path.StartsWith(tp)).Any() &&
+                    //        LikeOperator.LikeString(di.ItemName, wildcardExpression, Microsoft.VisualBasic.CompareMethod.Binary)
+                    //     select di);
+
+                    //DiskItem rec = null;
+                    var indexesOf = string.Join(" or ", (from tp in targetPaths select $"indexof(Path, '{tp.Replace("\\", "\\\\")}') = 0").ToArray());
+                    var reader = _db.Execute($"select $ from {DiskScan.TableName} where {indexesOf}");
+                    results.AddRange(
+                        from rec in reader.ToList()
+                        where
+                            LikeOperator.LikeString(rec["ItemName"], wildcardExpression, Microsoft.VisualBasic.CompareMethod.Binary)
+                        select new DiskItem(rec));
                 }
                 catch (Exception ex)
                 {
@@ -317,14 +327,8 @@ namespace HDDL.HDSL
         /// <param name="items">The disk items to filter</param>
         private IEnumerable<DiskItem> HandleWhereClause(IEnumerable<DiskItem> items)
         {
-            if (items != null)
-            {
-                return items;
-            }
-            else
-            {
-                return GetTable().FindAll().AsEnumerable();
-            }
+            var clause = OperatorBase.ConvertClause(_tokens);
+            return (from item in items where clause.Evaluate(item) select item);
         }
 
         #endregion

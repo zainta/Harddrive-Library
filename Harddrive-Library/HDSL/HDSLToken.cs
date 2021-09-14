@@ -33,9 +33,16 @@ namespace HDDL.HDSL
                     case HDSLTokenTypes.DateTime:
                         Family = HDSLTokenFamilies.DataTypes;
                         break;
-                    case HDSLTokenTypes.Comma:
                     case HDSLTokenTypes.Whitespace:
                         Family = HDSLTokenFamilies.Whitespace;
+                        break;
+                    case HDSLTokenTypes.In:
+                    case HDSLTokenTypes.Find:
+                    case HDSLTokenTypes.Asc:
+                    case HDSLTokenTypes.Dsc:
+                    case HDSLTokenTypes.Purge:
+                    case HDSLTokenTypes.Within:
+                        Family = HDSLTokenFamilies.LanguageKeywords;
                         break;
                     case HDSLTokenTypes.Written:
                     case HDSLTokenTypes.Accessed:
@@ -45,23 +52,21 @@ namespace HDDL.HDSL
                     case HDSLTokenTypes.FirstScan:
                     case HDSLTokenTypes.Name:
                     case HDSLTokenTypes.Now:
-                    case HDSLTokenTypes.In:
-                    case HDSLTokenTypes.Find:
-                    case HDSLTokenTypes.Asc:
-                    case HDSLTokenTypes.Dsc:
-                    case HDSLTokenTypes.Purge:
-                    case HDSLTokenTypes.Within:
-                        Family = HDSLTokenFamilies.Keywords;
+                    case HDSLTokenTypes.Size:
+                        Family = HDSLTokenFamilies.ValueKeywords;
                         break;
+                    case HDSLTokenTypes.Comma:
                     case HDSLTokenTypes.And:
                     case HDSLTokenTypes.Or:
+                        Family = HDSLTokenFamilies.LogicalOperators;
+                        break;
                     case HDSLTokenTypes.GreaterThan:
                     case HDSLTokenTypes.LessThan:
                     case HDSLTokenTypes.Equal:
                     case HDSLTokenTypes.NotEqual:
                     case HDSLTokenTypes.GreaterOrEqual:
-                    case HDSLTokenTypes.LessThanOrEqual:
-                        Family = HDSLTokenFamilies.Operators;
+                    case HDSLTokenTypes.LessOrEqual:
+                        Family = HDSLTokenFamilies.RelativeOperators;
                         break;
                     case HDSLTokenTypes.EndOfFile:
                     case HDSLTokenTypes.EndOfLine:

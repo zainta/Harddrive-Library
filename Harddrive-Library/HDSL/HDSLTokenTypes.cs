@@ -52,7 +52,7 @@ namespace HDDL.HDSL
         Equal,
         NotEqual,
         GreaterOrEqual,
-        LessThanOrEqual,
+        LessOrEqual,
 
         // Logical Operators
 

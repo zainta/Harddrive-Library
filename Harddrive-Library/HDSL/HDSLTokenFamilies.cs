@@ -14,8 +14,10 @@ namespace HDDL.HDSL
         Unknown,
         DataTypes,
         Whitespace,
-        Keywords,
-        Operators,
+        LanguageKeywords,
+        ValueKeywords,
+        RelativeOperators, // Greater Than, Less Than, Equal, Not Equal
+        LogicalOperators, // And, Or
         Metadata
     }
 }

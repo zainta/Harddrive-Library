@@ -54,7 +54,7 @@ namespace HDSL
         static void Main(string[] args)
         {
             var manager = IniFileManager.Explore("db location.ini", true, false, false,
-                new IniSubsection("HDSL_DB", null, 
+                new IniSubsection("HDSL_DB", null,
                     new IniValue("DatabaseLocation", defaultValue: "file database.db")));
 
             ParameterHandler ph = new ParameterHandler();
@@ -67,7 +67,7 @@ namespace HDSL
                 new ParameterRuleOption("exec", false, true, null, "-"),
                 new ParameterRuleFlag(new FlagDefinition[] {
                     new FlagDefinition('e', true, true),
-                    new FlagDefinition('p', true, false), 
+                    new FlagDefinition('p', true, false),
                     new FlagDefinition('v', true, true) }, "-")
                 );
             ph.Comb(args);
@@ -463,7 +463,7 @@ namespace HDSL
                             case Column_Name_Location:
                                 format = $"{{0, -{col.Item3}}}";
                                 shortened = ShortenString(di.Path, col.Item3);
-                                sb.Append(string.Format(format,  shortened));
+                                sb.Append(string.Format(format, shortened));
                                 break;
                             case Column_Name_FullPath:
                                 format = $"{{0, -{col.Item3}}}";
@@ -502,6 +502,12 @@ namespace HDSL
                     }
 
                     Console.WriteLine(sb.ToString());
+                }
+
+                if (_verbose)
+                {
+                    Console.WriteLine();
+                    Console.WriteLine($"{result.Results.Length} matches found.");
                 }
             }
         }
@@ -594,7 +600,7 @@ namespace HDSL
         {
             if (oldStatus == ScanStatus.Scanning)
             {
-                
+
             }
         }
 
