@@ -55,6 +55,8 @@ HDSL supports flags to assist with its output and behavior.  Note that all flags
 * e - Embellish - defaults to on
   * When on, query results display column names for all represented columns immediately and at the top of each page.
   * When off, no headers are shown, and columns are seperated by tabs instead of pipes.
+* c - Count Results - defaults to on
+  * When on, the number of records returned by a query will be output after the queries results.
 
 ## The Hard Drive Search Language
 HDSL is a simple query language designed for the retrieval of files and directories based on their locations and characteristics.  The system currently implements the following statements:

@@ -50,6 +50,7 @@ namespace HDSL
         private static bool _showProgress;
         private static bool _verbose;
         private static bool _embellish;
+        private static bool _count;
 
         static void Main(string[] args)
         {
@@ -68,7 +69,8 @@ namespace HDSL
                 new ParameterRuleFlag(new FlagDefinition[] {
                     new FlagDefinition('e', true, true),
                     new FlagDefinition('p', true, false),
-                    new FlagDefinition('v', true, true) }, "-")
+                    new FlagDefinition('v', true, true),
+                    new FlagDefinition('c', true, true) }, "-")
                 );
             ph.Comb(args);
 
@@ -79,6 +81,7 @@ namespace HDSL
             _showProgress = ph.GetFlag("p");
             _verbose = ph.GetFlag("v");
             _embellish = ph.GetFlag("e");
+            _count = ph.GetFlag("c");
             var recreate = false;
 
             // Do the scan first
@@ -504,7 +507,7 @@ namespace HDSL
                     Console.WriteLine(sb.ToString());
                 }
 
-                if (_verbose)
+                if (_count)
                 {
                     Console.WriteLine();
                     Console.WriteLine($"{result.Results.Length} matches found.");
