@@ -59,8 +59,6 @@ HDSL supports flags to assist with its output and behavior.  Note that all flags
 ## The Hard Drive Search Language
 HDSL is a simple query language designed for the retrieval of files and directories based on their locations and characteristics.  The system currently implements the following statements:
  * `find [file search pattern - defaults to *.*] [in [path[, path, path]] - defaults to current] [where clause];`
-   * Note that where clauses are not currently implemented
    * Retrieves the items that match the query and displays them.
  * `purge [where clause];`
-   * Note that where clauses are not currently implemented
    * Removes matching entries from the current database.
