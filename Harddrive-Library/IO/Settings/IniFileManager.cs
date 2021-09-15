@@ -428,23 +428,26 @@ namespace HDDL.IO.Settings
             {
                 while ((line = reader.ReadLine()) != null)
                 {
-                    item = IniItemBase.Discover(line);
-                    if (item != null)
+                    if (!line.Trim().StartsWith(";"))
                     {
-                        if (item is IniSubsection)
+                        item = IniItemBase.Discover(line);
+                        if (item != null)
                         {
-                            section = item as IniSubsection;
-                            items.Add(item);
-                        }
-                        else if (item is IniValue)
-                        {
-                            if (section != null)
+                            if (item is IniSubsection)
                             {
-                                item.SetParent(section);
-                            }
-                            else
-                            {
+                                section = item as IniSubsection;
                                 items.Add(item);
+                            }
+                            else if (item is IniValue)
+                            {
+                                if (section != null)
+                                {
+                                    item.SetParent(section);
+                                }
+                                else
+                                {
+                                    items.Add(item);
+                                }
                             }
                         }
                     }
