@@ -95,6 +95,7 @@ namespace HDDL.Threading
         /// Starts the system
         /// </summary>
         /// <param name="work">The items to work on</param>
+        /// <returns>Returns a Task that will complete when the operation has full completed</returns>
         public void Start(IEnumerable<T> work)
         {
             if (Status == ThreadQueueStatus.Idle)
@@ -169,7 +170,7 @@ namespace HDDL.Threading
         /// </summary>
         /// <param name="taskWorkQueueId">Used to obtain work from the _workerJobs dictionary</param>
         /// <param name="action">The action to execute the job with</param>
-        public void ActionRunner(Guid taskWorkQueueId, Action<T> action)
+        private void ActionRunner(Guid taskWorkQueueId, Action<T> action)
         {
             // loop while we have work waiting and we are executing or we have work in our bucket
             while (Status == ThreadQueueStatus.Starting || Status == ThreadQueueStatus.Active)

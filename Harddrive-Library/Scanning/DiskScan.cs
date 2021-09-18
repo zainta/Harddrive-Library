@@ -24,8 +24,9 @@ namespace HDDL.Scanning
         public delegate void ScanOperationStartedDelegate(DiskScan scanner, int directoryCount, int fileCount);
         public delegate void ScanOperationCompletedDelegate(DiskScan scanner, int totalDeleted, Timings elapsed, ScanOperationOutcome outcome);
         public delegate void ScanStatusEventDelegate(DiskScan scanner, ScanStatus newStatus, ScanStatus oldStatus);
-        public delegate void ScanEventMassAdditionDelegate(DiskScan scanner, int additions);
+        public delegate void ScanEventMassDatabaseActivityDelegate(DiskScan scanner, int additions, int updates, int deletions);
         public delegate void ScanDatabaseResetRequested(DiskScan scanner);
+        public delegate void ScanEventDeletionsOccurred(DiskScan scanner, int total);
 
         public event ScanStatusEventDelegate StatusEventOccurred;
 
@@ -45,19 +46,14 @@ namespace HDDL.Scanning
         public event ScanOperationCompletedDelegate ScanEnded;
 
         /// <summary>
-        /// Occurs after the bulk insert operation for new records
+        /// Reports the outcome of the deletion phase
         /// </summary>
-        public event ScanEventMassAdditionDelegate ScanInsertsCompleted;
+        public event ScanEventDeletionsOccurred DeletionsOccurred;
 
         /// <summary>
-        /// Occurs when the database initialization is set to recreate the database.
+        /// Occurs after the database operations have completed
         /// </summary>
-        public event ScanDatabaseResetRequested DatabaseResetRequested;
-
-        /// <summary>
-        /// This is the table in the database where items discovered via scan are stored
-        /// </summary>
-        public const string TableName = "DiskItems";
+        public event ScanEventMassDatabaseActivityDelegate ScanDatabaseActivityCompleted;
 
         /// <summary>
         /// Where to start scanning from
@@ -75,19 +71,9 @@ namespace HDDL.Scanning
         private DateTime _scanMarker;
 
         /// <summary>
-        /// The database instance in use
+        /// Handles all DiskItem reads and writes
         /// </summary>
-        private LiteDatabase _db;
-
-        /// <summary>
-        /// The DiskItem table
-        /// </summary>
-        private ILiteCollection<DiskItem> _table;
-
-        /// <summary>
-        /// Used to store record batches between writes
-        /// </summary>
-        private ConcurrentBag<DiskItemOperation> _recordCache;
+        private DataHandler _diskItems;
 
         /// <summary>
         /// Used to cache directory ids for quick lookups
@@ -103,11 +89,6 @@ namespace HDDL.Scanning
         // These variables are used to track the duration of various parts of the process
         DateTime _scanStart, _directoryStructureScanStart, _directoryStructureProcessingStart, _databaseWriteStart;
         Timings _durations;
-
-        /// <summary>
-        /// The location of the database file
-        /// </summary>
-        public string StoragePath { get; private set; }
 
         private ScanStatus _status;
         /// <summary>
@@ -139,36 +120,11 @@ namespace HDDL.Scanning
         {
             startingPaths = new List<string>(scanPaths);
             _scanMarker = DateTime.Now;
-            StoragePath = dbPath;
+            _diskItems = new DataHandler(dbPath);
             scanningTasks = new List<Task>();
             _lookupTable = new ConcurrentDictionary<string, Guid>();
-            _recordCache = new ConcurrentBag<DiskItemOperation>();
             _anchoredPaths = new List<string>();
             _durations = null;
-            _db = null;
-        }
-
-        /// <summary>
-        /// Initializes the database at the indicated path.
-        /// Recreates it if it already exists
-        /// </summary>
-        /// <param name="recreate">If true, deletes and rebuilds the file database</param>
-        public void InitializeDatabase(bool recreate = false)
-        {
-            using (var db = new LiteDatabase(StoragePath))
-            {
-                if (recreate && File.Exists(StoragePath))
-                {
-                    DatabaseResetRequested?.Invoke(this);
-                    var records = db.GetCollection<DiskItem>(TableName);
-                    db.DropCollection(TableName);
-                }
-                else
-                {
-                    // Forces the creation of the table
-                    var records = db.GetCollection<DiskItem>(TableName);
-                }
-            }
         }
 
         /// <summary>
@@ -204,7 +160,6 @@ namespace HDDL.Scanning
                     Status = ScanStatus.Scanning;
                     ScanStarted?.Invoke(this, info.TotalDirectories, info.TotalFiles);
                     _scanMarker = DateTime.UtcNow;
-                    OpenConnection();
 
                     // The below processing allows us to run through the work items
                     // without having to perform any checks around existence
@@ -251,7 +206,7 @@ namespace HDDL.Scanning
                     });
 
                     // Define the threadqueue here because we need to refer to it
-                    var queue = new ThreadedQueue<DiskItemType>((work) => WorkerMethod(work), 2);
+                    var queue = new ThreadedQueue<DiskItemType>((work) => WorkerMethod(work), 1);
 
                     // Perform the processing work
                     _directoryStructureProcessingStart = DateTime.Now;
@@ -265,51 +220,27 @@ namespace HDDL.Scanning
 
                     _durations.DirectoryStructureProcessingDuration = DateTime.Now.Subtract(_directoryStructureProcessingStart);
 
-                    _db.BeginTrans();
-                    // start the database writer task
-                    var writeTask =
-                        Task.Run(() =>
-                        {
-                            // keep looking for records in the cache while:
-                            // there are sets of work to perform or
-                            // the threadqueue is running or
-                            // there are records ready to write
-                            _databaseWriteStart = DateTime.Now;
+                    // keep looking for records in the cache while:
+                    // there are sets of work to perform or
+                    // the threadqueue is running or
+                    // there are records ready to write
+                    _databaseWriteStart = DateTime.Now;
 
-                            // Mass insert the new records
-                            var inserts = from i in _recordCache where i.IsInsert select i.Item;
-                            _table.InsertBulk(inserts);
-                            ScanInsertsCompleted?.Invoke(this, inserts.Count());
+                    // Mass insert the new records
+                    var outcomes = _diskItems.WriteDiskItems();
+                    _durations.DatabaseWriteDuration = DateTime.Now.Subtract(_databaseWriteStart);
+                    ScanDatabaseActivityCompleted?.Invoke(this, outcomes.Item1, outcomes.Item2, outcomes.Item3);
 
-                            // Handle the updates
-                            var updates = from u in _recordCache where !u.IsInsert select u.Item;
-                            foreach (var item in updates)
-                            {
-                                try
-                                {
-                                    _table.Update(item);
-                                    ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.Update, item.Path, item.IsFile));
-                                }
-                                catch (Exception ex)
-                                {
-                                    ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.DatabaseError, null, false, ex));
-                                }
-                            }
-                        }).ContinueWith((tsk) =>
-                        {
-                            _db.Commit();
-                            _db.Dispose();
-                            _durations.DatabaseWriteDuration = DateTime.Now.Subtract(_databaseWriteStart);
+                    _durations.ScanDuration = DateTime.Now.Subtract(_scanStart);
 
-                            _durations.ScanDuration = DateTime.Now.Subtract(_scanStart);
+                    // Remove old records (these will be files that were deleted)
+                    DeleteUnfoundEntries(startingPaths);
 
-                            if (Status == ScanStatus.Scanning || Status == ScanStatus.Deleting)
-                            {
-                                Status = ScanStatus.Ready;
-                                ScanEnded?.Invoke(this, -1, _durations, ScanOperationOutcome.Completed);
-                            }
-                        });
-                    writeTask.Wait();
+                    if (Status == ScanStatus.Scanning || Status == ScanStatus.Deleting)
+                    {
+                        Status = ScanStatus.Ready;
+                        ScanEnded?.Invoke(this, -1, _durations, ScanOperationOutcome.Completed);
+                    }
                 }
             });
         }
@@ -337,9 +268,7 @@ namespace HDDL.Scanning
                 var parentId = GetParentDirectoryId(item);
                 var fullName = item.IsFile ? item.FInfo.FullName : item.DInfo.FullName;
                 // see if the record exists
-                record = _table.Query()
-                    .Where(r => r.Path == fullName)
-                    .SingleOrDefault();
+                record = _diskItems.GetRecordByPath(fullName);
 
                 // if we found a record then we're doing an update
                 var isInsert = record == null;
@@ -402,12 +331,15 @@ namespace HDDL.Scanning
                 }
 
                 // Cache and update the lookup
-                _recordCache.Add(
-                    new DiskItemOperation()
-                    {
-                        Item = record,
-                        IsInsert = isInsert
-                    });
+                switch (isInsert)
+                {
+                    case true:
+                        _diskItems.InsertDiskItems(record);
+                        break;
+                    case false:
+                        _diskItems.UpdateDiskItems(record);
+                        break;
+                }
                 if (!record.IsFile)
                 {
                     AddRecordToLookup(record);
@@ -478,15 +410,6 @@ namespace HDDL.Scanning
         }
 
         /// <summary>
-        /// Opens the connection
-        /// </summary>
-        private void OpenConnection()
-        {
-            _db = new LiteDatabase(StoragePath);
-            _table = _db.GetCollection<DiskItem>(TableName);
-        }
-
-        /// <summary>
         /// Retrieves and deletes all items in the database with old last scanner field entries
         /// These items no longer exist
         /// </summary>
@@ -494,41 +417,13 @@ namespace HDDL.Scanning
         /// <returns>The total number of items deleted</returns>
         private int DeleteUnfoundEntries(IEnumerable<string> paths)
         {
-            var totalDeletions = 0;
-            if (Status == ScanStatus.Scanning)
+            var count = _diskItems.DeleteOldDiskItems(_scanMarker, paths);
+            if (count > 0)
             {
-                Status = ScanStatus.Deleting;
-
-                var records = _db.GetCollection<DiskItem>(TableName);
-                // get all old records (weren't updated by the most recent scan)
-                var old = records.Query()
-                    .Where(r => r.LastScanned < _scanMarker)
-                    .ToArray();
-
-                _db.BeginTrans();
-                // We want to delete all records that are under the scanned path but were not updated (are no longer present)
-                foreach (var r in old)
-                {
-                    if (PathHelper.IsWithinPaths(r.Path, paths))
-                    {
-                        try
-                        {
-                            if (records.Delete(r.Id))
-                            {
-                                totalDeletions++;
-                                ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.Delete, r.Path, r.IsFile));
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.DeleteAttempted, r.Path, r.IsFile, ex));
-                        }
-                    }
-                }
-                _db.Commit();
+                DeletionsOccurred?.Invoke(this, count);
             }
 
-            return totalDeletions;
+            return count;
         }
     }
 }

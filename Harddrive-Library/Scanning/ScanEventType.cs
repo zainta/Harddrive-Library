@@ -12,22 +12,6 @@ namespace HDDL.Scanning
     public enum ScanEventType
     {
         /// <summary>
-        /// Occurs after the records are added to the database
-        /// </summary>
-        MassAddition,
-        /// <summary>
-        /// Occurs on a successful update
-        /// </summary>
-        Update,
-        /// <summary>
-        /// Occurs on a successful delete
-        /// </summary>
-        Delete,
-        /// <summary>
-        /// Occurs when an error occurs during a delete
-        /// </summary>
-        DeleteAttempted,
-        /// <summary>
         /// Occurs when an error occurs during an add
         /// </summary>
         AddRequired,

@@ -92,11 +92,8 @@ namespace HDDL.HDSL
         private static HDSLResult Execute(ListStack<HDSLToken> tokens, string dbPath)
         {
             HDSLResult result;
-            using (var db = new LiteDatabase(dbPath))
-            {
-                var interpreter = new HDSLInterpreter(tokens, db);
-                result = interpreter.Interpret(false);
-            }
+            var interpreter = new HDSLInterpreter(tokens, new DataHandler(dbPath));
+            result = interpreter.Interpret(false);
 
             return result;
         }

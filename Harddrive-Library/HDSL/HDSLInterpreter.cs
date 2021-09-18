@@ -26,9 +26,9 @@ namespace HDDL.HDSL
         private ListStack<HDSLToken> _tokens;
 
         /// <summary>
-        /// The database
+        /// The data handler instance used for operations
         /// </summary>
-        private LiteDatabase _db;
+        private DataHandler _dh;
 
         /// <summary>
         /// The list of errors
@@ -39,11 +39,11 @@ namespace HDDL.HDSL
         /// Creates an interpreter using the provided tokenizer's tokens and the provided file database
         /// </summary>
         /// <param name="tokenizer">The tokenizer whose tokens should be consumed</param>
-        /// <param name="db">The database to use</param>
-        public HDSLInterpreter(ListStack<HDSLToken> tokens, LiteDatabase db)
+        /// <param name="dh">The data handler to use</param>
+        public HDSLInterpreter(ListStack<HDSLToken> tokens, DataHandler dh)
         {
             _tokens = new ListStack<HDSLToken>(tokens.ToList());
-            _db = db;
+            _dh = dh;
             _errors = new List<HDSLLogBase>();
         }
 
@@ -109,16 +109,6 @@ namespace HDDL.HDSL
         }
 
         #region Utility Methods
-
-        /// <summary>
-        /// Returns the DiskItemRecord table
-        /// </summary>
-        /// <returns></returns>
-        private ILiteCollection<DiskItem> GetTable()
-        {
-            var records = _db.GetCollection<DiskItem>(DiskScan.TableName);
-            return records;
-        }
 
         /// <summary>
         /// Returns a value indicating whether or not there are more tokens beyond the given minimum
@@ -188,25 +178,18 @@ namespace HDDL.HDSL
             // eat the purge
             Pop();
 
-            _db.BeginTrans();
             IEnumerable<DiskItem> targets;
             // the where clause is optional.
             // If pressent, it further filters the files selected from the path
             if (More() && Peek().Type == HDSLTokenTypes.Where)
             {
                 targets = HandleWhereClause(null);
-                var records = GetTable();
-                foreach (var r in targets)
-                {
-                    records.Delete(r.Id);
-                }
+                _dh.DeleteDiskItems(targets);
             }
             else
             {
-                GetTable().DeleteAll();
+                _dh.DeleteAllDiskItems();
             }
-
-            _db.Commit();
         }
 
         /// <summary>
@@ -280,21 +263,7 @@ namespace HDDL.HDSL
                 var results = new List<DiskItem>();
                 try
                 {
-                    //results.AddRange
-                    //    (from di in GetTable().FindAll().AsEnumerable()
-                    //     where
-                    //        targetPaths.Where(tp => di.Path.StartsWith(tp)).Any() &&
-                    //        LikeOperator.LikeString(di.ItemName, wildcardExpression, Microsoft.VisualBasic.CompareMethod.Binary)
-                    //     select di);
-
-                    //DiskItem rec = null;
-                    var indexesOf = string.Join(" or ", (from tp in targetPaths select $"indexof(Path, '{tp.Replace("\\", "\\\\")}') = 0").ToArray());
-                    var reader = _db.Execute($"select $ from {DiskScan.TableName} where {indexesOf}");
-                    results.AddRange(
-                        from rec in reader.ToList()
-                        where
-                            LikeOperator.LikeString(rec["ItemName"], wildcardExpression, Microsoft.VisualBasic.CompareMethod.Binary)
-                        select new DiskItem(rec));
+                    results.AddRange(_dh.GetFilteredDiskItemsByPath(wildcardExpression, targetPaths));
                 }
                 catch (Exception ex)
                 {

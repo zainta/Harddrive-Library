@@ -1,13 +1,11 @@
 ﻿using HDDL.HDSL;
 using HDDL.UI;
 using HDDL.IO.Parameters;
-using HDDL.IO.Disk;
 using HDDL.Scanning;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using HDDL.Data;
@@ -46,6 +44,8 @@ namespace HDSL
         private const string Page_Size_Entry = "pagesize";
         private const string Page_Index = "pageindex";
 
+        private const string Ini_File_Location = "db location.ini";
+
         private static ProgressBar _progress;
         private static bool _showProgress;
         private static bool _verbose;
@@ -54,7 +54,7 @@ namespace HDSL
 
         static void Main(string[] args)
         {
-            var manager = IniFileManager.Explore("db location.ini", true, false, false,
+            var manager = IniFileManager.Explore(Ini_File_Location, true, false, false,
                 new IniSubsection("HDSL_DB", null,
                     new IniValue("DatabaseLocation", defaultValue: "file database.db")));
 
@@ -62,7 +62,7 @@ namespace HDSL
             ph.AddRules(
                 new ParameterRuleOption("columns", true, true, "psc", "-"),
                 new ParameterRuleOption("paging", false, true, "-1:-1", "-"),
-                new ParameterRuleOption("db", false, true, manager[@"HDSL_DB>DatabaseLocation"]?.Value, " - "),
+                new ParameterRuleOption("db", false, true, manager[@"HDSL_DB>DatabaseLocation"].Value, " - "),
                 new ParameterRuleOption("scan", true, true, null, "-"),
                 new ParameterRuleOption("run", false, true, null, "-"),
                 new ParameterRuleOption("exec", false, true, null, "-"),
@@ -70,7 +70,8 @@ namespace HDSL
                     new FlagDefinition('e', true, true),
                     new FlagDefinition('p', true, false),
                     new FlagDefinition('v', true, true),
-                    new FlagDefinition('c', true, true) }, "-")
+                    new FlagDefinition('c', true, true),
+                    new FlagDefinition('s', true, false) }, "-")
                 );
             ph.Comb(args);
 
@@ -83,6 +84,14 @@ namespace HDSL
             _embellish = ph.GetFlag("e");
             _count = ph.GetFlag("c");
             var recreate = false;
+
+            // the -s flag tells the system to overwrite the ini file and update it.
+            // (this will use hte value stored in db, so if it is set by option then it will update)
+            if (ph.GetFlag("s"))
+            {
+                manager[@"HDSL_DB>DatabaseLocation"].Value = dbPath;
+                manager.WriteFile(Ini_File_Location, Ini_File_Location);
+            }
 
             // Do the scan first
             var paths = (from p in scanPaths where !string.IsNullOrWhiteSpace(p) select p).ToArray();
@@ -117,8 +126,12 @@ namespace HDSL
                 }
 
                 var scanner = new DiskScan(dbPath, paths);
-                scanner.DatabaseResetRequested += Scanner_DatabaseResetRequested;
-                scanner.InitializeDatabase(recreate);
+
+                if (recreate)
+                {
+                    Console.Write($"Resetting database...");
+                }
+                DataHandler.InitializeDatabase(dbPath, recreate);
 
                 if (recreate)
                 {
@@ -140,7 +153,8 @@ namespace HDSL
                 scanner.ScanEventOccurred += Scanner_ScanEventOccurred;
                 scanner.StatusEventOccurred += Scanner_StatusEventOccurred;
                 scanner.ScanEnded += Scanner_ScanEnded;
-                scanner.ScanInsertsCompleted += Scanner_ScanInsertsCompleted;
+                scanner.ScanDatabaseActivityCompleted += Scanner_ScanDatabaseActivityCompleted;
+                scanner.DeletionsOccurred += Scanner_DeletionsOccurred;
                 scanner.StartScan();
 
                 while (scanner.Status == ScanStatus.InitiatingScan ||
@@ -571,7 +585,7 @@ namespace HDSL
             {
                 var abbreviations = new string[] { "B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB", "XB", "SB", "DB" };
                 var degrees = 1;
-                var denomination = 1024;
+                long denomination = 1024;
                 while (value > denomination)
                 {
                     degrees++;
@@ -623,8 +637,7 @@ namespace HDSL
         {
             var itemType = evnt.IsFile ? "file" : "directory";
 
-            if (evnt.Nature == ScanEventType.DeleteAttempted ||
-                evnt.Nature == ScanEventType.KeyNotDeleted ||
+            if (evnt.Nature == ScanEventType.KeyNotDeleted ||
                 evnt.Nature == ScanEventType.UnknownError)
             {
                 // We aren't interested in these right now.  We'll implement this later.
@@ -651,24 +664,6 @@ namespace HDSL
                     Console.WriteLine($"Rediscovered {itemType} @ '{evnt.Path}'.");
                 }
             }
-            else if (evnt.Nature == ScanEventType.Update)
-            {
-                if (_showProgress)
-                {
-                    _progress.Value++;
-                }
-                else if (_verbose)
-                {
-                    Console.WriteLine($"Updated {itemType} @ '{evnt.Path}'.");
-                }
-            }
-            else if (evnt.Nature == ScanEventType.Delete)
-            {
-                if (!_showProgress && _verbose)
-                {
-                    Console.WriteLine($"Deleted entry for {itemType} @ '{evnt.Path}'.");
-                }
-            }
             else if (evnt.Nature == ScanEventType.DatabaseError)
             {
                 if (_showProgress)
@@ -682,23 +677,36 @@ namespace HDSL
             }
         }
 
-        private static void Scanner_ScanInsertsCompleted(DiskScan scanner, int additions)
+        private static void Scanner_ScanDatabaseActivityCompleted(DiskScan scanner, int additions, int updates, int deletions)
         {
             if (_showProgress)
             {
                 _progress.Value += additions;
+                _progress.Value += updates;
             }
             else if (_verbose)
             {
-                Console.WriteLine($"Successfully added {additions} records to the database.");
+                if (additions > 0)
+                {
+                    Console.WriteLine($"Successfully added {additions} records to the database.");
+                }
+                if (updates > 0)
+                {
+                    Console.WriteLine($"Successfully updated {updates} records in the database.");
+                }
+                if (deletions > 0)
+                {
+                    Console.WriteLine($"Successfully deleted {deletions} records from the database.");
+                }
             }
         }
 
-        private static void Scanner_DatabaseResetRequested(DiskScan scanner)
+        private static void Scanner_DeletionsOccurred(DiskScan scanner, int total)
         {
-            if (_verbose)
+
+            if (total > 0)
             {
-                Console.Write($"Resetting database...");
+                Console.WriteLine($"{total} Old entries were Successfully expunged from the database.");
             }
         }
 

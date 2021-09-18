@@ -57,6 +57,8 @@ HDSL supports flags to assist with its output and behavior.  Note that all flags
   * When off, no headers are shown, and columns are seperated by tabs instead of pipes.
 * c - Count Results - defaults to on
   * When on, the number of records returned by a query will be output after the queries results.
+* s - Update ini file - defaults to off
+  * When on, rewrites the ini file with the value provided for the database path.  Either the ini file value if the -db option is omitted, or the new value provided through -db.
 
 ## The Hard Drive Search Language
 HDSL is a simple query language designed for the retrieval of files and directories based on their locations and characteristics.  The system currently implements the following statements:
