@@ -1,19 +1,6 @@
-﻿// *************************************************************************************************
-// *************************************************************************************************
-//                                        List Stack Collection
-// Author: Zain Al-Ahmary
-// Initial Creation: #########
-//
-// Synopsis:
-// A List / Collection built around language development.  
-//
-// File: ListStack.cs
-//
-// Change Log:
-// #########: Initial Creation
-//
-// *************************************************************************************************
-// *************************************************************************************************
+﻿// Copyright (c) Zain Al-Ahmary.  All rights reserved.
+// Licensed under the MIT License, (the "License"); you may not use this file except in compliance with the License. 
+// You may obtain a copy of the License at https://mit-license.org/
 
 using System.Collections.Generic;
 

@@ -1,17 +1,17 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Collections;
-using System.IO;
-using HDDL.IO.Disk;
+﻿// Copyright (c) Zain Al-Ahmary.  All rights reserved.
+// Licensed under the MIT License, (the "License"); you may not use this file except in compliance with the License. 
+// You may obtain a copy of the License at https://mit-license.org/
+
 using HDDL.Data;
-using LiteDB;
-using System.Collections.Concurrent;
-using System.Threading;
-using HDDL.Collections;
+using HDDL.IO.Disk;
 using HDDL.Threading;
+using LiteDB;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace HDDL.Scanning
 {
@@ -124,9 +124,7 @@ namespace HDDL.Scanning
             _lookupTable = new ConcurrentDictionary<string, Guid>();
             _anchoredPaths = new List<string>();
             _durations = null;
-
-            var scans = from p in scanPaths select _dh.ApplyBookmarks(p);
-            startingPaths = new List<string>(scans);
+            startingPaths = new List<string>(scanPaths);
         }
 
         /// <summary>
@@ -153,6 +151,9 @@ namespace HDDL.Scanning
             {
                 _scanStart = DateTime.Now;
                 _directoryStructureScanStart = DateTime.Now;
+
+                startingPaths = (from p in startingPaths select _dh.ApplyBookmarks(p)).ToList();
+
                 info = PathHelper.GetContentsSortedByRoot(startingPaths);
             });
             Task.WhenAll(task).ContinueWith((t) =>
