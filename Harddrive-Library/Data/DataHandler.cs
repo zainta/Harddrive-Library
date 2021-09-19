@@ -19,6 +19,7 @@ namespace HDDL.Data
         /// This is the table in the database where items discovered via scan are stored
         /// </summary>
         public const string DiskItemsTableName = "DiskItems";
+        public const string BookmarksTableName = "Bookmarks";
 
         /// <summary>
         /// The connection string to the database
@@ -26,9 +27,19 @@ namespace HDDL.Data
         private string _connectionString;
 
         /// <summary>
+        /// The bookmark cache
+        /// </summary>
+        private List<BookmarkItem> _bookmarkCache;
+
+        /// <summary>
         /// Stores pending database actions for DiskItems
         /// </summary>
-        private RecordActionContainer<DiskItem> _diskItems { get; set; }
+        private RecordActionContainer<DiskItem> _diskItems;
+
+        /// <summary>
+        /// Stores pending database actions for Bookmarks
+        /// </summary>
+        private RecordActionContainer<BookmarkItem> _bookmarks;
 
         /// <summary>
         /// The current database connection
@@ -43,6 +54,8 @@ namespace HDDL.Data
         {
             _connectionString = connectionString;
             _diskItems = new RecordActionContainer<DiskItem>();
+            _bookmarks = new RecordActionContainer<BookmarkItem>();
+            _bookmarkCache = null;
         }
 
         /// <summary>
@@ -57,16 +70,183 @@ namespace HDDL.Data
             {
                 if (recreate && File.Exists(connectionString))
                 {
-                    var records = db.GetCollection<DiskItem>(DiskItemsTableName);
+                    db.GetCollection<DiskItem>(DiskItemsTableName);
+                    db.GetCollection<DiskItem>(BookmarksTableName);
+
                     db.DropCollection(DiskItemsTableName);
                 }
                 else
                 {
                     // Forces the creation of the table
-                    var records = db.GetCollection<DiskItem>(DiskItemsTableName);
+                    db.GetCollection<DiskItem>(DiskItemsTableName);
+                    db.GetCollection<DiskItem>(BookmarksTableName);
                 }
             }
         }
+
+        #region Bookmark Related
+
+        /// <summary>
+        /// Replaces bookmarks with their values
+        /// </summary>
+        /// <param name="text">The text to look over</param>
+        /// <param name="markType">The type of bookmark to apply</param>
+        /// <returns>Return the result</returns>
+        public string ApplyBookmarks(string text)
+        {
+            foreach (var bm in GetBookmarks())
+            {
+                text = text.Replace($"[{bm.ItemName}]", bm.Target);
+            }
+
+            return text;
+        }
+
+        /// <summary>
+        /// Retrieves and returns the bookmarks
+        /// </summary>
+        /// <returns></returns>
+        public List<BookmarkItem> GetBookmarks()
+        {
+            if (_bookmarkCache == null)
+            {
+                var bmTable = EnsureConnection().GetCollection<BookmarkItem>(BookmarksTableName);
+                _bookmarkCache = bmTable.Query().ToList();
+            }
+
+            return _bookmarkCache;
+        }
+
+        /// <summary>
+        /// Queues the records for transactionary insertion
+        /// </summary>
+        /// <param name="items">The records to be added</param>
+        /// <returns></returns>
+        public void InsertBookmarks(params BookmarkItem[] items)
+        {
+            foreach (var item in items)
+            {
+                _bookmarks.Inserts.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Queues the records for transactionary insertion
+        /// </summary>
+        /// <param name="items">The records to be added</param>
+        /// <returns></returns>
+        public void InsertBookmarks(IEnumerable<BookmarkItem> items)
+        {
+            foreach (var item in items)
+            {
+                _bookmarks.Inserts.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Queues the records for the transactionary update
+        /// </summary>
+        /// <param name="items">The records to be updated</param>
+        public void UpdateBookmarks(params BookmarkItem[] items)
+        {
+            foreach (var item in items)
+            {
+                _bookmarks.Updates.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Queues the records for the transactionary update
+        /// </summary>
+        /// <param name="items">The records to be updated</param>
+        public void UpdateBookmarks(IEnumerable<BookmarkItem> items)
+        {
+            foreach (var item in items)
+            {
+                _bookmarks.Updates.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Queues the records for the transactionary deletion
+        /// </summary>
+        /// <param name="items"></param>
+        public void DeleteBookmarks(params BookmarkItem[] items)
+        {
+            foreach (var item in items)
+            {
+                _bookmarks.Deletions.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Queues the records for the transactionary deletion
+        /// </summary>
+        /// <param name="items"></param>
+        public void DeleteBookmarks(IEnumerable<BookmarkItem> items)
+        {
+            foreach (var item in items)
+            {
+                _bookmarks.Deletions.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Delets all Disk Items in the database
+        /// </summary>
+        public void ClearBookmarks()
+        {
+            var diTable = EnsureConnection().GetCollection<DiskItem>(BookmarksTableName);
+            diTable.DeleteAll();
+        }
+
+        /// <summary>
+        /// Performs a transactionary database execution of all pending inserts, updates, and deletes
+        /// </summary>
+        /// <returns>A tuple in the format total [inserts, updates, deletes]</returns>
+        public Tuple<int, int, int> WriteBookmarks()
+        {
+            int inserts = 0, updates = 0, deletes = 0;
+            if (_bookmarks.HasWork)
+            {
+                EnsureConnection().BeginTrans();
+                var bmTable = _db.GetCollection<BookmarkItem>(BookmarksTableName);
+
+                if (_bookmarks.Inserts.Count > 0)
+                {
+                    inserts = bmTable.InsertBulk(_bookmarks.Inserts);
+                    _bookmarks.Inserts.Clear();
+                }
+
+                if (_bookmarks.Updates.Count > 0)
+                {
+                    foreach (var upd in _bookmarks.Updates)
+                    {
+                        if (bmTable.Update(upd))
+                        {
+                            updates++;
+                        }
+                    }
+                    _bookmarks.Updates.Clear();
+                }
+
+                if (_bookmarks.Deletions.Count > 0)
+                {
+                    deletes = bmTable.DeleteMany(x => _bookmarks.Deletions.Where(r => r.Id == x.Id).Any());
+                    _bookmarks.Deletions.Clear();
+                }
+                _db.Commit();
+            }
+
+            if (inserts > 0 || updates > 0 || deletes > 0)
+            {
+                _bookmarkCache = null;
+            }
+
+            return new Tuple<int, int, int>(inserts, updates, deletes);
+        }
+
+        #endregion
 
         #region DiskItem Related
 
@@ -224,7 +404,7 @@ namespace HDDL.Data
         }
 
         /// <summary>
-        /// Performs a transactionary database execution of all pending inserts and updates
+        /// Performs a transactionary database execution of all pending inserts, updates, and deletes
         /// </summary>
         /// <returns>A tuple in the format total [inserts, updates, deletes]</returns>
         public Tuple<int, int, int> WriteDiskItems()
@@ -238,6 +418,7 @@ namespace HDDL.Data
                 if (_diskItems.Inserts.Count > 0)
                 {
                     inserts = diTable.InsertBulk(_diskItems.Inserts);
+                    _diskItems.Inserts.Clear();
                 }
 
                 if (_diskItems.Updates.Count > 0)
@@ -249,17 +430,21 @@ namespace HDDL.Data
                             updates++;
                         }
                     }
+                    _diskItems.Updates.Clear();
                 }
 
                 if (_diskItems.Deletions.Count > 0)
                 {
                     deletes = diTable.DeleteMany(x => _diskItems.Deletions.Where(r => r.Id == x.Id).Any());
+                    _diskItems.Deletions.Clear();
                 }
                 _db.Commit();
             }
 
             return new Tuple<int, int, int>(inserts, updates, deletes);
         }
+
+        #endregion
 
         /// <summary>
         /// Ensures that _db contains a database
@@ -282,7 +467,5 @@ namespace HDDL.Data
                 _db = null;
             }
         }
-
-        #endregion
     }
 }

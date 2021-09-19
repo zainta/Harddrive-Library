@@ -103,8 +103,11 @@ namespace HDDL.HDSL
                 }
                 else
                 {
-                    Outcome.Add(new HDSLLogBase(col, row, $"Unknown character '{Peek()}'."));
-                    break;
+                    if (More())
+                    {
+                        Outcome.Add(new HDSLLogBase(col, row, $"Unknown character '{Peek()}'."));
+                        break;
+                    }
                 }
             }
 

@@ -12,6 +12,7 @@ using HDDL.Data;
 using System.IO;
 using LiteDB;
 using HDDL.HDSL.Where;
+using System.Text.RegularExpressions;
 
 namespace HDDL.HDSL
 {
@@ -65,6 +66,9 @@ namespace HDDL.HDSL
                 {
                     switch (Peek().Type)
                     {
+                        case HDSLTokenTypes.BookmarkReference:
+                            HandleBookmarkDefinitionStatement();
+                            break;
                         case HDSLTokenTypes.Purge:
                             HandlePurgeStatement();
                             break;
@@ -165,10 +169,96 @@ namespace HDDL.HDSL
         #region Statement Handlers
 
         /// <summary>
+        /// Handles the interpretation of a bookmark definition statement
+        /// 
+        /// Purpose:
+        /// Bookmarks cannot be used until they have been defined
+        /// 
+        /// Syntax:
+        /// bookmark = path / full file path / path:wildcard pair;
+        /// 
+        /// Examples:
+        /// [homeDir] = 'C:\Users\SWDev';
+        /// [homeDirPng] = 'C:\Users\SWDev:*.png';
+        /// [homeDirFavImg] = 'C:\Users\SWDev\fav.png';
+        /// </summary>
+        private void HandleBookmarkDefinitionStatement()
+        {
+            if (More() && Peek().Type == HDSLTokenTypes.BookmarkReference)
+            {
+                var markName = Pop().Literal;
+                if (More() && Peek().Type == HDSLTokenTypes.Equal)
+                {
+                    Pop();
+                    if (More() && Peek().Type == HDSLTokenTypes.String)
+                    {
+                        var markValueToken = Pop();
+                        var markValue = markValueToken.Literal;
+                        var bm = new BookmarkItem()
+                        {
+                            Id = Guid.NewGuid(),
+                            ItemName = markName
+                        };
+
+                        // determine what type of bookmark was defined
+                        if (markValue.Where(c => c == ':').Count() == 1)
+                        {
+                            try
+                            {
+                                if (Directory.Exists(markValue))
+                                {
+                                    bm.Target = markValue;
+                                }
+                                else
+                                {
+                                    _errors.Add(new HDSLLogBase(markValueToken.Column, markValueToken.Row, $"Full file or directory path expected."));
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _errors.Add(new HDSLLogBase(markValueToken.Column, markValueToken.Row, $"Valid full file or directory path expected."));
+                            }
+                        }
+                        else
+                        {
+                            _errors.Add(new HDSLLogBase(markValueToken.Column, markValueToken.Row, $"Valid full file or directory path expected."));
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(bm.Target))
+                        {
+                            if (!_dh.GetBookmarks().Where(b => b.ItemName == bm.ItemName).Any())
+                            {
+                                _dh.InsertBookmarks(bm);
+                                _dh.WriteBookmarks();
+                            }
+                            else
+                            {
+                                _dh.UpdateBookmarks(bm);
+                                _dh.WriteBookmarks();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"String expected."));
+                    }
+                }
+                else
+                {
+                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'=' expected."));
+                }
+            }
+            else
+            {
+                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Bookmark expected."));
+            }
+        }
+
+        /// <summary>
         /// Handles interpretation of a purge statement
         /// 
         /// Purpose:
-        /// A purge statement removes entries from the database
+        /// A purge statement removes entries from the database (it does not delete actual files)
         /// 
         /// Syntax:
         /// purge [where clause];
@@ -223,15 +313,22 @@ namespace HDDL.HDSL
                 {
                     Pop();
                     // get the list of paths
-                    while (More() && Peek().Type == HDSLTokenTypes.String)
+                    while (More() && Peek().Type == HDSLTokenTypes.String || Peek().Type == HDSLTokenTypes.BookmarkReference)
                     {
-                        targetPaths.Add(Pop().Literal);
+                        if (Peek().Type == HDSLTokenTypes.BookmarkReference)
+                        {
+                            targetPaths.Add(_dh.ApplyBookmarks(Pop().Code));
+                        }
+                        else
+                        {
+                            targetPaths.Add(Pop().Literal);
+                        }
 
-                        // check if we have at least 2 more tokens remaining, one is a comma and the next is a string
+                        // check if we have at least 2 more tokens remaining, one is a comma and the next is a string or bookmark
                         // if so, then this is a list
                         if (More(2) &&
                             Peek().Type == HDSLTokenTypes.Comma &&
-                            Peek(1).Type == HDSLTokenTypes.String)
+                            (Peek(1).Type == HDSLTokenTypes.String || Peek(1).Type == HDSLTokenTypes.BookmarkReference))
                         {
                             // strip the comma so the loop continues
                             Pop();

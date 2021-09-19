@@ -13,13 +13,8 @@ namespace HDDL.Data
     /// Represents a disk item record (file or directory)
     /// </summary>
     [Table("DiskItem", Schema = "main")]
-    public class DiskItem
+    public class DiskItem : BsonHDDLRecordBase
     {
-        /// <summary>
-        /// The unique identified
-        /// </summary>
-        public Guid Id { get; set; }
-
         /// <summary>
         /// Indicates the containing directory.
         /// Only applies to files.
@@ -82,24 +77,19 @@ namespace HDDL.Data
         public DateTime CreationDate { get; set; }
 
         /// <summary>
-        /// Default constructor
-        /// </summary>
-        public DiskItem()
-        {
-
-        }
-
-        /// <summary>
         /// Creates an instance from the current record in the data reader
         /// </summary>
         /// <param name="record"></param>
-        public DiskItem(BsonValue record)
+        public DiskItem(BsonValue record) : base(record)
         {
-            // Use reflection to copy the values over
-            foreach (var prop in GetType().GetProperties())
-            {
-                prop.SetValue(this, record[prop.Name == "Id" ? "_id" : prop.Name].RawValue);
-            }
+        }
+
+        /// <summary>
+        /// Default constructor
+        /// </summary>
+        public DiskItem() : base()
+        {
+
         }
 
         public override string ToString()

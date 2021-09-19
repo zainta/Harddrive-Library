@@ -71,9 +71,9 @@ namespace HDDL.Scanning
         private DateTime _scanMarker;
 
         /// <summary>
-        /// Handles all DiskItem reads and writes
+        /// Handles all data reads and writes
         /// </summary>
-        private DataHandler _diskItems;
+        private DataHandler _dh;
 
         /// <summary>
         /// Used to cache directory ids for quick lookups
@@ -118,13 +118,15 @@ namespace HDDL.Scanning
         /// <param name="scanPaths">The paths to start scans from</param>
         public DiskScan(string dbPath, params string[] scanPaths)
         {
-            startingPaths = new List<string>(scanPaths);
             _scanMarker = DateTime.Now;
-            _diskItems = new DataHandler(dbPath);
+            _dh = new DataHandler(dbPath);
             scanningTasks = new List<Task>();
             _lookupTable = new ConcurrentDictionary<string, Guid>();
             _anchoredPaths = new List<string>();
             _durations = null;
+
+            var scans = from p in scanPaths select _dh.ApplyBookmarks(p);
+            startingPaths = new List<string>(scans);
         }
 
         /// <summary>
@@ -227,7 +229,7 @@ namespace HDDL.Scanning
                     _databaseWriteStart = DateTime.Now;
 
                     // Mass insert the new records
-                    var outcomes = _diskItems.WriteDiskItems();
+                    var outcomes = _dh.WriteDiskItems();
                     _durations.DatabaseWriteDuration = DateTime.Now.Subtract(_databaseWriteStart);
                     ScanDatabaseActivityCompleted?.Invoke(this, outcomes.Item1, outcomes.Item2, outcomes.Item3);
 
@@ -268,7 +270,7 @@ namespace HDDL.Scanning
                 var parentId = GetParentDirectoryId(item);
                 var fullName = item.IsFile ? item.FInfo.FullName : item.DInfo.FullName;
                 // see if the record exists
-                record = _diskItems.GetRecordByPath(fullName);
+                record = _dh.GetRecordByPath(fullName);
 
                 // if we found a record then we're doing an update
                 var isInsert = record == null;
@@ -334,10 +336,10 @@ namespace HDDL.Scanning
                 switch (isInsert)
                 {
                     case true:
-                        _diskItems.InsertDiskItems(record);
+                        _dh.InsertDiskItems(record);
                         break;
                     case false:
-                        _diskItems.UpdateDiskItems(record);
+                        _dh.UpdateDiskItems(record);
                         break;
                 }
                 if (!record.IsFile)
@@ -417,7 +419,7 @@ namespace HDDL.Scanning
         /// <returns>The total number of items deleted</returns>
         private int DeleteUnfoundEntries(IEnumerable<string> paths)
         {
-            var count = _diskItems.DeleteOldDiskItems(_scanMarker, paths);
+            var count = _dh.DeleteOldDiskItems(_scanMarker, paths);
             if (count > 0)
             {
                 DeletionsOccurred?.Invoke(this, count);

@@ -66,3 +66,6 @@ HDSL is a simple query language designed for the retrieval of files and director
    * Retrieves the items that match the query and displays them.
  * `purge [where clause];`
    * Removes matching entries from the current database.
+ * `[Bookmark] = '<absolute directory path string>'
+   * Creates a bookmark reference.
+   * Bookmarks can be substituted for scan and find location.
