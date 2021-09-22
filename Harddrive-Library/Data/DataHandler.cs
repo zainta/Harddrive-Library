@@ -123,20 +123,7 @@ namespace HDDL.Data
         /// </summary>
         /// <param name="items">The records to be added</param>
         /// <returns></returns>
-        public void InsertBookmarks(params BookmarkItem[] items)
-        {
-            foreach (var item in items)
-            {
-                _bookmarks.Inserts.Add(item);
-            }
-        }
-
-        /// <summary>
-        /// Queues the records for transactionary insertion
-        /// </summary>
-        /// <param name="items">The records to be added</param>
-        /// <returns></returns>
-        public void InsertBookmarks(IEnumerable<BookmarkItem> items)
+        public void Insert(params BookmarkItem[] items)
         {
             foreach (var item in items)
             {
@@ -148,19 +135,7 @@ namespace HDDL.Data
         /// Queues the records for the transactionary update
         /// </summary>
         /// <param name="items">The records to be updated</param>
-        public void UpdateBookmarks(params BookmarkItem[] items)
-        {
-            foreach (var item in items)
-            {
-                _bookmarks.Updates.Add(item);
-            }
-        }
-
-        /// <summary>
-        /// Queues the records for the transactionary update
-        /// </summary>
-        /// <param name="items">The records to be updated</param>
-        public void UpdateBookmarks(IEnumerable<BookmarkItem> items)
+        public void Update(params BookmarkItem[] items)
         {
             foreach (var item in items)
             {
@@ -172,7 +147,7 @@ namespace HDDL.Data
         /// Queues the records for the transactionary deletion
         /// </summary>
         /// <param name="items"></param>
-        public void DeleteBookmarks(params BookmarkItem[] items)
+        public void Delete(params BookmarkItem[] items)
         {
             foreach (var item in items)
             {
@@ -181,24 +156,17 @@ namespace HDDL.Data
         }
 
         /// <summary>
-        /// Queues the records for the transactionary deletion
+        /// Delets all Bookmark Items in the database
         /// </summary>
-        /// <param name="items"></param>
-        public void DeleteBookmarks(IEnumerable<BookmarkItem> items)
+        public int ClearBookmarks()
         {
-            foreach (var item in items)
-            {
-                _bookmarks.Deletions.Add(item);
-            }
-        }
+            var count = 0;
+            var bmTable = EnsureConnection().GetCollection<BookmarkItem>(BookmarksTableName);
 
-        /// <summary>
-        /// Delets all Disk Items in the database
-        /// </summary>
-        public void ClearBookmarks()
-        {
-            var diTable = EnsureConnection().GetCollection<DiskItem>(BookmarksTableName);
-            diTable.DeleteAll();
+            // delete all old records (weren't updated by the most recent scan)
+            count = bmTable.DeleteAll();
+
+            return count;
         }
 
         /// <summary>
@@ -276,7 +244,7 @@ namespace HDDL.Data
         /// </summary>
         /// <param name="path">The path to search for</param>
         /// <returns>The DiskItem if found, null otherwise</returns>
-        public DiskItem GetRecordByPath(string path)
+        public DiskItem GetDiskItemByPath(string path)
         {
             DiskItem result = null;
             var diTable = EnsureConnection().GetCollection<DiskItem>(DiskItemsTableName);
@@ -307,10 +275,47 @@ namespace HDDL.Data
         }
 
         /// <summary>
+        /// Queues the records for transactionary insertion
+        /// </summary>
+        /// <param name="items">The records to be added</param>
+        /// <returns></returns>
+        public void Insert(params DiskItem[] items)
+        {
+            foreach (var item in items)
+            {
+                _diskItems.Inserts.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Queues the records for the transactionary update
+        /// </summary>
+        /// <param name="items">The records to be updated</param>
+        public void Update(params DiskItem[] items)
+        {
+            foreach (var item in items)
+            {
+                _diskItems.Updates.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Queues the records for the transactionary deletion
+        /// </summary>
+        /// <param name="items"></param>
+        public void Delete(params DiskItem[] items)
+        {
+            foreach (var item in items)
+            {
+                _diskItems.Deletions.Add(item);
+            }
+        }
+
+        /// <summary>
         /// Deletes all records
         /// </summary>
         /// <returns>The number of records deleted</returns>
-        public int DeleteAllDiskItems()
+        public int ClearDiskItems()
         {
             var count = 0;
             var diTable = EnsureConnection().GetCollection<DiskItem>(DiskItemsTableName);
@@ -319,89 +324,6 @@ namespace HDDL.Data
             count = diTable.DeleteAll();
 
             return count;
-        }
-
-        /// <summary>
-        /// Queues the records for transactionary insertion
-        /// </summary>
-        /// <param name="items">The records to be added</param>
-        /// <returns></returns>
-        public void InsertDiskItems(params DiskItem[] items)
-        {
-            foreach (var item in items)
-            {
-                _diskItems.Inserts.Add(item);
-            }
-        }
-
-        /// <summary>
-        /// Queues the records for transactionary insertion
-        /// </summary>
-        /// <param name="items">The records to be added</param>
-        /// <returns></returns>
-        public void InsertDiskItems(IEnumerable<DiskItem> items)
-        {
-            foreach (var item in items)
-            {
-                _diskItems.Inserts.Add(item);
-            }
-        }
-
-        /// <summary>
-        /// Queues the records for the transactionary update
-        /// </summary>
-        /// <param name="items">The records to be updated</param>
-        public void UpdateDiskItems(params DiskItem[] items)
-        {
-            foreach (var item in items)
-            {
-                _diskItems.Updates.Add(item);
-            }
-        }
-
-        /// <summary>
-        /// Queues the records for the transactionary update
-        /// </summary>
-        /// <param name="items">The records to be updated</param>
-        public void UpdateDiskItems(IEnumerable<DiskItem> items)
-        {
-            foreach (var item in items)
-            {
-                _diskItems.Updates.Add(item);
-            }
-        }
-
-        /// <summary>
-        /// Queues the records for the transactionary deletion
-        /// </summary>
-        /// <param name="items"></param>
-        public void DeleteDiskItems(params DiskItem[] items)
-        {
-            foreach (var item in items)
-            {
-                _diskItems.Deletions.Add(item);
-            }
-        }
-
-        /// <summary>
-        /// Queues the records for the transactionary deletion
-        /// </summary>
-        /// <param name="items"></param>
-        public void DeleteDiskItems(IEnumerable<DiskItem> items)
-        {
-            foreach (var item in items)
-            {
-                _diskItems.Deletions.Add(item);
-            }
-        }
-
-        /// <summary>
-        /// Delets all Disk Items in the database
-        /// </summary>
-        public void ClearDiskItems()
-        {
-            var diTable = EnsureConnection().GetCollection<DiskItem>(DiskItemsTableName);
-            diTable.DeleteAll();
         }
 
         /// <summary>

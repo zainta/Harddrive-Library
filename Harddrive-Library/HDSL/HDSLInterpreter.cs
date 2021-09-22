@@ -207,10 +207,15 @@ namespace HDDL.HDSL
         /// <returns>The DiskItems directly inside of them</returns>
         //private DiskItem[] GetPathsIn(IEnumerable<string> paths, IEnumerable<DiskItem> items = null)
         //{
-        //    var uniques = paths.Where(p => PathHelper.IsWithinPaths(query, paths));
-        //    if (items == null)
+        //    //if (items == null)
+        //    //{
+        //    //    items = _dh.GetFilteredDiskItemsByPath("*.*", paths);
+        //    //}
+
+        //    var targets = new List<DiskItem>();
+        //    foreach (var path in paths)
         //    {
-        //        items = _dh.GetFilteredDiskItemsByPath("*.*", uniques);
+        //        targets.Add(_dh.GetRecordByPath)
         //    }
         //}
 
@@ -355,12 +360,12 @@ namespace HDDL.HDSL
                         {
                             if (!_dh.GetBookmarks().Where(b => b.ItemName == bm.ItemName).Any())
                             {
-                                _dh.InsertBookmarks(bm);
+                                _dh.Insert(bm);
                                 _dh.WriteBookmarks();
                             }
                             else
                             {
-                                _dh.UpdateBookmarks(bm);
+                                _dh.Update(bm);
                                 _dh.WriteBookmarks();
                             }
                         }
@@ -401,11 +406,11 @@ namespace HDDL.HDSL
             if (More() && Peek().Type == HDSLTokenTypes.Where)
             {
                 targets = HandleWhereClause(null);
-                _dh.DeleteDiskItems(targets);
+                _dh.Delete(targets.ToArray());
             }
             else
             {
-                _dh.DeleteAllDiskItems();
+                _dh.ClearDiskItems();
             }
         }
 

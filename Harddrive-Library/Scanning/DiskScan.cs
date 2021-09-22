@@ -306,7 +306,7 @@ namespace HDDL.Scanning
                 var parentId = GetParentDirectoryId(item);
                 var fullName = item.IsFile ? item.FInfo.FullName : item.DInfo.FullName;
                 // see if the record exists
-                record = _dh.GetRecordByPath(fullName);
+                record = _dh.GetDiskItemByPath(fullName);
 
                 // if we found a record then we're doing an update
                 var isInsert = record == null;
@@ -372,10 +372,10 @@ namespace HDDL.Scanning
                 switch (isInsert)
                 {
                     case true:
-                        _dh.InsertDiskItems(record);
+                        _dh.Insert(record);
                         break;
                     case false:
-                        _dh.UpdateDiskItems(record);
+                        _dh.Update(record);
                         break;
                 }
                 if (!record.IsFile)
