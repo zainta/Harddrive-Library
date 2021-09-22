@@ -70,4 +70,4 @@ HDSL is a simple query language designed for the retrieval of files and director
    * Creates a bookmark reference.
    * Bookmarks can be substituted for scan and find location.
  * `scan [spinner|progress|text|quiet - defaults to text] [path[, path, path]];`
-   * Performs a disk item scan with the requested display mode on the provided paths  
+   * Performs a disk item scan with the requested display mode on the provided paths.  
