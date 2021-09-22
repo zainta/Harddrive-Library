@@ -32,6 +32,15 @@ namespace HDDL.HDSL
         Purge,
         Within,
         Where,
+        Sort,
+        By,
+        Under,
+        Scan,
+        Check,
+        SpinnerMode,
+        ProgressMode,
+        TextMode,
+        QuietMode,
 
         // * attribute keywords
         Size,

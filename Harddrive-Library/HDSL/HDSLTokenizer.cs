@@ -261,6 +261,15 @@ namespace HDDL.HDSL
                             encoded.Append(Pop());
                             encoded.Append(Pop());
                         }
+                        else if (More(1) && Peek(1) == escape.Value)
+                        {
+                            // if this is an escaped escape character then we have to copy it over
+                            // and remove the escape
+                            Pop();
+
+                            literal.Append(Peek());
+                            encoded.Append(Pop());
+                        }
                         else
                         { 
                             // no
@@ -514,6 +523,42 @@ namespace HDDL.HDSL
                 else if (text == "or")
                 {
                     token = new HDSLToken(HDSLTokenTypes.Or, keyword.ToString(), row, col, text);
+                }
+                else if (text == "sort")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Sort, keyword.ToString(), row, col, text);
+                }
+                else if (text == "by")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.By, keyword.ToString(), row, col, text);
+                }
+                else if (text == "under")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Under, keyword.ToString(), row, col, text);
+                }
+                else if (text == "scan")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Scan, keyword.ToString(), row, col, text);
+                }
+                else if (text == "check")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Check, keyword.ToString(), row, col, text);
+                }
+                else if (text == "quiet")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.QuietMode, keyword.ToString(), row, col, text);
+                }
+                else if (text == "spinner")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.SpinnerMode, keyword.ToString(), row, col, text);
+                }
+                else if (text == "text")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.TextMode, keyword.ToString(), row, col, text);
+                }
+                else if (text == "progress")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.ProgressMode, keyword.ToString(), row, col, text);
                 }
                 else
                 {

@@ -35,6 +35,12 @@ The command utility supports the following parameters:
 * hdsl -paging: `<a paging string in the form [n]:[n]>`, where n is a non-negative integer.
   * The first value is the page index.  If omitted, all pages are displayed.
   * The second value is the number of rows per page.  If omitted, defaults to 32.
+* hdsl -dm: p/s/t/q
+  * Sets the display mode for any scans performed.  SUpports the following parameters:
+    * p - displays a progress bar representing scan progress.
+    * s - displays a spinner to assure the user that the application is running.
+    * t - outputs running textual log of activities.
+    * q - executes without producing any output.
 
 Parameters are always handled in the following order:
 * -db
@@ -46,12 +52,6 @@ This allows a scan to be performed immediately followed by a script execution.
 
 ### Flags 
 HDSL supports flags to assist with its output and behavior.  Note that all flags are toggles; if they default to true, setting them will set them to false.  Unless otherwise noted, all flags are nestable, i.e -hdsl, where h, d, s, and l are each seperate flags.
-* p - Progress Bar - defaults to off
-  * When on, causes scans to display progress bars indicating overall scan progression.  
-  * Mutually exclusive with v
-* v - Verbose - defaults to on
-  * When on, causes scans to output full paths as they are scanned to the console.  
-  * Mutually exclusive with p
 * e - Embellish - defaults to on
   * When on, query results display column names for all represented columns immediately and at the top of each page.
   * When off, no headers are shown, and columns are seperated by tabs instead of pipes.
@@ -69,3 +69,4 @@ HDSL is a simple query language designed for the retrieval of files and director
  * `[Bookmark] = '<absolute directory path string>'
    * Creates a bookmark reference.
    * Bookmarks can be substituted for scan and find location.
+  * `scan [spinner|progress|text|quiet - defaults to text] [path[, path, path]]`

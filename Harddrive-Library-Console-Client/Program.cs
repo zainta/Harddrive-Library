@@ -50,9 +50,6 @@ namespace HDSL
 
         private const string Ini_File_Location = "db location.ini";
 
-        private static ProgressBar _progress;
-        private static bool _showProgress;
-        private static bool _verbose;
         private static bool _embellish;
         private static bool _count;
 
@@ -70,24 +67,38 @@ namespace HDSL
                 new ParameterRuleOption("scan", true, true, null, "-"),
                 new ParameterRuleOption("run", false, true, null, "-"),
                 new ParameterRuleOption("exec", false, true, null, "-"),
+                new ParameterRuleOption("dm", false, true, "t", "-"),
                 new ParameterRuleFlag(new FlagDefinition[] {
                     new FlagDefinition('e', true, true),
-                    new FlagDefinition('p', true, false),
-                    new FlagDefinition('v', true, true),
                     new FlagDefinition('c', true, true),
                     new FlagDefinition('s', true, false) }, "-")
                 );
             ph.Comb(args);
 
             var dbPath = ph.GetParam("db");
-            var scanPaths = ph.GetAllParam("scan");
+            var scanPaths = ph.GetAllParam("scan").Where(p => !string.IsNullOrWhiteSpace(p)).ToArray();
             var runScript = ph.GetParam("run");
             var executeFile = ph.GetParam("exec");
-            _showProgress = ph.GetFlag("p");
-            _verbose = ph.GetFlag("v");
             _embellish = ph.GetFlag("e");
             _count = ph.GetFlag("c");
-            var recreate = false;
+
+            DiskScanEventWrapperDisplayModes displayMode;
+            switch (ph.GetParam("dm"))
+            {
+                case "p":
+                    displayMode = DiskScanEventWrapperDisplayModes.ProgressBar;
+                    break;
+                case "s":
+                    displayMode = DiskScanEventWrapperDisplayModes.Spinner;
+                    break;
+                default:
+                case "t":
+                    displayMode = DiskScanEventWrapperDisplayModes.Text;
+                    break;
+                case "q":
+                    displayMode = DiskScanEventWrapperDisplayModes.Displayless;
+                    break;
+            }
 
             // the -s flag tells the system to overwrite the ini file and update it.
             // (this will use hte value stored in db, so if it is set by option then it will update)
@@ -97,84 +108,10 @@ namespace HDSL
                 manager.WriteFile(Ini_File_Location, Ini_File_Location);
             }
 
-            // Do the scan first
-            var paths = (from p in scanPaths where !string.IsNullOrWhiteSpace(p) select p).ToArray();
-            if (paths.Length > 0)
+            if (scanPaths.Length > 0)
             {
-                if (File.Exists(dbPath))
-                {
-                    // If the file exists, the scan will be significantly slower.
-                    // Ask the user if they would like to recreate the database, rather than update it.
-                    Console.Write($"Database '{dbPath}' already exists.  This will significantly slow the operation.\nWould you like to recreate the database? (y/n/c): ");
-                    ConsoleKeyInfo k;
-                    do
-                    {
-                        k = Console.ReadKey();
-                    } while (
-                        char.ToLower(k.KeyChar) != 'y' &&
-                        char.ToLower(k.KeyChar) != 'n' &&
-                        char.ToLower(k.KeyChar) != 'c');
-                    if (char.ToLower(k.KeyChar) == 'c')
-                    {
-                        Environment.Exit(0);
-                    }
-                    else if (char.ToLower(k.KeyChar) == 'y')
-                    {
-                        recreate = true;
-                    }
-                    else if (char.ToLower(k.KeyChar) == 'n')
-                    {
-                        recreate = false;
-                    }
-                    Console.WriteLine();
-                }
-
-                var scanner = new DiskScan(dbPath, paths);
-
-                if (recreate)
-                {
-                    Console.Write($"Resetting database...");
-                }
-                DataHandler.InitializeDatabase(dbPath, recreate);
-
-                if (recreate)
-                {
-                    Console.WriteLine("Done.");
-                }
-                if (_showProgress)
-                {
-                    Console.Write($"Performing scans on '{string.Join("\', \'", paths)}\': ");
-                }
-                else if (_verbose)
-                {
-                    Console.WriteLine($"Performing scans on '{string.Join("\', \'", paths)}\'... ");
-                }
-
-                if (_showProgress)
-                {
-                    scanner.ScanStarted += Scanner_ScanStarted;
-                }
-                scanner.ScanEventOccurred += Scanner_ScanEventOccurred;
-                scanner.StatusEventOccurred += Scanner_StatusEventOccurred;
-                scanner.ScanEnded += Scanner_ScanEnded;
-                scanner.ScanDatabaseActivityCompleted += Scanner_ScanDatabaseActivityCompleted;
-                scanner.DeletionsOccurred += Scanner_DeletionsOccurred;
-                scanner.StartScan();
-
-                while (scanner.Status == ScanStatus.InitiatingScan ||
-                    scanner.Status == ScanStatus.Scanning ||
-                    scanner.Status == ScanStatus.Deleting)
-                {
-                    if (scanner.Status == ScanStatus.Scanning)
-                    {
-                        if (_showProgress)
-                        {
-                            _progress.Display();
-                        }
-                    }
-
-                    System.Threading.Thread.Sleep(100);
-                }
+                var scanWrapper = new DiskScanEventWrapper(dbPath, scanPaths, true, displayMode);
+                scanWrapper.Go();
             }
 
             // Execute a line of code
@@ -608,112 +545,6 @@ namespace HDSL
             }
         }
 
-        #endregion
-
-        #region Events
-
-        private static void Scanner_ScanStarted(DiskScan scanner, int directoryCount, int fileCount)
-        {
-            _progress = new ProgressBar(-1, -1, 60, 0, 0, (fileCount + directoryCount) * 2);
-        }
-
-        private static void Scanner_StatusEventOccurred(DiskScan scanner, ScanStatus newStatus, ScanStatus oldStatus)
-        {
-            if (oldStatus == ScanStatus.Scanning)
-            {
-
-            }
-        }
-
-        private static void Scanner_ScanEnded(DiskScan scanner, int totalDeleted, Timings elapsed, ScanOperationOutcome outcome)
-        {
-            if (_showProgress)
-            {
-                Console.WriteLine($"-- Done! {new String(' ', _progress.Width - 7)}");
-            }
-            else if (_verbose)
-            {
-                Console.WriteLine(string.Format("Done -- Total time: {0}", elapsed.GetScanDuration()));
-            }
-        }
-
-        private static void Scanner_ScanEventOccurred(DiskScan scanner, ScanEvent evnt)
-        {
-            var itemType = evnt.IsFile ? "file" : "directory";
-
-            if (evnt.Nature == ScanEventType.KeyNotDeleted ||
-                evnt.Nature == ScanEventType.UnknownError)
-            {
-                // We aren't interested in these right now.  We'll implement this later.
-            }
-            else if (evnt.Nature == ScanEventType.AddRequired)
-            {
-                if (_showProgress)
-                {
-                    _progress.Value++;
-                }
-                else if (_verbose)
-                {
-                    Console.WriteLine($"Discovered {itemType} @ '{evnt.Path}'.");
-                }
-            }
-            else if (evnt.Nature == ScanEventType.UpdateRequired)
-            {
-                if (_showProgress)
-                {
-                    _progress.Value++;
-                }
-                else if (_verbose)
-                {
-                    Console.WriteLine($"Rediscovered {itemType} @ '{evnt.Path}'.");
-                }
-            }
-            else if (evnt.Nature == ScanEventType.DatabaseError)
-            {
-                if (_showProgress)
-                {
-                    _progress.Value++;
-                }
-                else if (_verbose)
-                {
-                    Console.WriteLine($"!!Database Error!! {evnt.Error.Message}");
-                }
-            }
-        }
-
-        private static void Scanner_ScanDatabaseActivityCompleted(DiskScan scanner, int additions, int updates, int deletions)
-        {
-            if (_showProgress)
-            {
-                _progress.Value += additions;
-                _progress.Value += updates;
-            }
-            else if (_verbose)
-            {
-                if (additions > 0)
-                {
-                    Console.WriteLine($"Successfully added {additions} records to the database.");
-                }
-                if (updates > 0)
-                {
-                    Console.WriteLine($"Successfully updated {updates} records in the database.");
-                }
-                if (deletions > 0)
-                {
-                    Console.WriteLine($"Successfully deleted {deletions} records from the database.");
-                }
-            }
-        }
-
-        private static void Scanner_DeletionsOccurred(DiskScan scanner, int total)
-        {
-
-            if (total > 0)
-            {
-                Console.WriteLine($"{total} Old entries were Successfully expunged from the database.");
-            }
-        }
-
-        #endregion
+        #endregion        
     }
 }

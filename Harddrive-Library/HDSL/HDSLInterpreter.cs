@@ -6,6 +6,7 @@ using HDDL.Collections;
 using HDDL.Data;
 using HDDL.HDSL.Logging;
 using HDDL.HDSL.Where;
+using HDDL.IO.Disk;
 using LiteDB;
 using System;
 using System.Collections.Generic;
@@ -72,6 +73,9 @@ namespace HDDL.HDSL
                             break;
                         case HDSLTokenTypes.Find:
                             results.AddRange(HandleFindStatement());
+                            break;
+                        case HDSLTokenTypes.Scan:
+                            HandleScanStatement();
                             break;
                         case HDSLTokenTypes.EndOfFile:
                             Pop();
@@ -162,9 +166,134 @@ namespace HDDL.HDSL
             return _tokens.Pop();
         }
 
+        /// <summary>
+        /// Interprets and returns a comma seperated list of strings
+        /// </summary>
+        /// <returns>A list containing the strings</returns>
+        private List<string> GetPathList()
+        {
+            var results = new List<string>();
+            // get the list of paths
+            while (More() && Peek().Type == HDSLTokenTypes.String || Peek().Type == HDSLTokenTypes.BookmarkReference)
+            {
+                if (Peek().Type == HDSLTokenTypes.BookmarkReference)
+                {
+                    results.Add(_dh.ApplyBookmarks(Pop().Code));
+                }
+                else
+                {
+                    results.Add(Pop().Literal);
+                }
+
+                // check if we have at least 2 more tokens remaining, one is a comma and the next is a string or bookmark
+                // if so, then this is a list
+                if (More(2) &&
+                    Peek().Type == HDSLTokenTypes.Comma &&
+                    (Peek(1).Type == HDSLTokenTypes.String || Peek(1).Type == HDSLTokenTypes.BookmarkReference))
+                {
+                    // strip the comma so the loop continues
+                    Pop();
+                }
+            }
+
+            return results;
+        }
+
+        /// <summary>
+        /// Gets the DiskItems found directly in the given paths
+        /// </summary>
+        /// <param name="paths">The paths the to look in</param>
+        /// <param name="items">The disk items to filter</param>
+        /// <returns>The DiskItems directly inside of them</returns>
+        //private DiskItem[] GetPathsIn(IEnumerable<string> paths, IEnumerable<DiskItem> items = null)
+        //{
+        //    var uniques = paths.Where(p => PathHelper.IsWithinPaths(query, paths));
+        //    if (items == null)
+        //    {
+        //        items = _dh.GetFilteredDiskItemsByPath("*.*", uniques);
+        //    }
+        //}
+
+        ///// <summary>
+        ///// Gets the DiskItems found in subdirectories directly in the given paths.  Ignores direct contents.
+        ///// </summary>
+        ///// <param name="paths">The paths the to look in</param>
+        ///// <param name="items">The disk items to filter</param>
+        ///// <returns>The DiskItems in subdirectories directly in the given paths</returns>
+        //private DiskItem[] GetPathsUnder(IEnumerable<string> paths, IEnumerable<DiskItem> items = null)
+        //{
+
+        //}
+
+        ///// <summary>
+        ///// Gets the DiskItems found anywhere within the contents of the given paths.
+        ///// </summary>
+        ///// <param name="paths">The paths the to look in</param>
+        ///// <param name="items">The disk items to filter</param>
+        ///// <returns>The DiskItems anywhere within the given paths</returns>
+        //private DiskItem[] GetPathsWithin(IEnumerable<string> paths, IEnumerable<DiskItem> items = null)
+        //{
+
+        //}
+
         #endregion
 
         #region Statement Handlers
+
+        /// <summary>
+        /// Handles the interpretation of a code-based scan call
+        /// 
+        /// Purpose:
+        /// Allows scripts to run scans
+        /// 
+        /// Syntax:
+        /// scan [path[, path, path]] - defaults to current]
+        /// </summary>
+        private void HandleScanStatement()
+        {
+            if (More() && Peek().Type == HDSLTokenTypes.Scan)
+            {
+                Pop();
+
+                var displayMode = Scanning.DiskScanEventWrapperDisplayModes.Text;
+                if (Peek().Type == HDSLTokenTypes.ProgressMode ||
+                    Peek().Type == HDSLTokenTypes.QuietMode ||
+                    Peek().Type == HDSLTokenTypes.SpinnerMode ||
+                    Peek().Type == HDSLTokenTypes.TextMode)
+                {
+                    switch (Pop().Type)
+                    {
+                        case HDSLTokenTypes.ProgressMode:
+                            displayMode = Scanning.DiskScanEventWrapperDisplayModes.ProgressBar;
+                            break;
+                        case HDSLTokenTypes.QuietMode:
+                            displayMode = Scanning.DiskScanEventWrapperDisplayModes.Displayless;
+                            break;
+                        case HDSLTokenTypes.SpinnerMode:
+                            displayMode = Scanning.DiskScanEventWrapperDisplayModes.Spinner;
+                            break;
+                        case HDSLTokenTypes.TextMode:
+                            displayMode = Scanning.DiskScanEventWrapperDisplayModes.Text;
+                            break;
+                    }
+                }
+
+                var scanPaths = GetPathList();
+                if (scanPaths.Count > 0)
+                {
+                    var dsw = new Scanning.DiskScanEventWrapper(_dh, scanPaths, true, displayMode);
+                    dsw.Go();
+                }
+                else
+                {
+                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"No paths were provided for scanning.  Please provide at least one location for the scan to explore."));
+                }
+            }
+            else
+            {
+                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'scan' expected."));
+            }
+        }
 
         /// <summary>
         /// Handles the interpretation of a bookmark definition statement
@@ -310,28 +439,7 @@ namespace HDDL.HDSL
                 if (More() && Peek().Type == HDSLTokenTypes.In)
                 {
                     Pop();
-                    // get the list of paths
-                    while (More() && Peek().Type == HDSLTokenTypes.String || Peek().Type == HDSLTokenTypes.BookmarkReference)
-                    {
-                        if (Peek().Type == HDSLTokenTypes.BookmarkReference)
-                        {
-                            targetPaths.Add(_dh.ApplyBookmarks(Pop().Code));
-                        }
-                        else
-                        {
-                            targetPaths.Add(Pop().Literal);
-                        }
-
-                        // check if we have at least 2 more tokens remaining, one is a comma and the next is a string or bookmark
-                        // if so, then this is a list
-                        if (More(2) &&
-                            Peek().Type == HDSLTokenTypes.Comma &&
-                            (Peek(1).Type == HDSLTokenTypes.String || Peek(1).Type == HDSLTokenTypes.BookmarkReference))
-                        {
-                            // strip the comma so the loop continues
-                            Pop();
-                        }
-                    }
+                    targetPaths = GetPathList();
 
                     // validate the list of paths to ensure they exist
                     foreach (var target in targetPaths)
@@ -353,6 +461,10 @@ namespace HDDL.HDSL
                     {
                         return new DiskItem[] { };
                     }
+                }
+                else
+                {
+                    targetPaths.Add(Environment.CurrentDirectory);
                 }
 
                 var results = new List<DiskItem>();

@@ -28,6 +28,9 @@ namespace HDDL.Scanning
         public delegate void ScanDatabaseResetRequested(DiskScan scanner);
         public delegate void ScanEventDeletionsOccurred(DiskScan scanner, int total);
 
+        /// <summary>
+        /// Occurs when the status changes
+        /// </summary>
         public event ScanStatusEventDelegate StatusEventOccurred;
 
         /// <summary>
@@ -58,12 +61,18 @@ namespace HDDL.Scanning
         /// <summary>
         /// Where to start scanning from
         /// </summary>
-        private List<string> startingPaths;
+        private List<string> _startingPaths;
 
         /// <summary>
-        /// The list of scanning tasks
+        /// The paths to be scanned.
         /// </summary>
-        private List<Task> scanningTasks;
+        public IReadOnlyList<string> ScanTargets
+        {
+            get
+            {
+                return _startingPaths.AsReadOnly();
+            }
+        }
 
         /// <summary>
         /// Used as the "last scanned" timestamp for all items altered during the scan
@@ -112,6 +121,18 @@ namespace HDDL.Scanning
         }
 
         /// <summary>
+        /// The connection string used for the database
+        /// </summary>
+        public string ConnectionString
+        {
+            get
+            {
+                return _dh.ConnectionString;
+            }
+        }
+
+
+        /// <summary>
         /// Create a disk scanner
         /// </summary>
         /// <param name="dbPath">Where the tracking database is located</param>
@@ -120,11 +141,25 @@ namespace HDDL.Scanning
         {
             _scanMarker = DateTime.Now;
             _dh = new DataHandler(dbPath);
-            scanningTasks = new List<Task>();
             _lookupTable = new ConcurrentDictionary<string, Guid>();
             _anchoredPaths = new List<string>();
             _durations = null;
-            startingPaths = new List<string>(scanPaths);
+            _startingPaths = new List<string>(scanPaths);
+        }
+
+        /// <summary>
+        /// Create a disk scanner
+        /// </summary>
+        /// <param name="dh">A precreated data handler instance to use rather than create a new one</param>
+        /// <param name="scanPaths">The paths to start scans from</param>
+        public DiskScan(DataHandler dh, IEnumerable<string> scanPaths)
+        {
+            _scanMarker = DateTime.Now;
+            _dh = dh;
+            _lookupTable = new ConcurrentDictionary<string, Guid>();
+            _anchoredPaths = new List<string>();
+            _durations = null;
+            _startingPaths = new List<string>(scanPaths);
         }
 
         /// <summary>
@@ -152,9 +187,9 @@ namespace HDDL.Scanning
                 _scanStart = DateTime.Now;
                 _directoryStructureScanStart = DateTime.Now;
 
-                startingPaths = (from p in startingPaths select _dh.ApplyBookmarks(p)).ToList();
+                _startingPaths = (from p in _startingPaths select _dh.ApplyBookmarks(p)).ToList();
 
-                info = PathHelper.GetContentsSortedByRoot(startingPaths);
+                info = PathHelper.GetContentsSortedByRoot(_startingPaths);
             });
             Task.WhenAll(task).ContinueWith((t) =>
             {
@@ -237,7 +272,7 @@ namespace HDDL.Scanning
                     _durations.ScanDuration = DateTime.Now.Subtract(_scanStart);
 
                     // Remove old records (these will be files that were deleted)
-                    DeleteUnfoundEntries(startingPaths);
+                    DeleteUnfoundEntries(_startingPaths);
 
                     if (Status == ScanStatus.Scanning || Status == ScanStatus.Deleting)
                     {

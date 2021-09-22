@@ -34,12 +34,21 @@ namespace HDDL.HDSL
                     case HDSLTokenTypes.Whitespace:
                         Family = HDSLTokenFamilies.Whitespace;
                         break;
+                    case HDSLTokenTypes.TextMode:
+                    case HDSLTokenTypes.SpinnerMode:
+                    case HDSLTokenTypes.QuietMode:
+                    case HDSLTokenTypes.ProgressMode:
                     case HDSLTokenTypes.In:
+                    case HDSLTokenTypes.Under:
+                    case HDSLTokenTypes.Within:
+                    case HDSLTokenTypes.By:
+                    case HDSLTokenTypes.Sort:
+                    case HDSLTokenTypes.Scan:
+                    case HDSLTokenTypes.Check:
                     case HDSLTokenTypes.Find:
                     case HDSLTokenTypes.Asc:
                     case HDSLTokenTypes.Dsc:
                     case HDSLTokenTypes.Purge:
-                    case HDSLTokenTypes.Within:
                         Family = HDSLTokenFamilies.LanguageKeywords;
                         break;
                     case HDSLTokenTypes.Written:

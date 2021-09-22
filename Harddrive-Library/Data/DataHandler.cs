@@ -25,7 +25,7 @@ namespace HDDL.Data
         /// <summary>
         /// The connection string to the database
         /// </summary>
-        private string _connectionString;
+        public string ConnectionString { get; private set; }
 
         /// <summary>
         /// The bookmark cache
@@ -53,7 +53,7 @@ namespace HDDL.Data
         /// <param name="connectionString">The connection string</param>
         public DataHandler(string connectionString)
         {
-            _connectionString = connectionString;
+            ConnectionString = connectionString;
             _diskItems = new RecordActionContainer<DiskItem>();
             _bookmarks = new RecordActionContainer<BookmarkItem>();
             _bookmarkCache = null;
@@ -455,7 +455,7 @@ namespace HDDL.Data
         {
             if (_db == null)
             {
-                _db = new LiteDatabase(_connectionString);
+                _db = new LiteDatabase(ConnectionString);
             }
             return _db;
         }

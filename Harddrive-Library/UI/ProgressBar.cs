@@ -9,20 +9,10 @@ namespace HDDL.UI
     /// <summary>
     /// A bare bones console progress bar
     /// </summary>
-    public class ProgressBar
+    public class ProgressBar : TextualUIElementBase
     {
         public const char Filled = '█';
         public const char Unfilled = '░';
-
-        /// <summary>
-        /// The X coordinate
-        /// </summary>
-        public int X { get; set; }
-
-        /// <summary>
-        /// The Y coordinate
-        /// </summary>
-        public int Y { get; set; }
 
         /// <summary>
         /// The display width in columns
@@ -121,10 +111,8 @@ namespace HDDL.UI
         /// <param name="initial">The initial value</param>
         /// <param name="min">The minimum value</param>
         /// <param name="max">The maximum value</param>
-        public ProgressBar(int x, int y, int width, int initial, int min, int max)
+        public ProgressBar(int x, int y, int width, int initial, int min, int max) : base(x, y)
         {
-            X = x;
-            Y = y;
             Width = width;
 
             _value = initial;
@@ -140,7 +128,7 @@ namespace HDDL.UI
         /// <summary>
         /// Displays the progress bar
         /// </summary>
-        public void Display()
+        public override void Display()
         {
             var pointsPerBlock = Maximum / Width;
             var filled = pointsPerBlock > 0 ? Value / pointsPerBlock : Width;
