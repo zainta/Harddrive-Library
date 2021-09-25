@@ -33,6 +33,21 @@ namespace HDDL.IO.Parameters
         public List<ParameterRuleBase> Rules { get; private set; }
 
         /// <summary>
+        /// Retrieves the parameter's value(s)
+        /// if the offset is -1, will return a comma seperated list of all provided values
+        /// </summary>
+        /// <param name="key">The name of the parameter to retrieve</param>
+        /// <param name="offset">The offset index of the subvalue</param>
+        /// <returns>The value if found, null otherwise</returns>
+        public string this[string key, int offset = 0]
+        { 
+            get
+            {
+                return GetParam(key, offset);
+            }
+        }
+
+        /// <summary>
         /// Create a Parameter Handler and provide it a set of rules
         /// </summary>
         /// <param name="rules">The rules to use for parameters</param>
@@ -191,43 +206,59 @@ namespace HDDL.IO.Parameters
         /// <returns>The list of shared prospects</returns>
         private IEnumerable<string> GetSharedProspects(string prospects1, string prospects2)
         {
-            var measure = prospects1.Length >= prospects2.Length ? prospects1 : prospects2;
-            var tested = prospects1.Length >= prospects2.Length ? prospects2 : prospects1;
-            var found = new List<string>();
-            var item = new StringBuilder();
-            
+            var p1 = GetItems(prospects1);
+            var p2 = GetItems(prospects2);
+            var found = p1.Intersect(p2);
+
+            return found.ToArray();
+        }
+
+        /// <summary>
+        /// Returns an array containing a prospect string's items
+        /// 
+        /// An item is all characters from the ProspectStringSeperator to the next ProspectStringSeperator or EOF (including the first, but not the second)
+        /// </summary>
+        /// <returns></returns>
+        private string[] GetItems(string content)
+        {
             // indicates whether or not the next ProspectStringSeperator will be the beginning of an item or the end
-            var start = true; 
+            var start = true;
+
+            var item = new StringBuilder();
+            var items = new List<string>();
+
 
             // loop through the shorter one, searching for the defined items in the longer one until done
             // if any are found then return them
-            for (int i = 0; i < tested.Length; i++)
+            for (int i = 0; i < content.Length; i++)
             {
                 // an item is all characters from the ProspectStringSeperator to the next ProspectStringSeperator or EOF (including the first, but not the second)
                 // get the next item
-                item.Clear();                
-                for (; i < tested.Length || (i < tested.Length && tested[i] == ProspectStringSeperator && start); i++)
+                item.Clear();
+                for (; (i < content.Length && content[i] != ProspectStringSeperator && !start) || (i < content.Length && content[i] == ProspectStringSeperator && start); i++)
                 {
-                    if (tested[i] == ProspectStringSeperator && start)
+                    if (content[i] == ProspectStringSeperator && start)
                     {
                         start = false;
-                        item.Append(tested[i]);
+                        item.Append(content[i]);
                     }
-                    else if (tested[i] != ProspectStringSeperator)
+                    else if (content[i] != ProspectStringSeperator)
                     {
-                        item.Append(tested[i]);
+                        item.Append(content[i]);
                     }
                 }
+
+                items.Add(item.ToString());
                 start = true;
 
-                // check the item against the measure
-                if (measure.Contains(item.ToString()))
+                // If the current character is a seperator then we move back one so the loop doesn't make us skip over it
+                if (i < content.Length && content[i] == ProspectStringSeperator)
                 {
-                    found.Add(item.ToString());
+                    i--;
                 }
             }
 
-            return found.ToArray();
+            return items.ToArray();
         }
 
         /// <summary>
