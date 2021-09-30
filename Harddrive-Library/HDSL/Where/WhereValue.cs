@@ -49,10 +49,6 @@ namespace HDDL.HDSL.Where
             {
                 switch (token.Type)
                 {
-                    case HDSLTokenTypes.BookmarkReference:
-                        ValueType = WhereValueTypes.BookMarkReference;
-                        _actual = token.Literal;
-                        break;
                     case HDSLTokenTypes.String:
                         ValueType = WhereValueTypes.String;
                         _actual = token.Literal;
@@ -127,7 +123,7 @@ namespace HDDL.HDSL.Where
                 switch (Keyword)
                 {
                     case HDSLTokenTypes.Size:
-                        result = item.SizeInBytes == null ? -1 : item.SizeInBytes;
+                        result = item.SizeInBytes;
                         break;
                     case HDSLTokenTypes.Written:
                         result = item.LastWritten;
@@ -165,15 +161,57 @@ namespace HDDL.HDSL.Where
 
         public override string ToString()
         {
+            var result = string.Empty;
             if (IsSlug)
             {
-                return Keyword.ToString();
+                switch (Keyword)
+                {
+                    case HDSLTokenTypes.Size:
+                        result = "size";
+                        break;
+                    case HDSLTokenTypes.Written:
+                        result = "lastWritten";
+                        break;
+                    case HDSLTokenTypes.Accessed:
+                        result = "lastAccessed";
+                        break;
+                    case HDSLTokenTypes.Created:
+                        result = "created";
+                        break;
+                    case HDSLTokenTypes.Extension:
+                        result = "extension";
+                        break;
+                    case HDSLTokenTypes.LastScan:
+                        result = "lastScanned";
+                        break;
+                    case HDSLTokenTypes.FirstScan:
+                        result = "firstScanned";
+                        break;
+                    case HDSLTokenTypes.Name:
+                        result = "itemName";
+                        break;
+                    case HDSLTokenTypes.Now:
+                        result = DateTimeDataHelper.ConvertToString(Now);
+                        break;
+                }
             }
             else
             {
-                return _actual.ToString();
+                switch (ValueType)
+                {
+                    case WhereValueTypes.DateTime:
+                    case WhereValueTypes.String:
+                        result = $"'{_actual}'";
+                        break;
+                    case WhereValueTypes.RealNumber:
+                    case WhereValueTypes.WholeNumber:
+                        result = _actual.ToString();
+                        break;
+
+                }
             }
 
+            return result;
         }
     }
 }

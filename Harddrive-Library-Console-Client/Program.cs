@@ -14,6 +14,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using HDDL.Data;
 using HDDL.IO.Settings;
+using System.Reflection;
 
 namespace HDSL
 {
@@ -56,8 +57,7 @@ namespace HDSL
         static void Main(string[] args)
         {
             var manager = IniFileManager.Explore(Ini_File_Location, true, false, false,
-                new IniSubsection("HDSL_DB", null,
-                    new IniValue("DatabaseLocation", defaultValue: "file database.db")));
+                new IniSubsection("HDSL_DB", null, new IniValue("DatabaseLocation", defaultValue: "file database.db") ));
 
             ParameterHandler ph = new ParameterHandler();
             ph.AddRules(
@@ -68,6 +68,7 @@ namespace HDSL
                 new ParameterRuleOption("run", false, true, null, "-"),
                 new ParameterRuleOption("exec", false, true, null, "-"),
                 new ParameterRuleOption("dm", false, true, "t", "-"),
+                new ParameterRuleShortcut("ex"),
                 new ParameterRuleFlag(new FlagDefinition[] {
                     new FlagDefinition('e', true, true),
                     new FlagDefinition('c', true, true),
@@ -75,10 +76,10 @@ namespace HDSL
                 );
             ph.Comb(args);
 
-            var dbPath = ph.GetParam("db");
+            var dbPath = ph["db"];
             var scanPaths = ph.GetAllParam("scan").Where(p => !string.IsNullOrWhiteSpace(p)).ToArray();
-            var runScript = ph.GetParam("run");
-            var executeFile = ph.GetParam("exec");
+            var runScript = ph["run"];
+            var executeFile = !string.IsNullOrWhiteSpace(ph["exec"]) ? ph["exec"] : ph["ex"];
             _embellish = ph.GetFlag("e");
             _count = ph.GetFlag("c");
 

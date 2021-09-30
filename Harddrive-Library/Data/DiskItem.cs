@@ -2,17 +2,17 @@
 // Licensed under the MIT License, (the "License"); you may not use this file except in compliance with the License. 
 // You may obtain a copy of the License at https://mit-license.org/
 
-using LiteDB;
 using System;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Data;
+using System.Data.SQLite;
 
 namespace HDDL.Data
 {
     /// <summary>
     /// Represents a disk item record (file or directory)
     /// </summary>
-    [Table("DiskItem", Schema = "main")]
-    public class DiskItem : BsonHDDLRecordBase
+    public class DiskItem : HDDLRecordBase
     {
         /// <summary>
         /// Indicates the containing directory.
@@ -24,6 +24,11 @@ namespace HDDL.Data
         /// The containing directory instance
         /// </summary>
         public DiskItem Parent { get; set; }
+
+        /// <summary>
+        /// The items contained within a directory instance
+        /// </summary>
+        public DiskItem[] Children { get; set; }
 
         /// <summary>
         /// When the item was first scanned
@@ -58,7 +63,7 @@ namespace HDDL.Data
         /// <summary>
         /// The file size in bytes
         /// </summary>
-        public long? SizeInBytes { get; set; }
+        public long SizeInBytes { get; set; }
 
         /// <summary>
         /// When the item was last updated
@@ -76,11 +81,28 @@ namespace HDDL.Data
         public DateTime CreationDate { get; set; }
 
         /// <summary>
+        /// The disk item's distance from the root (0 if it is a root)
+        /// </summary>
+        public int Depth { get; set; }
+
+        /// <summary>
         /// Creates an instance from the current record in the data reader
         /// </summary>
-        /// <param name="record"></param>
-        public DiskItem(BsonValue record) : base(record)
+        /// <param name="row"></param>
+        public DiskItem(SQLiteDataReader row) : base(row)
         {
+            ParentId = String.IsNullOrWhiteSpace(row.GetString("parentId")) ? null : row.GetGuid("parentId");
+            FirstScanned = DateTimeDataHelper.ConvertToDateTime(row.GetString("firstScanned"));
+            LastScanned = DateTimeDataHelper.ConvertToDateTime(row.GetString("lastScanned"));
+            Path = row.GetString("path");
+            ItemName = row.GetString("itemName");
+            IsFile = row.GetBoolean("isFile");
+            Extension = row.GetString("extension");
+            SizeInBytes = row.GetInt64("size");
+            LastWritten = DateTimeDataHelper.ConvertToDateTime(row.GetString("lastWritten"));
+            LastAccessed = DateTimeDataHelper.ConvertToDateTime(row.GetString("lastAccessed"));
+            CreationDate = DateTimeDataHelper.ConvertToDateTime(row.GetString("created"));
+            Depth = row.GetInt32("depth");
         }
 
         /// <summary>
@@ -89,6 +111,53 @@ namespace HDDL.Data
         public DiskItem() : base()
         {
 
+        }
+
+        /// <summary>
+        /// Generates and returns a SQLite Insert statement for this record
+        /// </summary>
+        /// <returns>The line of SQL</returns>
+        public override string ToInsertStatement()
+        {
+            return $@"insert into diskitems 
+                        (id, parentId, firstScanned, lastScanned, path, itemName, isFile, extension, size, lastWritten, lastAccessed, created, depth) 
+                      values 
+                        ('{Id}', 
+                         '{ParentId}', 
+                         '{DateTimeDataHelper.ConvertToString(FirstScanned)}', 
+                         '{DateTimeDataHelper.ConvertToString(LastScanned)}', 
+                         '{DataHelper.Sanitize(Path)}', 
+                         '{DataHelper.Sanitize(ItemName)}', 
+                         {IsFile}, 
+                         '{DataHelper.Sanitize(Extension)}',
+                         {SizeInBytes}, 
+                         '{DateTimeDataHelper.ConvertToString(LastWritten)}', 
+                         '{DateTimeDataHelper.ConvertToString(LastAccessed)}', 
+                         '{DateTimeDataHelper.ConvertToString(CreationDate)}', 
+                         {Depth});";
+        }
+
+        /// <summary>
+        /// Generates and returns a SQLite Update statement for this record
+        /// </summary>
+        /// <returns>The line of SQL</returns>
+        public override string ToUpdateStatement()
+        {
+            return $@"update diskitems 
+                      set 
+                        parentId = '{ParentId}', 
+                        firstScanned = '{DateTimeDataHelper.ConvertToString(FirstScanned)}', 
+                        lastScanned = '{DateTimeDataHelper.ConvertToString(LastScanned)}', 
+                        itemName = '{DataHelper.Sanitize(ItemName)}', 
+                        isFile = {IsFile}, 
+                        extension = '{DataHelper.Sanitize(Extension)}', 
+                        size = {SizeInBytes}, 
+                        lastWritten = '{DateTimeDataHelper.ConvertToString(LastWritten)}', 
+                        lastAccessed = '{DateTimeDataHelper.ConvertToString(LastAccessed)}', 
+                        created = '{DateTimeDataHelper.ConvertToString(CreationDate)}', 
+                        depth = {Depth}
+                      where 
+                        path = '{DataHelper.Sanitize(Path)}';";
         }
 
         public override string ToString()
@@ -101,6 +170,17 @@ namespace HDDL.Data
             {
                 return Path;
             }
+        }
+
+        /// <summary>
+        /// Assigns a value to the Depth property and returns the instance for further use
+        /// </summary>
+        /// <param name="depth">The distance from the root (0 if it is a root)</param>
+        /// <returns></returns>
+        public DiskItem SetDepth(int depth)
+        {
+            Depth = depth;
+            return this;
         }
 
         /// <summary>

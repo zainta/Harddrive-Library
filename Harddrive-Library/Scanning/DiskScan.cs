@@ -5,10 +5,10 @@
 using HDDL.Data;
 using HDDL.IO.Disk;
 using HDDL.Threading;
-using LiteDB;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Data.SQLite;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -21,12 +21,12 @@ namespace HDDL.Scanning
     public class DiskScan
     {
         public delegate void ScanEventOccurredDelegate(DiskScan scanner, ScanEvent evnt);
-        public delegate void ScanOperationStartedDelegate(DiskScan scanner, int directoryCount, int fileCount);
-        public delegate void ScanOperationCompletedDelegate(DiskScan scanner, int totalDeleted, Timings elapsed, ScanOperationOutcome outcome);
+        public delegate void ScanOperationStartedDelegate(DiskScan scanner, long directoryCount, long fileCount);
+        public delegate void ScanOperationCompletedDelegate(DiskScan scanner, long totalDeleted, Timings elapsed, ScanOperationOutcome outcome);
         public delegate void ScanStatusEventDelegate(DiskScan scanner, ScanStatus newStatus, ScanStatus oldStatus);
-        public delegate void ScanEventMassDatabaseActivityDelegate(DiskScan scanner, int additions, int updates, int deletions);
+        public delegate void ScanEventMassDatabaseActivityDelegate(DiskScan scanner, long additions, long updates, long deletions);
         public delegate void ScanDatabaseResetRequested(DiskScan scanner);
-        public delegate void ScanEventDeletionsOccurred(DiskScan scanner, int total);
+        public delegate void ScanEventDeletionsOccurred(DiskScan scanner, long total);
 
         /// <summary>
         /// Occurs when the status changes
@@ -197,7 +197,7 @@ namespace HDDL.Scanning
                 {
                     Status = ScanStatus.Scanning;
                     ScanStarted?.Invoke(this, info.TotalDirectories, info.TotalFiles);
-                    _scanMarker = DateTime.UtcNow;
+                    _scanMarker = DateTime.Now;
 
                     // The below processing allows us to run through the work items
                     // without having to perform any checks around existence
@@ -328,7 +328,8 @@ namespace HDDL.Scanning
                             SizeInBytes = item.FInfo.Length,
                             LastAccessed = item.FInfo.LastAccessTimeUtc,
                             LastWritten = item.FInfo.LastWriteTimeUtc,
-                            CreationDate = item.FInfo.CreationTimeUtc
+                            CreationDate = item.FInfo.CreationTimeUtc,
+                            Depth = PathHelper.GetDependencyCount(new DiskItemType(item.FInfo.FullName, true))
                         };
                     }
                     else
@@ -343,10 +344,11 @@ namespace HDDL.Scanning
                             Path = item.DInfo.FullName,
                             ItemName = item.DInfo.Name,
                             Extension = null,
-                            SizeInBytes = null,
+                            SizeInBytes = 0,
                             LastAccessed = item.DInfo.LastAccessTimeUtc,
                             LastWritten = item.DInfo.LastWriteTimeUtc,
-                            CreationDate = item.DInfo.CreationTimeUtc
+                            CreationDate = item.DInfo.CreationTimeUtc,
+                            Depth = PathHelper.GetDependencyCount(new DiskItemType(item.DInfo.FullName, false))
                         };
                     }
                 }
@@ -392,7 +394,7 @@ namespace HDDL.Scanning
                     ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.UpdateRequired, record.Path, record.IsFile));
                 }
             }
-            catch (LiteException ex)
+            catch (SQLiteException ex)
             {
                 ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.DatabaseError, record?.Path, record == null ? false : record.IsFile, ex));
             }
@@ -421,7 +423,19 @@ namespace HDDL.Scanning
 
             if (parent != null)
             {
-                return _lookupTable[parent.FullName];
+                if (_lookupTable.ContainsKey(parent.FullName))
+                {
+                    return _lookupTable[parent.FullName];
+                }
+                else
+                {
+                    var record = _dh.GetDiskItemByPath(parent.FullName);
+                    if (record != null)
+                    {
+                        AddRecordToLookup(record);
+                        return record.Id;
+                    }
+                }
             }
 
             return null;
@@ -453,7 +467,7 @@ namespace HDDL.Scanning
         /// </summary>
         /// <param name="paths">The paths originally searched</param>
         /// <returns>The total number of items deleted</returns>
-        private int DeleteUnfoundEntries(IEnumerable<string> paths)
+        private long DeleteUnfoundEntries(IEnumerable<string> paths)
         {
             var count = _dh.DeleteOldDiskItems(_scanMarker, paths);
             if (count > 0)

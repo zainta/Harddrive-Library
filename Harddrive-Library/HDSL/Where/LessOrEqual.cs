@@ -38,8 +38,6 @@ namespace HDDL.HDSL.Where
             var result = false;
             switch (LeftValue.ValueType)
             {
-                case WhereValueTypes.BookMarkReference:
-                    throw new InvalidOperationException($"Cannot use {GetOperatorSign()} operator with string type operands.");
                 case WhereValueTypes.DateTime:
                     result = LeftValue.Get<DateTime>(record) <= RightValue.Get<DateTime>(record);
                     break;

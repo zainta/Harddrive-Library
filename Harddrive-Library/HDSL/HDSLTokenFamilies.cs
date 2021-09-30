@@ -16,6 +16,7 @@ namespace HDDL.HDSL
         ValueKeywords,
         RelativeOperators, // Greater Than, Less Than, Equal, Not Equal
         LogicalOperators, // And, Or
-        Metadata
+        Metadata,
+        Comment
     }
 }

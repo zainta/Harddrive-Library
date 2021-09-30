@@ -6,8 +6,6 @@ using HDDL.Collections;
 using HDDL.Data;
 using HDDL.HDSL.Logging;
 using HDDL.HDSL.Where;
-using HDDL.IO.Disk;
-using LiteDB;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -65,6 +63,10 @@ namespace HDDL.HDSL
                 {
                     switch (Peek().Type)
                     {
+                        case HDSLTokenTypes.MultiLineComment:
+                        case HDSLTokenTypes.Comment:
+                            Pop();
+                            break;
                         case HDSLTokenTypes.BookmarkReference:
                             HandleBookmarkDefinitionStatement();
                             break;
@@ -88,12 +90,6 @@ namespace HDDL.HDSL
                             _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Unexpected token '{Peek().Code}'."));
                             done = true;
                             break;
-                    }
-
-                    // Get rid of semicolons
-                    if (More() && Peek().Type == HDSLTokenTypes.EndOfLine)
-                    {
-                        Pop();
                     }
                 }
             }
@@ -198,48 +194,6 @@ namespace HDDL.HDSL
 
             return results;
         }
-
-        /// <summary>
-        /// Gets the DiskItems found directly in the given paths
-        /// </summary>
-        /// <param name="paths">The paths the to look in</param>
-        /// <param name="items">The disk items to filter</param>
-        /// <returns>The DiskItems directly inside of them</returns>
-        //private DiskItem[] GetPathsIn(IEnumerable<string> paths, IEnumerable<DiskItem> items = null)
-        //{
-        //    //if (items == null)
-        //    //{
-        //    //    items = _dh.GetFilteredDiskItemsByPath("*.*", paths);
-        //    //}
-
-        //    var targets = new List<DiskItem>();
-        //    foreach (var path in paths)
-        //    {
-        //        targets.Add(_dh.GetRecordByPath)
-        //    }
-        //}
-
-        ///// <summary>
-        ///// Gets the DiskItems found in subdirectories directly in the given paths.  Ignores direct contents.
-        ///// </summary>
-        ///// <param name="paths">The paths the to look in</param>
-        ///// <param name="items">The disk items to filter</param>
-        ///// <returns>The DiskItems in subdirectories directly in the given paths</returns>
-        //private DiskItem[] GetPathsUnder(IEnumerable<string> paths, IEnumerable<DiskItem> items = null)
-        //{
-
-        //}
-
-        ///// <summary>
-        ///// Gets the DiskItems found anywhere within the contents of the given paths.
-        ///// </summary>
-        ///// <param name="paths">The paths the to look in</param>
-        ///// <param name="items">The disk items to filter</param>
-        ///// <returns>The DiskItems anywhere within the given paths</returns>
-        //private DiskItem[] GetPathsWithin(IEnumerable<string> paths, IEnumerable<DiskItem> items = null)
-        //{
-
-        //}
 
         #endregion
 
@@ -393,24 +347,37 @@ namespace HDDL.HDSL
         /// A purge statement removes entries from the database (it does not delete actual files)
         /// 
         /// Syntax:
-        /// purge [where clause];
+        /// purge [path[, path, path]] [where clause];
         /// </summary>
         private void HandlePurgeStatement()
         {
-            // eat the purge
-            Pop();
-
-            IEnumerable<DiskItem> targets;
-            // the where clause is optional.
-            // If pressent, it further filters the files selected from the path
-            if (More() && Peek().Type == HDSLTokenTypes.Where)
+            if (More() && Peek().Type == HDSLTokenTypes.Purge)
             {
-                targets = HandleWhereClause(null);
-                _dh.Delete(targets.ToArray());
+                // eat the purge
+                Pop();
+
+                var targets = GetPathList();
+                // the where clause is optional.
+                // If present, it further filters the files selected from the path
+                var queryDetail = string.Empty;
+                if (More() && Peek().Type == HDSLTokenTypes.Where)
+                {
+                    queryDetail = OperatorBase.ConvertClause(_tokens).ToString();
+                }
+
+                // execute the purge
+                try
+                {
+                    _dh.PurgeQueried(queryDetail, targets);
+                }
+                catch (Exception ex)
+                {
+                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Exception encountered: '{ex}'."));
+                }
             }
             else
             {
-                _dh.ClearDiskItems();
+                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Keyword expected: 'purge'."));
             }
         }
 
@@ -423,7 +390,7 @@ namespace HDDL.HDSL
         /// Syntax:
         /// find <file regular expression> in <path> where *stuffs*
         /// 
-        /// find [file pattern] [in [path[, path, path]] - defaults to current] [where clause];
+        /// find [file pattern] [in/within/under [path[, path, path]] - defaults to current] [where clause];
         /// </summary>
         /// <returns>The results find statement</returns>
         private DiskItem[] HandleFindStatement()
@@ -438,12 +405,16 @@ namespace HDDL.HDSL
                     wildcardExpression = Pop().Literal;
                 }
 
-                // the in clause is optional, and can take a comma seperated list of paths.
+                // the depth clause is optional, and can take a comma seperated list of paths.
                 // if left out then the system assumes the current directory.
+                HDSLTokenTypes op = HDSLTokenTypes.Within;
                 var targetPaths = new List<string>();
-                if (More() && Peek().Type == HDSLTokenTypes.In)
+                if (More() && 
+                    (Peek().Type == HDSLTokenTypes.In ||
+                    Peek().Type == HDSLTokenTypes.Under ||
+                    Peek().Type == HDSLTokenTypes.Within))
                 {
-                    Pop();
+                    op = Pop().Type;
                     targetPaths = GetPathList();
 
                     // validate the list of paths to ensure they exist
@@ -473,20 +444,34 @@ namespace HDDL.HDSL
                 }
 
                 var results = new List<DiskItem>();
+
+                // the where clause is optional.
+                // If present, it further filters the files selected from the path
+                var queryDetail = string.Empty;
+                if (More() && Peek().Type == HDSLTokenTypes.Where)
+                {
+                    queryDetail = OperatorBase.ConvertClause(_tokens).ToString();
+                }
+                
+                // execute the query and get the records
                 try
                 {
-                    results.AddRange(_dh.GetFilteredDiskItemsByPath(wildcardExpression, targetPaths));
+                    switch (op)
+                    {
+                        case HDSLTokenTypes.In:
+                            results.AddRange(_dh.GetFilteredDiskItemsByIn(queryDetail, wildcardExpression, targetPaths));
+                            break;
+                        case HDSLTokenTypes.Within:
+                            results.AddRange(_dh.GetFilteredDiskItemsByWithin(queryDetail, wildcardExpression, targetPaths));
+                            break;
+                        case HDSLTokenTypes.Under:
+                            results.AddRange(_dh.GetFilteredDiskItemsByUnder(queryDetail, wildcardExpression, targetPaths));
+                            break;
+                    }
                 }
                 catch (Exception ex)
                 {
                     _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Exception encountered: '{ex}'."));
-                }
-
-                // the where clause is optional.
-                // If pressent, it further filters the files selected from the path
-                if (More() && Peek().Type == HDSLTokenTypes.Where)
-                {
-                    results = HandleWhereClause(results).ToList();
                 }
 
                 // Done

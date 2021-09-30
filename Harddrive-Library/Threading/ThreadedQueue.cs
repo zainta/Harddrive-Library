@@ -113,15 +113,7 @@ namespace HDDL.Threading
                     Status = ThreadQueueStatus.Starting;
                     for (int i = 0; i < _desiredThreads; i++)
                     {
-                        // setup the queue for this thread
-                        Guid threadId = Guid.NewGuid();
-                        _workerJobs.TryAdd(threadId, null);
-
-                        // get the action this thread will perform
-                        var action = i < _actions.Count ? _actions[i] : _actions.Last();
-
-                        // get the task
-                        _threads.Add(Task.Run(() => ActionRunner(threadId, action)));
+                        AddRunner(i);
                     }
 
                     Status = ThreadQueueStatus.Active;
@@ -131,6 +123,20 @@ namespace HDDL.Threading
                         {
                             while (Status == ThreadQueueStatus.Starting || Status == ThreadQueueStatus.Active)
                             {
+                                #region Check for Dead Workers
+
+                                var deads = (from t in _threads where t.Status != TaskStatus.Running select t);
+                                foreach (var dead in deads)
+                                {
+                                    var index = _threads.IndexOf(dead);
+                                    _threads.RemoveAt(index);
+                                    AddRunner(index);
+                                }
+
+                                #endregion
+
+                                #region Feed Workers
+
                                 var needy = (from q in _workerJobs 
                                              where q.Value == null 
                                              select q.Key);
@@ -152,6 +158,8 @@ namespace HDDL.Threading
                                 {
                                     break;
                                 }
+
+                                #endregion
                             }
                         })
                         .ContinueWith((tsk) =>
@@ -174,26 +182,50 @@ namespace HDDL.Threading
         /// <param name="action">The action to execute the job with</param>
         private void ActionRunner(Guid taskWorkQueueId, Action<T> action)
         {
-            // loop while we have work waiting and we are executing or we have work in our bucket
-            while (Status == ThreadQueueStatus.Starting || Status == ThreadQueueStatus.Active)
+            try
             {
-                if (Status == ThreadQueueStatus.Active)
+                // loop while we have work waiting and we are executing or we have work in our bucket
+                while (Status == ThreadQueueStatus.Starting || Status == ThreadQueueStatus.Active)
                 {
-                    if (_workerJobs[taskWorkQueueId] != null)
+                    if (Status == ThreadQueueStatus.Active)
                     {
-                        try
+                        if (_workerJobs[taskWorkQueueId] != null)
                         {
-                            action(_workerJobs[taskWorkQueueId]);
+                            try
+                            {
+                                action(_workerJobs[taskWorkQueueId]);
+                            }
+                            catch (Exception ex)
+                            {
+                                Status = ThreadQueueStatus.Faulted;
+                                FaultCause = ex;
+                            }
+                            _workerJobs[taskWorkQueueId] = null;
                         }
-                        catch (Exception ex)
-                        {
-                            Status = ThreadQueueStatus.Faulted;
-                            FaultCause = ex;
-                        }
-                        _workerJobs[taskWorkQueueId] = null;
                     }
                 }
             }
+            catch (KeyNotFoundException ex)
+            {
+                // we don't care about the exception that occurred.  If one does occur, though, kill the thread and start a new one.
+            }
+        }
+
+        /// <summary>
+        /// Adds a Runner at the given index, or the end if the index is too low
+        /// </summary>
+        /// <param name="index">The index to add the runner at</param>
+        private void AddRunner(int index)
+        {
+            // setup the queue for this thread
+            Guid threadId = Guid.NewGuid();
+            _workerJobs.TryAdd(threadId, null);
+
+            // get the action this thread will perform
+            var action = index < _actions.Count ? _actions[index] : _actions.Last();
+
+            // get the task
+            _threads.Add(Task.Run(() => ActionRunner(threadId, action)));
         }
 
         /// <summary>

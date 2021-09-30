@@ -49,6 +49,7 @@ namespace HDDL.HDSL
                     case HDSLTokenTypes.Asc:
                     case HDSLTokenTypes.Dsc:
                     case HDSLTokenTypes.Purge:
+                    case HDSLTokenTypes.Where:
                         Family = HDSLTokenFamilies.LanguageKeywords;
                         break;
                     case HDSLTokenTypes.Written:
@@ -74,6 +75,10 @@ namespace HDDL.HDSL
                     case HDSLTokenTypes.GreaterOrEqual:
                     case HDSLTokenTypes.LessOrEqual:
                         Family = HDSLTokenFamilies.RelativeOperators;
+                        break;
+                    case HDSLTokenTypes.MultiLineComment:
+                    case HDSLTokenTypes.Comment:
+                        Family = HDSLTokenFamilies.Comment;
                         break;
                     case HDSLTokenTypes.EndOfFile:
                     case HDSLTokenTypes.EndOfLine:

@@ -66,7 +66,11 @@ namespace HDDL.HDSL
             // Loop through the code and pick out the tokens one by one, in order of discovery
             while (!buffer.Empty)
             {
-                if (More() && char.IsWhiteSpace(Peek()) && GetWhitespace())
+                if (More(1) && PeekStr(0, 2) == "--" && GetLineComment())
+                {
+                    continue;
+                }
+                else if (More() && char.IsWhiteSpace(Peek()) && GetWhitespace())
                 {
                     continue;
                 }
@@ -153,7 +157,7 @@ namespace HDDL.HDSL
         {
             StringBuilder sb = new StringBuilder();
             var terminationPoint = offset + (length - 1);
-            for (int i = offset; i < terminationPoint; i++)
+            for (int i = offset; i <= terminationPoint; i++)
             {
                 sb.Append(buffer.Peek(i));
             }
@@ -183,7 +187,7 @@ namespace HDDL.HDSL
         {
             StringBuilder sb = new StringBuilder();
             var terminationPoint = offset + (length - 1); ;
-            for (int i = offset; i < terminationPoint; i++)
+            for (int i = offset; i <= terminationPoint; i++)
             {
                 Step(Peek());
                 sb.Append(buffer.Pop());
@@ -434,6 +438,42 @@ namespace HDDL.HDSL
             }
             
             return false;
+        }
+
+        /// <summary>
+        /// Gathers a single line comment token and add it to the list
+        /// 
+        /// Single Line Comments run from their inception (the -- starting them) to the end of the line.
+        /// </summary>
+        /// <returns>Whether or not a token was generated (if not, implies an error)</returns>
+        private bool GetLineComment()
+        {
+            if (More(1) && PeekStr(0, 2) == "--")
+            {
+                // remove the comment start
+                PopStr(0, 2);
+
+                // run until we reach the end of the line or the file
+                var sb = new StringBuilder();
+                while (More() && Peek() != '\n')
+                {
+                    sb.Append(Pop());
+                }
+
+                if (More() && Peek() == '\n')
+                {
+                    sb.Append(Pop());
+                }
+
+                Tokens.Add(new HDSLToken(HDSLTokenTypes.Comment, sb.ToString(), row, col, sb.ToString()));
+            }
+            else
+            {
+                Outcome.Add(new HDSLLogBase(col, row, "Comment declaration expected."));
+                return false;
+            }
+
+            return true;
         }
 
         /// <summary>

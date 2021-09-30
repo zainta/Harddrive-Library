@@ -68,6 +68,9 @@ namespace HDDL.HDSL
 
         // Metadata
         EndOfFile,
-        EndOfLine
+        EndOfLine,
+
+        Comment, // comments start with --
+        MultiLineComment
     }
 }

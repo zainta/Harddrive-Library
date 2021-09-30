@@ -9,7 +9,6 @@ namespace HDDL.HDSL.Where
     /// </summary>
     enum WhereValueTypes
     {
-        BookMarkReference,
         String,
         WholeNumber,
         RealNumber,

@@ -56,6 +56,12 @@ namespace HDDL.HDSL.Where
             // We build the structure using reverse token order due to how evaluation works
             while (!tokens.Empty)
             {
+                if (tokens.Peek().Type == HDSLTokenTypes.EndOfLine ||
+                    tokens.Peek().Type == HDSLTokenTypes.EndOfFile)
+                {
+                    break;
+                }
+
                 if (tokens.Peek().Family == HDSLTokenFamilies.DataTypes ||
                     tokens.Peek().Family == HDSLTokenFamilies.LogicalOperators ||
                     tokens.Peek().Family == HDSLTokenFamilies.RelativeOperators ||

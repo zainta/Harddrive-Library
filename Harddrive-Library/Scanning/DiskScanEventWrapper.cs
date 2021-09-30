@@ -232,7 +232,7 @@ namespace HDDL.Scanning
 
         #region Events
 
-        private void Scanner_ScanStarted(DiskScan scanner, int directoryCount, int fileCount)
+        private void Scanner_ScanStarted(DiskScan scanner, long directoryCount, long fileCount)
         {
             switch (_displayMode)
             {
@@ -245,7 +245,7 @@ namespace HDDL.Scanning
             }
         }
 
-        private void Scanner_ScanEnded(DiskScan scanner, int totalDeleted, Timings elapsed, ScanOperationOutcome outcome)
+        private void Scanner_ScanEnded(DiskScan scanner, long totalDeleted, Timings elapsed, ScanOperationOutcome outcome)
         {
             switch (_displayMode)
             {
@@ -269,6 +269,7 @@ namespace HDDL.Scanning
                 evnt.Nature == ScanEventType.UnknownError)
             {
                 // We aren't interested in these right now.  We'll implement this later.
+                Console.WriteLine($"An error occurred: {evnt.Error}");
             }
             else if (evnt.Nature == ScanEventType.AddRequired)
             {
@@ -308,7 +309,7 @@ namespace HDDL.Scanning
             }
         }
 
-        private void Scanner_ScanDatabaseActivityCompleted(DiskScan scanner, int additions, int updates, int deletions)
+        private void Scanner_ScanDatabaseActivityCompleted(DiskScan scanner, long additions, long updates, long deletions)
         {
             switch (_displayMode)
             {
@@ -329,7 +330,7 @@ namespace HDDL.Scanning
             }
         }
 
-        private void Scanner_DeletionsOccurred(DiskScan scanner, int total)
+        private void Scanner_DeletionsOccurred(DiskScan scanner, long total)
         {
             switch (_displayMode)
             {

@@ -38,9 +38,6 @@ namespace HDDL.HDSL.Where
             var result = false;
             switch (LeftValue.ValueType)
             {
-                case WhereValueTypes.BookMarkReference:
-                    result = LeftValue.Get<string>(record) != RightValue.Get<string>(record);
-                    break;
                 case WhereValueTypes.DateTime:
                     result = LeftValue.Get<DateTime>(record) != RightValue.Get<DateTime>(record);
                     break;

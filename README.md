@@ -60,11 +60,16 @@ HDSL supports flags to assist with its output and behavior.  Note that all flags
 * s - Update ini file - defaults to off
   * When on, rewrites the ini file with the value provided for the database path.  Either the ini file value if the -db option is omitted, or the new value provided through -db.
 
+### Shortcuts
+HDSL offers a shorthand parameter alternative format that, while less legible, allows another method of providing the same parameters.
+* hdsl ex'`<hdsl file path>`'
+  * A shorthand invocation of the -exec parameter.
+
 ## The Hard Drive Search Language
 HDSL is a simple query language designed for the retrieval of files and directories based on their locations and characteristics.  The system currently implements the following statements:
- * `find [file search pattern - defaults to *.*] [in [path[, path, path]] - defaults to current] [where clause];`
+ * `find [file search pattern - defaults to *.*] [in/within/under [path[, path, path]] - defaults to current] [where clause];`
    * Retrieves the items that match the query and displays them.
- * `purge [where clause];`
+ * `purge [path[, path, path]] [where clause];`
    * Removes matching entries from the current database.
  * `[Bookmark] = '<absolute directory path string>';`
    * Creates a bookmark reference.

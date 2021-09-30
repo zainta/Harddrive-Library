@@ -19,12 +19,12 @@ namespace HDDL.UI
         /// </summary>
         public int Width { get; set; }
 
-        private int _value, _minimum, _maximum;
+        private long _value, _minimum, _maximum;
 
         /// <summary>
         /// The current value
         /// </summary>
-        public int Value
+        public long Value
         {
             get
             {
@@ -50,7 +50,7 @@ namespace HDDL.UI
         /// <summary>
         /// The minimum value
         /// </summary>
-        public int Minimum
+        public long Minimum
         {
             get
             {
@@ -77,7 +77,7 @@ namespace HDDL.UI
         /// <summary>
         /// The maximum value
         /// </summary>
-        public int Maximum
+        public long Maximum
         {
             get
             {
@@ -111,7 +111,7 @@ namespace HDDL.UI
         /// <param name="initial">The initial value</param>
         /// <param name="min">The minimum value</param>
         /// <param name="max">The maximum value</param>
-        public ProgressBar(int x, int y, int width, int initial, int min, int max) : base(x, y)
+        public ProgressBar(int x, int y, int width, long initial, long min, long max) : base(x, y)
         {
             Width = width;
 
@@ -131,7 +131,7 @@ namespace HDDL.UI
         public override void Display()
         {
             var pointsPerBlock = Maximum / Width;
-            var filled = pointsPerBlock > 0 ? Value / pointsPerBlock : Width;
+            var filled = Convert.ToInt32(Math.Clamp(pointsPerBlock > 0 ? Value / pointsPerBlock : Width, 0, Width));
             var empty = Width - filled;
 
             var origX = Console.CursorLeft;

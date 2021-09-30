@@ -91,6 +91,11 @@ namespace HDDL.HDSL
         /// <returns>An HDSLResult containing either errors or the results of the query</returns>
         private static HDSLResult Execute(ListStack<HDSLToken> tokens, string dbPath)
         {
+            if (!File.Exists(dbPath))
+            {
+                DataHandler.InitializeDatabase(dbPath);
+            }
+
             HDSLResult result;
             var interpreter = new HDSLInterpreter(tokens, new DataHandler(dbPath));
             result = interpreter.Interpret(false);
