@@ -126,12 +126,14 @@ namespace HDDL.Threading
                                 #region Check for Dead Workers
 
                                 var deads = (from t in _threads where t.Status != TaskStatus.Running select t);
+                                var indicesToAdd = new List<int>();
                                 foreach (var dead in deads)
                                 {
                                     var index = _threads.IndexOf(dead);
                                     _threads.RemoveAt(index);
-                                    AddRunner(index);
+                                    indicesToAdd.Add(index);
                                 }
+                                indicesToAdd.ForEach(i => AddRunner(i));
 
                                 #endregion
 
@@ -235,6 +237,15 @@ namespace HDDL.Threading
         public Task WhenAll()
         {
             return Task.WhenAll(_ending);
+        }
+
+        /// <summary>
+        /// Waits until the operation has concluded
+        /// </summary>
+        /// <returns></returns>
+        public void WaitAll()
+        {
+            _ending.Wait();
         }
 
         /// <summary>
