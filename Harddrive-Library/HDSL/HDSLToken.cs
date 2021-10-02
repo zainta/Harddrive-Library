@@ -34,6 +34,11 @@ namespace HDDL.HDSL
                     case HDSLTokenTypes.Whitespace:
                         Family = HDSLTokenFamilies.Whitespace;
                         break;
+                    case HDSLTokenTypes.Bookmarks:
+                    case HDSLTokenTypes.Exclusions:
+                    case HDSLTokenTypes.Dynamic:
+                    case HDSLTokenTypes.Exclude:
+                    case HDSLTokenTypes.Include:
                     case HDSLTokenTypes.TextMode:
                     case HDSLTokenTypes.SpinnerMode:
                     case HDSLTokenTypes.QuietMode:

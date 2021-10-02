@@ -41,6 +41,11 @@ namespace HDDL.HDSL
         ProgressMode,
         TextMode,
         QuietMode,
+        Exclude,
+        Include,
+        Dynamic,
+        Bookmarks,
+        Exclusions,
 
         // * attribute keywords
         Size,

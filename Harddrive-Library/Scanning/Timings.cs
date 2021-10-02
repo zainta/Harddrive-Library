@@ -64,9 +64,9 @@ namespace HDDL.Scanning
         public string GetScanDuration()
         {
             return string.Format("{0}:{1}:{2}.{3}", 
-                ScanDuration.Hours, 
-                ScanDuration.Minutes, 
-                ScanDuration.Seconds, 
+                ScanDuration.Hours.ToString("D2"), 
+                ScanDuration.Minutes.ToString("D2"), 
+                ScanDuration.Seconds.ToString("D2"), 
                 ScanDuration.Milliseconds);
         }
 
@@ -77,9 +77,9 @@ namespace HDDL.Scanning
         public string GetDirectoryStructureScanDuration()
         {
             return string.Format("{0}:{1}:{2}.{3}", 
-                DirectoryStructureScanDuration.Hours, 
-                DirectoryStructureScanDuration.Minutes, 
-                DirectoryStructureScanDuration.Seconds, 
+                DirectoryStructureScanDuration.Hours.ToString("D2"), 
+                DirectoryStructureScanDuration.Minutes.ToString("D2"), 
+                DirectoryStructureScanDuration.Seconds.ToString("D2"), 
                 DirectoryStructureScanDuration.Milliseconds);
         }
 
@@ -90,9 +90,9 @@ namespace HDDL.Scanning
         public string GetDirectoryStructureProcessingDuration()
         {
             return string.Format("{0}:{1}:{2}.{3}",
-                DirectoryStructureProcessingDuration.Hours,
-                DirectoryStructureProcessingDuration.Minutes,
-                DirectoryStructureProcessingDuration.Seconds,
+                DirectoryStructureProcessingDuration.Hours.ToString("D2"),
+                DirectoryStructureProcessingDuration.Minutes.ToString("D2"),
+                DirectoryStructureProcessingDuration.Seconds.ToString("D2"),
                 DirectoryStructureProcessingDuration.Milliseconds);
         }
 
@@ -103,9 +103,9 @@ namespace HDDL.Scanning
         public string GetDatabaseWriteDuration()
         {
             return string.Format("{0}:{1}:{2}.{3}",
-                DatabaseWriteDuration.Hours,
-                DatabaseWriteDuration.Minutes,
-                DatabaseWriteDuration.Seconds,
+                DatabaseWriteDuration.Hours.ToString("D2"),
+                DatabaseWriteDuration.Minutes.ToString("D2"),
+                DatabaseWriteDuration.Seconds.ToString("D2"),
                 DatabaseWriteDuration.Milliseconds);
         }
     }

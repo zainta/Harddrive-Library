@@ -27,6 +27,9 @@ namespace HDDL.Scanning
         public delegate void ScanEventMassDatabaseActivityDelegate(DiskScan scanner, long additions, long updates, long deletions);
         public delegate void ScanDatabaseResetRequested(DiskScan scanner);
         public delegate void ScanEventDeletionsOccurred(DiskScan scanner, long total);
+        public delegate void ScanDiskStructureExplorationBegins(DiskScan scanner);
+        public delegate void ScanDiskStructureExplorationEnds(DiskScan scanner);
+        public delegate void NoValidScanPathsProvided(DiskScan scanner);
 
         /// <summary>
         /// Occurs when the status changes
@@ -57,6 +60,21 @@ namespace HDDL.Scanning
         /// Occurs after the database operations have completed
         /// </summary>
         public event ScanEventMassDatabaseActivityDelegate ScanDatabaseActivityCompleted;
+
+        /// <summary>
+        /// Occurs when the disk structure search begins
+        /// </summary>
+        public event ScanDiskStructureExplorationBegins ScanExplorationBegins;
+
+        /// <summary>
+        /// Occurs when the disk structure search ends
+        /// </summary>
+        public event ScanDiskStructureExplorationEnds ScanExplorationEnds;
+
+        /// <summary>
+        /// Occurs when either no scan paths are supplied or those that are do not exist
+        /// </summary>
+        public event NoValidScanPathsProvided NoValidScanPaths;
 
         /// <summary>
         /// Where to start scanning from
@@ -144,7 +162,7 @@ namespace HDDL.Scanning
             _lookupTable = new ConcurrentDictionary<string, Guid>();
             _anchoredPaths = new List<string>();
             _durations = null;
-            _startingPaths = new List<string>(scanPaths);
+            _startingPaths = new List<string>(PathHelper.EnsurePath(scanPaths));
         }
 
         /// <summary>
@@ -159,7 +177,7 @@ namespace HDDL.Scanning
             _lookupTable = new ConcurrentDictionary<string, Guid>();
             _anchoredPaths = new List<string>();
             _durations = null;
-            _startingPaths = new List<string>(scanPaths);
+            _startingPaths = new List<string>(PathHelper.EnsurePath(scanPaths));
         }
 
         /// <summary>
@@ -179,6 +197,12 @@ namespace HDDL.Scanning
         /// </summary>
         public void StartScan()
         {
+            if (_startingPaths.Count == 0)
+            {
+                NoValidScanPaths?.Invoke(this);
+                return;
+            }
+
             _durations = new Timings();
             PathSetData info = null;
             Status = ScanStatus.InitiatingScan;
@@ -187,9 +211,14 @@ namespace HDDL.Scanning
                 _scanStart = DateTime.Now;
                 _directoryStructureScanStart = DateTime.Now;
 
+                // Apply bookmarks and ensure paths
                 _startingPaths = (from p in _startingPaths select _dh.ApplyBookmarks(p)).ToList();
 
-                info = PathHelper.GetContentsSortedByRoot(_startingPaths);
+                ScanExplorationBegins?.Invoke(this);
+                info = PathHelper.GetProcessedPathContents(_startingPaths, _dh.GetProcessedExclusions());
+                ScanExplorationEnds?.Invoke(this);
+
+                _durations.DirectoryStructureScanDuration = DateTime.Now.Subtract(_directoryStructureScanStart);
             });
             Task.WhenAll(task).ContinueWith((t) =>
             {
@@ -199,46 +228,9 @@ namespace HDDL.Scanning
                     ScanStarted?.Invoke(this, info.TotalDirectories, info.TotalFiles);
                     _scanMarker = DateTime.Now;
 
-                    // The below processing allows us to run through the work items
-                    // without having to perform any checks around existence
-                    // (other to see if we are updating vs inserting)
-
-                    // We have to process the results into a single queue because they come in sorted by root drive in a dictionary
-                    // first merge them into sets of files and directories
-                    var allFiles = new List<DiskItemType>();
-                    var allDirectories = new List<DiskItemType>();
-                    foreach (var root in info.TargetInformation.Keys)
-                    {
-                        allFiles.AddRange(from f in info.TargetInformation[root] where f.IsFile select f);
-                        allDirectories.AddRange(from d in info.TargetInformation[root] orderby PathHelper.GetDependencyCount(d) ascending where !d.IsFile select d);
-                    }
-
-                    // then group the items by and sort the groups by their distance from the root (called Dependency Count)
-                    var sortedFiles =
-                        (from work in allFiles
-                         group work by PathHelper.GetDependencyCount(work) into dependyLevel
-                         orderby dependyLevel.Key
-                         select dependyLevel.ToList()).ToList();
-
-                    var sortedDirectories =
-                        (from work in allDirectories
-                         group work by PathHelper.GetDependencyCount(work) into dependyLevel
-                         orderby dependyLevel.Key
-                         select dependyLevel.ToList()).ToList();
-
-                    // now that we have everything sorted and ready to go, merge the groups with the directories first
-                    var sorted = new List<List<DiskItemType>>();
-                    sorted.AddRange(sortedDirectories);
-                    sorted.AddRange(sortedFiles);
-                    _durations.DirectoryStructureScanDuration = DateTime.Now.Subtract(_directoryStructureScanStart);
-
-                    // reclaim the memory from this...
-                    sortedFiles = null;
-                    sortedDirectories = null;
-
                     // populate the queue
                     var dependencyOrderedQueues = new Queue<List<DiskItemType>>();
-                    sorted.ForEach((x) =>
+                    info.ProcessedContent.ForEach((x) =>
                     {
                         dependencyOrderedQueues.Enqueue(x);
                     });

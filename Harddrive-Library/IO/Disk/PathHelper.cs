@@ -2,6 +2,8 @@
 // Licensed under the MIT License, (the "License"); you may not use this file except in compliance with the License. 
 // You may obtain a copy of the License at https://mit-license.org/
 
+using HDDL.Data;
+using HDDL.Threading;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -17,24 +19,99 @@ namespace HDDL.IO.Disk
     class PathHelper
     {
         /// <summary>
+        /// Takes a path and, if it contains text, ensures that it ends in a forward slash (\)
+        /// </summary>
+        /// <param name="path">The path to check</param>
+        /// <returns></returns>
+        public static string EnsurePath(string path)
+        {
+            var result = path;
+            if (!string.IsNullOrWhiteSpace(path))
+            {
+                switch (IsDirectory(path))
+                {
+                    case DiskItemStatus.File:
+                        // files need to end in no forward slash
+                        if (EndsInDirSeperator(path))
+                        {
+                            result = path.Substring(0, path.Length - 1);
+                        }
+                        break;
+                    case DiskItemStatus.Directory:
+                        // directories need to end in a forward slash (\)
+                        if (!EndsInDirSeperator(path))
+                        {
+                            result = $"{path}{Path.DirectorySeparatorChar}";
+                        }
+                        break;
+                    case DiskItemStatus.NonExistent:
+                        result = null;
+                        break;
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Checks to see if the given string ends in one of the accepted directory seperators
+        /// </summary>
+        /// <param name="path">The path to check</param>
+        /// <returns></returns>
+        public static bool EndsInDirSeperator(string path)
+        {
+            return path.EndsWith(Path.DirectorySeparatorChar) || path.EndsWith(Path.AltDirectorySeparatorChar);
+        }
+
+        /// <summary>
+        /// Takes a set of paths and, if it contains text, ensures that they end in forward slashes (\)
+        /// </summary>
+        /// <param name="paths">The paths to check</param>
+        /// <returns></returns>
+        public static string[] EnsurePath(IEnumerable<string> paths)
+        {
+            var result = paths.Select(p => EnsurePath(p)).Where(p => p != null);
+            return result.ToArray();
+        }
+
+        /// <summary>
+        /// Checks to see if the given path is a file or directory
+        /// </summary>
+        /// <param name="path">The patch to check</param>
+        /// <returns></returns>
+        public static DiskItemStatus IsDirectory(string path)
+        {
+            try
+            {
+                return (File.GetAttributes(path) & FileAttributes.Directory) == FileAttributes.Directory ? DiskItemStatus.Directory : DiskItemStatus.File;
+            }
+            catch (Exception ex)
+            {
+                return DiskItemStatus.NonExistent;
+            }
+        }
+
+        /// <summary>
         /// Takes a DiskItemType and regresses until it reaches the drive root
         /// </summary>
         /// <param name="diskItemType">A path to anchor to the root</param>
         /// <returns>Returns all directories found during the regression</returns>
         public static IEnumerable<DiskItemType> AnchorPath(DiskItemType diskItemType)
         {
-            var results = new List<DirectoryInfo>();
+            var results = new List<string>();
             var dir = diskItemType.IsFile ? diskItemType.FInfo.Directory : diskItemType.DInfo;
             while (dir != null && dir.Parent != null)
             {
                 if (dir.Parent != null)
                 {
-                    results.Add(dir.Parent);
+                    results.Add(dir.Parent.FullName);
                     dir = dir.Parent;
                 }
             }
 
-            return (from d in results orderby d.FullName.Count(f => f == '\\') ascending select new DiskItemType(d));
+            return (from d in results
+                    orderby d.Count(f => f == Path.DirectorySeparatorChar || f == Path.AltDirectorySeparatorChar) ascending
+                    select new DiskItemType(EnsurePath(d), false));
         }
 
         /// <summary>
@@ -64,8 +141,8 @@ namespace HDDL.IO.Disk
         public static bool IsWithinPath(string query, string container, bool acceptDuplicates = true)
         {
             // Ensure that the two paths end in slashes
-            if (!query.EndsWith("\\")) query = query + "\\";
-            if (!container.EndsWith("\\")) container = container + "\\";
+            if (!EndsInDirSeperator(query)) query = query + Path.DirectorySeparatorChar;
+            if (!EndsInDirSeperator(container)) container = container + Path.DirectorySeparatorChar;
 
             if (Uri.IsWellFormedUriString(query, UriKind.RelativeOrAbsolute) ||
                 Uri.IsWellFormedUriString(container, UriKind.RelativeOrAbsolute))
@@ -108,114 +185,188 @@ namespace HDDL.IO.Disk
         /// This prevents multiple threads from trying to read the same hard drive at once.
         /// </summary>
         /// <param name="paths">The paths to test</param>
+        /// <param name="exclusions">A list of defined exclusions (paths that should not be scanned)</param>
+        /// <param name="maxThreads">The maximum number of root threads to scan the disk with</param>
         /// <returns>Returns the sorted items</returns>
-        public static PathSetData GetContentsSortedByRoot(IEnumerable<string> paths)
+        public static PathSetData GetProcessedPathContents(IEnumerable<string> paths, IEnumerable<ExclusionItem> exclusions, int maxThreads = 4)
         {
-            var result = new PathSetData(new Dictionary<string, List<DiskItemType>>(), 0, 0);
+            var result = new PathSetData();
 
-            var intermediate = new ConcurrentBag<DiskItemType>();
+            // make sure our directories correctly end in forward slashes (\) and remove any bad paths
+            paths = EnsurePath(paths);
 
-            Action<string> recursor = null;
-            recursor = (path) =>
+            // extract the excluded regions so we can more easily query it
+            var excludedPaths = (from e in exclusions select e.Region);
+
+            var allFiles = new List<DiskItemType>();
+            var allDirectories = new List<DiskItemType>();
+            var unlistables = new ConcurrentBag<DiskItemType>();
+            Func<string, List<DiskItemType>, List<DiskItemType>, bool> recursor = null;
+            recursor = (path, files, directories) =>
             {
+                // exclusions will have ensured paths while path won't be ensured.
+                if (IsWithinPaths(path, excludedPaths))
+                {
+                    // this is not a failure because we have been told not to do it.
+                    return true; 
+                }
+
                 if (Directory.Exists(path))
                 {
-                    Parallel.ForEach(
-                        Directory.GetDirectories(path),
-                        (dir) =>
-                        {
-                            var dit = new DiskItemType(dir, false);
-                            intermediate.Add(dit);
-
-                            try
-                            {
-                                // handle files
-                                foreach (var file in dit.DInfo.GetFiles())
-                                {
-                                    intermediate.Add(new DiskItemType(file));
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-
-                            }
-
-                            try
-                            {
-                                // handle subdirectories
-                                foreach (var directory in dit.DInfo.GetDirectories())
-                                {
-                                    recursor(directory.FullName);
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-
-                            }
-                        });
-
-                    var dit = new DiskItemType(path, false);
-                    intermediate.Add(dit);
+                    // used for the purpose of tracking what we were scanning when the exception occurred
+                    bool isFile = false;
                     try
                     {
-                        // handle files
-                        foreach (var file in dit.DInfo.GetFiles())
+                        var outcome = true;
+                        //foreach (var dir in Directory.GetDirectories(path).Select(p => $"{p}\\"))
+                        //{
+                        //    var subDirs = new List<DiskItemType>();
+                        //    var subFiles = new List<DiskItemType>();
+                        //    if ((outcome = recursor(dir, subFiles, subDirs)))
+                        //    {
+                        //        files.AddRange(subFiles);
+                        //        directories.AddRange(subDirs);
+                        //    }
+                        //}
+                        var subDirs = new ConcurrentBag<DiskItemType>();
+                        var subFiles = new ConcurrentBag<DiskItemType>();
+                        Parallel.ForEach(Directory.GetDirectories(path).Select(p => $"{p}\\"),
+                            (dir) =>
+                            {
+                                var setD = new List<DiskItemType>();
+                                var setF = new List<DiskItemType>();
+                                if ((outcome = recursor(dir, setF, setD)))
+                                {
+                                    setD.ForEach(d => subDirs.Add(d));
+                                    setF.ForEach(f => subFiles.Add(f));
+                                }
+                            });
+                        directories.AddRange(subDirs);
+                        files.AddRange(subFiles);
+
+                        if (outcome)
                         {
-                            intermediate.Add(new DiskItemType(file));
+                            isFile = true;
+                            foreach (var file in Directory.GetFiles(path))
+                            {
+                                files.Add(new DiskItemType(file, true));
+                            };
                         }
                     }
-                    catch (Exception ex)
+                    catch (UnauthorizedAccessException ex)
                     {
+                        int start = ex.Message.IndexOf("'") + 1, end = ex.Message.LastIndexOf("'") - 1;
+                        var unlistablePath = ex.Message.Substring(start, end - start);
+                        unlistables.Add(new DiskItemType(unlistablePath, isFile));
 
+                        return false;
+                    }
+
+                    var ensured = EnsurePath(path);
+                    if (ensured != null)
+                    {
+                        directories.Add(new DiskItemType(ensured, false));
+                    }
+                    else
+                    {
+                        return false;
                     }
                 }
+
+                return true;
             };
 
-            // Recursively expand the search paths out into a flat list of files and subdirectories
+            // figure out how many unique lettered media (disks, cd drives, etc) are getting scanned.
+            // this is the maximum number of threads we want to use
+            var roots = new List<string>();
             foreach (var path in paths)
             {
-                if (File.Exists(path))
+                string root = null;
+                if (EndsInDirSeperator(path))
                 {
-                    intermediate.Add(new DiskItemType(path, true));
+                    root = new DirectoryInfo(path).Root.FullName;
                 }
                 else
                 {
-                    recursor(path);
+                    root = new FileInfo(path).Directory.Root.FullName;
+                }
+
+                if (!roots.Contains(root))
+                {
+                    roots.Add(root);
                 }
             }
+            var threads = roots.Count <= maxThreads ? roots.Count : maxThreads;
 
-            // sort them by containing folder
-            foreach (var item in intermediate)
+            // Figure out how many unique targets are getting scanned.
+            // This eliminates paths within paths, ensuring we will not get any duplicates
+            var uniqueTargets = new List<string>();
+            foreach (var path in paths.OrderBy(p => p.Length))
             {
-                string root = null;
-                if (item.IsFile)
+                if (uniqueTargets.Count > 0)
                 {
-                    root = item.FInfo.Directory.Root.FullName.ToUpper();
+                    if (!IsWithinPaths(path, uniqueTargets))
+                    {
+                        uniqueTargets.Add(path);
+                    }
                 }
-                else if (!item.IsFile)
+                else
                 {
-                    root = item.DInfo.Root.FullName.ToUpper();
+                    uniqueTargets.Add(path);
                 }
-
-                if (!result.TargetInformation.ContainsKey(root))
-                {
-                    result.TargetInformation.Add(root, new List<DiskItemType>());
-                }
-
-                // Add it
-                result.TargetInformation[root].Add(item);
-                result.TargetInformation[root].AddRange(AnchorPath(item));
             }
 
-            // Remove duplicates from each root
-            foreach (var root in result.TargetInformation.Keys)
+            var tq = new ThreadedQueue<string>(
+                (path) =>
+                {
+                    if (File.Exists(path))
+                    {
+                        allFiles.Add(new DiskItemType(path, true));
+                    }
+                    else if (Directory.Exists(path))
+                    {
+                        recursor(path, allFiles, allDirectories);
+                    }
+                }, threads);
+            tq.Start(uniqueTargets);
+            tq.WaitAll();
+
+            // the directories must reach all the way to the root.
+            // check to see if each path parameter has 0 dependencies (i.e is a root path)
+            // if it isn't, then add its dependencies (this will include the root)
+            foreach (var path in paths)
             {
-                var uniques = result.TargetInformation[root].Distinct(new DiskItemTypeEqualityComparer()).ToList();
-                result.TotalDirectories += uniques.Where(dit => !dit.IsFile).Count();
-                result.TotalFiles += uniques.Where(dit => dit.IsFile).Count();
-
-                result.TargetInformation[root] = uniques;
+                var dit = new DiskItemType(path, File.Exists(path));
+                var anchors = AnchorPath(dit);
+                if (anchors.Count() > 0)
+                {
+                    var nonDuplicates = anchors.Where(ap => !allDirectories.Where(d => d.Path == ap.Path).Any());
+                    foreach (var item in nonDuplicates)
+                    {
+                        allDirectories.Add(item);
+                    }
+                }
             }
+
+            // then group the items by and sort the groups by their distance from the root (called Dependency Count or Depth)
+            var sortedFiles =
+                (from work in allFiles
+                 group work by GetDependencyCount(work) into dependyLevel
+                 orderby dependyLevel.Key ascending
+                 select dependyLevel.ToList()).ToList();
+
+            var sortedDirectories =
+                (from work in allDirectories
+                 group work by GetDependencyCount(work) into dependyLevel
+                 orderby dependyLevel.Key ascending
+                 select dependyLevel.ToList()).ToList();
+
+            // now that we have everything sorted and ready to go, merge the groups with the directories first
+            result.ProcessedContent.AddRange(sortedDirectories);
+            result.ProcessedContent.AddRange(sortedFiles);
+
+            result.TotalDirectories = allDirectories.Count;
+            result.TotalFiles = allFiles.Count;
 
             return result;
         }

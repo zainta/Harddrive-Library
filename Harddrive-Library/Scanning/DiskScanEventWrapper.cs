@@ -110,7 +110,7 @@ namespace HDDL.Scanning
         /// <returns>true on completion, false othrewise</returns>
         public bool Go()
         {
-            return Initialize(_allowRecreation, _dbPath, _scanPaths);
+            return Initialize(_allowRecreation, _dbPath, _scanPaths.Where(sp => File.Exists(sp) || Directory.Exists(sp)));
         }
 
         /// <summary>
@@ -187,13 +187,13 @@ namespace HDDL.Scanning
                 switch (_displayMode)
                 {
                     case DiskScanEventWrapperDisplayModes.ProgressBar:
-                        Console.Write($"Performing scans on '{string.Join("\', \'", _scanner.ScanTargets)}\': ");
+                        Console.Write($"Performing scans on '{string.Join("\', \'", _scanner.ScanTargets)}\' - ");
                         break;
                     case DiskScanEventWrapperDisplayModes.Spinner:
                         Console.Write($"Performing scans on '{string.Join("\', \'", _scanner.ScanTargets)}\' - ");
                         break;
                     case DiskScanEventWrapperDisplayModes.Text:
-                        Console.WriteLine($"Performing scans on '{string.Join("\', \'", _scanner.ScanTargets)}\'... ");
+                        Console.Write($"Performing scans on '{string.Join("\', \'", _scanner.ScanTargets)}\' - ");
                         break;
                 }
             }
@@ -205,6 +205,9 @@ namespace HDDL.Scanning
                 _scanner.ScanStarted += Scanner_ScanStarted;
                 _scanner.ScanDatabaseActivityCompleted += Scanner_ScanDatabaseActivityCompleted;
                 _scanner.DeletionsOccurred += Scanner_DeletionsOccurred;
+                _scanner.ScanExplorationBegins += _scanner_ScanExplorationBegins;
+                _scanner.ScanExplorationEnds += _scanner_ScanExplorationEnds;
+                _scanner.NoValidScanPaths += _scanner_NoValidScanPaths;
             }
             _scanner.StartScan();
 
@@ -214,10 +217,10 @@ namespace HDDL.Scanning
             {
                 if (allowPrompts)
                 {
-                    if (_scanner.Status == ScanStatus.Scanning)
+                    if (_scanner.Status == ScanStatus.Scanning || 
+                        _scanner.Status == ScanStatus.InitiatingScan)
                     {
-                        if (_displayMode == DiskScanEventWrapperDisplayModes.ProgressBar ||
-                            _displayMode == DiskScanEventWrapperDisplayModes.Spinner)
+                        if (_uiFeedbackDisplay != null)
                         {
                             _uiFeedbackDisplay.Display();
                         }
@@ -231,6 +234,43 @@ namespace HDDL.Scanning
         }
 
         #region Events
+
+        private void _scanner_NoValidScanPaths(DiskScan scanner)
+        {
+            switch (_displayMode)
+            {
+                case DiskScanEventWrapperDisplayModes.ProgressBar:
+                case DiskScanEventWrapperDisplayModes.Spinner:
+                case DiskScanEventWrapperDisplayModes.Text:
+                    Console.WriteLine("No valid scanning paths were provided.");
+                    break;
+            }
+        }
+
+        private void _scanner_ScanExplorationEnds(DiskScan scanner)
+        {
+            _uiFeedbackDisplay = null;
+            switch (_displayMode)
+            {
+                case DiskScanEventWrapperDisplayModes.ProgressBar:
+                case DiskScanEventWrapperDisplayModes.Spinner:
+                case DiskScanEventWrapperDisplayModes.Text:
+                    Console.WriteLine("Ready!");
+                    break;
+            }
+        }
+
+        private void _scanner_ScanExplorationBegins(DiskScan scanner)
+        {
+            switch (_displayMode)
+            {
+                case DiskScanEventWrapperDisplayModes.ProgressBar:
+                case DiskScanEventWrapperDisplayModes.Spinner:
+                case DiskScanEventWrapperDisplayModes.Text:
+                    _uiFeedbackDisplay = new Spinner(Console.CursorLeft, Console.CursorTop);
+                    break;
+            }
+        }
 
         private void Scanner_ScanStarted(DiskScan scanner, long directoryCount, long fileCount)
         {

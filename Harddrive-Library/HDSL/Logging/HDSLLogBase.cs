@@ -43,7 +43,7 @@ namespace HDDL.HDSL.Logging
         /// <returns></returns>
         public override string ToString()
         {
-            return $"Syntax Error: {Column},{Row}: {Message}";
+            return $"Syntax Error at line {Row:00}, column {Column:00}: {Message}";
         }
     }
 }

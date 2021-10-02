@@ -69,10 +69,14 @@ HDSL offers a shorthand parameter alternative format that, while less legible, a
 HDSL is a simple query language designed for the retrieval of files and directories based on their locations and characteristics.  The system currently implements the following statements:
  * `find [file search pattern - defaults to *.*] [in/within/under [path[, path, path]] - defaults to current] [where clause];`
    * Retrieves the items that match the query and displays them.
- * `purge [path[, path, path]] [where clause];`
+ * `purge [bookmarks | exclusions | path[, path, path] [where clause]];`
    * Removes matching entries from the current database.
  * `[Bookmark] = '<absolute directory path string>';`
    * Creates a bookmark reference.
    * Bookmarks can be substituted for scan and find location.
  * `scan [spinner|progress|text|quiet - defaults to text] [path[, path, path]];`
    * Performs a disk item scan with the requested display mode on the provided paths.  
+ * `exclude [dynamic] path[, path, path];` 
+   * Adds an exclusion for the given paths
+ * `include path[, path, path];`
+   * Deletes exclusions for the given paths

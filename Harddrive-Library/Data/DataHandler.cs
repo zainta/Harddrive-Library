@@ -32,6 +32,11 @@ namespace HDDL.Data
         private List<BookmarkItem> _bookmarkCache;
 
         /// <summary>
+        /// The exclusion cache
+        /// </summary>
+        private List<ExclusionItem> _exclusionCache;
+
+        /// <summary>
         /// Stores pending database actions for DiskItems
         /// </summary>
         private RecordActionContainer<DiskItem> _diskItems;
@@ -40,6 +45,11 @@ namespace HDDL.Data
         /// Stores pending database actions for Bookmarks
         /// </summary>
         private RecordActionContainer<BookmarkItem> _bookmarks;
+
+        /// <summary>
+        /// Stores pending database actions for Exclusions
+        /// </summary>
+        private RecordActionContainer<ExclusionItem> _exclusions;
 
         /// <summary>
         /// The current database connection
@@ -55,7 +65,9 @@ namespace HDDL.Data
             ConnectionString = connectionString;
             _diskItems = new RecordActionContainer<DiskItem>();
             _bookmarks = new RecordActionContainer<BookmarkItem>();
+            _exclusions = new RecordActionContainer<ExclusionItem>();
             _bookmarkCache = null;
+            _exclusionCache = null;
         }
 
         ~DataHandler()
@@ -107,6 +119,11 @@ namespace HDDL.Data
                                 id text not null primary key,
                                 target text not null,
                                 itemName text not null
+                                );
+
+                            create table if not exists exclusions (
+                                id text not null primary key,
+                                region text not null
                                 );",
                                 sqltCon))
                     {
@@ -192,6 +209,169 @@ namespace HDDL.Data
 
         #endregion
 
+        #region Exclusion Related
+
+        /// <summary>
+        /// Retrieves and returns the bookmarks
+        /// </summary>
+        /// <returns></returns>
+        public List<ExclusionItem> GetExclusions()
+        {
+            if (_exclusionCache == null ||
+                (_exclusionCache != null && _exclusionCache.Count == 0))
+            {
+                _exclusionCache = new List<ExclusionItem>();
+
+                var exclusions = ExecuteReader(@"select * from exclusions");
+                while (exclusions.Read())
+                {
+                    _exclusionCache.Add(new ExclusionItem(exclusions));
+                }
+            }
+
+            return _exclusionCache;
+        }
+
+        /// <summary>
+        /// Retrieves and returns all Exclusions and expands dynamic exclusions (removing dead ones from the list)
+        /// </summary>
+        /// <returns></returns>
+        public List<ExclusionItem> GetProcessedExclusions()
+        {
+            var results = new List<ExclusionItem>();
+            foreach (var e in GetExclusions())
+            {
+                if (e.IsDynamic)
+                {
+                    e.Region = ApplyBookmarks(e.Region);
+                }
+
+                results.Add(e);
+            }
+
+            return results;
+        }
+
+        /// <summary>
+        /// Clears any cached bookmarks, forcing them to be reloaded for the next GetBookmarks() call
+        /// </summary>
+        public void ClearExclusionCache()
+        {
+            _exclusionCache.Clear();
+            _exclusionCache = null;
+        }
+
+        /// <summary>
+        /// Deletes all bookmarks from the database
+        /// </summary>
+        public long ClearExclusions()
+        {
+            var count = GetCount("exclusions");
+            ExecuteNonQuery("delete from exclusions");
+            return count;
+        }
+
+        /// <summary>
+        /// Queues the records for transactionary insertion
+        /// </summary>
+        /// <param name="items">The records to be added</param>
+        /// <returns></returns>
+        public void Insert(params ExclusionItem[] items)
+        {
+            foreach (var item in items)
+            {
+                _exclusions.Inserts.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Queues the records for the transactionary update
+        /// </summary>
+        /// <param name="items">The records to be updated</param>
+        public void Update(params ExclusionItem[] items)
+        {
+            foreach (var item in items)
+            {
+                _exclusions.Updates.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Queues the records for the transactionary deletion
+        /// </summary>
+        /// <param name="items"></param>
+        public void Delete(params ExclusionItem[] items)
+        {
+            foreach (var item in items)
+            {
+                _exclusions.Deletions.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Performs a transactionary database execution of all pending inserts, updates, and deletes
+        /// </summary>
+        /// <returns>A tuple in the format total [inserts, updates, deletes]</returns>
+        public Tuple<long, long, long> WriteExclusions()
+        {
+            long inserts = 0, updates = 0, deletes = 0;
+            if (_exclusions.HasWork)
+            {
+                using (var transaction = EnsureConnection().BeginTransaction())
+                {
+                    if (_exclusions.Inserts.Count > 0)
+                    {
+                        foreach (var insert in _exclusions.Inserts)
+                        {
+                            ExecuteNonQuery(insert.ToInsertStatement());
+                            inserts++;
+                        }
+                        _exclusions.Inserts.Clear();
+                    }
+
+                    if (_exclusions.Updates.Count > 0)
+                    {
+                        foreach (var update in _exclusions.Updates)
+                        {
+                            ExecuteNonQuery(update.ToUpdateStatement());
+                            updates++;
+                        }
+                        _exclusions.Updates.Clear();
+                    }
+
+                    if (_exclusions.Deletions.Count > 0)
+                    {
+                        var sql = new StringBuilder("(");
+                        foreach (var delete in _exclusions.Deletions)
+                        {
+                            if (sql.Length > 1)
+                            {
+                                sql.Append(", ");
+                            }
+                            sql.Append($"'{delete.Id}'");
+                            deletes++;
+                        }
+                        sql.Append(")");
+
+                        deletes = GetCount($"exclusions where id in {sql};");
+                        ExecuteNonQuery($"DELETE from exclusions where id in {sql};");
+                        _exclusions.Deletions.Clear();
+                    }
+
+                    transaction.Commit();
+                }
+            }
+
+            if (inserts > 0 || updates > 0 || deletes > 0)
+            {
+                ClearExclusionCache();
+            }
+
+            return new Tuple<long, long, long>(inserts, updates, deletes);
+        }
+
+        #endregion
+
         #region Bookmark Related
 
         /// <summary>
@@ -241,6 +421,16 @@ namespace HDDL.Data
         }
 
         /// <summary>
+        /// Deletes all bookmarks from the database
+        /// </summary>
+        public long ClearBookmarks()
+        {
+            var count = GetCount("bookmarks");
+            ExecuteNonQuery("delete from bookmarks");
+            return count;
+        }
+
+        /// <summary>
         /// Queues the records for transactionary insertion
         /// </summary>
         /// <param name="items">The records to be added</param>
@@ -275,16 +465,6 @@ namespace HDDL.Data
             {
                 _bookmarks.Deletions.Add(item);
             }
-        }
-
-        /// <summary>
-        /// Delets all Bookmark Items in the database
-        /// </summary>
-        public int ClearBookmarks()
-        {
-            var count = ExecuteScalar<int>("delete from bookmarks;");
-            ClearBookmarkCache();
-            return count;
         }
 
         /// <summary>

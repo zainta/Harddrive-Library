@@ -6,6 +6,7 @@ using HDDL.Collections;
 using HDDL.Data;
 using HDDL.HDSL.Logging;
 using HDDL.HDSL.Where;
+using HDDL.IO.Disk;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -86,6 +87,12 @@ namespace HDDL.HDSL
                         case HDSLTokenTypes.EndOfLine:
                             Pop();
                             break;
+                        case HDSLTokenTypes.Include:
+                            HandleIncludeStatement();
+                            break;
+                        case HDSLTokenTypes.Exclude:
+                            HandleExcludeStatement();
+                            break;
                         default:
                             _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Unexpected token '{Peek().Code}'."));
                             done = true;
@@ -165,16 +172,28 @@ namespace HDDL.HDSL
         /// <summary>
         /// Interprets and returns a comma seperated list of strings
         /// </summary>
+        /// <param name="failOnNone">Whether or not the method should log an error if no paths are discovered</param>
         /// <returns>A list containing the strings</returns>
-        private List<string> GetPathList()
+        private List<string> GetPathList(bool failOnNone = true, bool expandBookmarks = true)
         {
+            HDSLToken first = null;
             var results = new List<string>();
             // get the list of paths
             while (More() && Peek().Type == HDSLTokenTypes.String || Peek().Type == HDSLTokenTypes.BookmarkReference)
             {
+                // save the first one for error reporting
+                if (first == null) first = Peek();
+
                 if (Peek().Type == HDSLTokenTypes.BookmarkReference)
                 {
-                    results.Add(_dh.ApplyBookmarks(Pop().Code));
+                    if (expandBookmarks)
+                    {
+                        results.Add(_dh.ApplyBookmarks(Pop().Code));
+                    }
+                    else
+                    {
+                        results.Add(Pop().Literal);
+                    }
                 }
                 else
                 {
@@ -192,6 +211,14 @@ namespace HDDL.HDSL
                 }
             }
 
+            results = PathHelper.EnsurePath(results).ToList();
+            if (failOnNone && results.Count == 0)
+            {
+                if (first != null)
+                {
+                    _errors.Add(new HDSLLogBase(first.Column, first.Row, $"No valid paths found."));
+                }
+            }
             return results;
         }
 
@@ -200,13 +227,103 @@ namespace HDDL.HDSL
         #region Statement Handlers
 
         /// <summary>
+        /// Handles the interpretation of a region exclusion declaration
+        /// 
+        /// Purpose:
+        /// Makes an entry that ensuring that subsequent scans will ignore that path and its contents
+        /// 
+        /// Syntax:
+        /// exclude [dynamic] path[, path, path];
+        /// </summary>
+        private void HandleExcludeStatement()
+        {
+            if (More() && Peek().Type == HDSLTokenTypes.Exclude)
+            {
+                Pop();
+
+                // if the optional 'dynamic' keyword is present, then store exclusions with their bookmarks intact and expand them during scanning.
+                // this will make changes to a bookmark's meaning automatically be taken into account.
+                // It also means that deleting a bookmark that a dynamic exclusion references will make it "dead", resulting in it being ignored
+                var expand = (More() && Peek().Type == HDSLTokenTypes.Dynamic);
+                if (expand)
+                {
+                    Pop(); // get rid of the token
+                }
+
+                // get the list of excluded locations
+                var paths = GetPathList(expandBookmarks: expand);
+                if (paths.Count > 0)
+                {
+                    // Create exclusion instances for paths that are not already excluded
+                    var exclusions = (from p in paths
+                                      where
+                                        _dh.GetExclusions().Where(e => e.Region == p).Any() == false
+                                      select
+                                          new ExclusionItem()
+                                          {
+                                              Id = Guid.NewGuid(),
+                                              Region = p
+                                          }).ToArray();
+                    _dh.Insert(exclusions);
+                    _dh.WriteExclusions();
+                }
+                else
+                {
+                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Path string(s) expected."));
+                }
+            }
+            else
+            {
+                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'exclude' expected."));
+            }
+        }
+
+        /// <summary>
+        /// Handles the interpretation of an exclusion removal statement
+        /// 
+        /// Purpose:
+        /// Removes an exclusion, returning the excluded region to eligibility for subsequent scans
+        /// 
+        /// Syntax:
+        /// include path[, path, path];
+        /// </summary>
+        private void HandleIncludeStatement()
+        {
+            if (More() && Peek().Type == HDSLTokenTypes.Include)
+            {
+                Pop();
+
+                // get the list of excluded locations
+                var paths = GetPathList();
+                if (paths.Count > 0)
+                {
+                    // Retrieve the exclusions in the list that actually exist
+                    var exclusions = (from e in _dh.GetExclusions()
+                                      where 
+                                        paths.Where(p => p.Equals(e.Region, StringComparison.InvariantCultureIgnoreCase)).Any() == true
+                                      select e).ToArray();
+                    _dh.Delete(exclusions);
+                    _dh.WriteExclusions();
+                }
+                else
+                {
+                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Path string(s) expected."));
+                }
+            }
+            else
+            {
+                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'include' expected."));
+            }
+        }
+
+        /// <summary>
         /// Handles the interpretation of a code-based scan call
         /// 
         /// Purpose:
         /// Allows scripts to run scans
         /// 
         /// Syntax:
-        /// scan [path[, path, path]] - defaults to current]
+        /// scan [spinner|progress|text|quiet - defaults to text] [path[, path, path]];
         /// </summary>
         private void HandleScanStatement()
         {
@@ -265,8 +382,6 @@ namespace HDDL.HDSL
         /// 
         /// Examples:
         /// [homeDir] = 'C:\Users\SWDev';
-        /// [homeDirPng] = 'C:\Users\SWDev:*.png';
-        /// [homeDirFavImg] = 'C:\Users\SWDev\fav.png';
         /// </summary>
         private void HandleBookmarkDefinitionStatement()
         {
@@ -279,49 +394,56 @@ namespace HDDL.HDSL
                     if (More() && Peek().Type == HDSLTokenTypes.String)
                     {
                         var markValueToken = Pop();
-                        var markValue = markValueToken.Literal;
-                        var bm = new BookmarkItem()
+                        var markValue = PathHelper.EnsurePath(markValueToken.Literal);
+                        if (markValue != null)
                         {
-                            Id = Guid.NewGuid(),
-                            ItemName = markName
-                        };
-
-                        // determine what type of bookmark was defined
-                        if (markValue.Where(c => c == ':').Count() == 1)
-                        {
-                            try
+                            var bm = new BookmarkItem()
                             {
-                                if (Directory.Exists(markValue))
+                                Id = Guid.NewGuid(),
+                                ItemName = markName
+                            };
+
+                            // determine what type of bookmark was defined
+                            if (markValue.Where(c => c == ':').Count() == 1)
+                            {
+                                try
                                 {
-                                    bm.Target = markValue;
+                                    if (Directory.Exists(markValue))
+                                    {
+                                        bm.Target = markValue;
+                                    }
+                                    else
+                                    {
+                                        _errors.Add(new HDSLLogBase(markValueToken.Column, markValueToken.Row, $"Full file or directory path expected."));
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    _errors.Add(new HDSLLogBase(markValueToken.Column, markValueToken.Row, $"Valid full file or directory path expected."));
+                                }
+                            }
+                            else
+                            {
+                                _errors.Add(new HDSLLogBase(markValueToken.Column, markValueToken.Row, $"Valid full file or directory path expected."));
+                            }
+
+                            if (!string.IsNullOrWhiteSpace(bm.Target))
+                            {
+                                if (!_dh.GetBookmarks().Where(b => b.ItemName == bm.ItemName).Any())
+                                {
+                                    _dh.Insert(bm);
+                                    _dh.WriteBookmarks();
                                 }
                                 else
                                 {
-                                    _errors.Add(new HDSLLogBase(markValueToken.Column, markValueToken.Row, $"Full file or directory path expected."));
+                                    _dh.Update(bm);
+                                    _dh.WriteBookmarks();
                                 }
-                            }
-                            catch (Exception ex)
-                            {
-                                _errors.Add(new HDSLLogBase(markValueToken.Column, markValueToken.Row, $"Valid full file or directory path expected."));
                             }
                         }
                         else
                         {
-                            _errors.Add(new HDSLLogBase(markValueToken.Column, markValueToken.Row, $"Valid full file or directory path expected."));
-                        }
-
-                        if (!string.IsNullOrWhiteSpace(bm.Target))
-                        {
-                            if (!_dh.GetBookmarks().Where(b => b.ItemName == bm.ItemName).Any())
-                            {
-                                _dh.Insert(bm);
-                                _dh.WriteBookmarks();
-                            }
-                            else
-                            {
-                                _dh.Update(bm);
-                                _dh.WriteBookmarks();
-                            }
+                            _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Path '{markValueToken.Literal}' does not exist."));
                         }
                     }
                     else
@@ -347,7 +469,7 @@ namespace HDDL.HDSL
         /// A purge statement removes entries from the database (it does not delete actual files)
         /// 
         /// Syntax:
-        /// purge [path[, path, path]] [where clause];
+        /// purge [bookmarks | exclusions | path[, path, path] [where clause]];
         /// </summary>
         private void HandlePurgeStatement()
         {
@@ -356,23 +478,42 @@ namespace HDDL.HDSL
                 // eat the purge
                 Pop();
 
-                var targets = GetPathList();
-                // the where clause is optional.
-                // If present, it further filters the files selected from the path
-                var queryDetail = string.Empty;
-                if (More() && Peek().Type == HDSLTokenTypes.Where)
+                if (More())
                 {
-                    queryDetail = OperatorBase.ConvertClause(_tokens).ToString();
-                }
+                    if (Peek().Type == HDSLTokenTypes.Exclusions)
+                    {
+                        Pop();
+                        _dh.ClearExclusions();
+                    }
+                    else if (Peek().Type == HDSLTokenTypes.Bookmarks)
+                    {
+                        Pop();
+                        _dh.ClearBookmarks();
+                    }
+                    else
+                    {
+                        var targets = GetPathList();
+                        if (_errors.Count == 0)
+                        {
+                            // the where clause is optional.
+                            // If present, it further filters the files selected from the path
+                            var queryDetail = string.Empty;
+                            if (Peek().Type == HDSLTokenTypes.Where)
+                            {
+                                queryDetail = OperatorBase.ConvertClause(_tokens).ToString();
+                            }
 
-                // execute the purge
-                try
-                {
-                    _dh.PurgeQueried(queryDetail, targets);
-                }
-                catch (Exception ex)
-                {
-                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Exception encountered: '{ex}'."));
+                            // execute the purge
+                            try
+                            {
+                                _dh.PurgeQueried(queryDetail, targets);
+                            }
+                            catch (Exception ex)
+                            {
+                                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Exception encountered: '{ex}'."));
+                            }
+                        }
+                    }
                 }
             }
             else
@@ -409,27 +550,29 @@ namespace HDDL.HDSL
                 // if left out then the system assumes the current directory.
                 HDSLTokenTypes op = HDSLTokenTypes.Within;
                 var targetPaths = new List<string>();
-                if (More() && 
+                if (More() &&
                     (Peek().Type == HDSLTokenTypes.In ||
                     Peek().Type == HDSLTokenTypes.Under ||
                     Peek().Type == HDSLTokenTypes.Within))
                 {
                     op = Pop().Type;
                     targetPaths = GetPathList();
-
-                    // validate the list of paths to ensure they exist
-                    foreach (var target in targetPaths)
+                    if (_errors.Count == 0)
                     {
-                        try
+                        // validate the list of paths to ensure they exist
+                        foreach (var target in targetPaths)
                         {
-                            if (!Directory.Exists(target))
+                            try
                             {
-                                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Invalid path: '{target}'."));
+                                if (!Directory.Exists(target))
+                                {
+                                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Invalid path: '{target}'."));
+                                }
                             }
-                        }
-                        catch (IOException ex)
-                        {
-                            _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Bad path: '{target}'."));
+                            catch (IOException ex)
+                            {
+                                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Bad path: '{target}'."));
+                            }
                         }
                     }
 
@@ -452,7 +595,7 @@ namespace HDDL.HDSL
                 {
                     queryDetail = OperatorBase.ConvertClause(_tokens).ToString();
                 }
-                
+
                 // execute the query and get the records
                 try
                 {
@@ -483,18 +626,6 @@ namespace HDDL.HDSL
             }
 
             return new DiskItem[] { };
-        }
-
-        /// <summary>
-        /// Consumes a where clause, filtering the provided disk items
-        /// 
-        /// If the items set is null, then it will query the entire database directly
-        /// </summary>
-        /// <param name="items">The disk items to filter</param>
-        private IEnumerable<DiskItem> HandleWhereClause(IEnumerable<DiskItem> items)
-        {
-            var clause = OperatorBase.ConvertClause(_tokens);
-            return (from item in items where clause.Evaluate(item) select item);
         }
 
         #endregion

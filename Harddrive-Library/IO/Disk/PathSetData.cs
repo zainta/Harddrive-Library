@@ -12,9 +12,9 @@ namespace HDDL.IO.Disk
     public class PathSetData
     {
         /// <summary>
-        /// Structure information about files and folders arranged by root
+        /// Contains the files and directories, grouped by type (directories first) and distance from the root
         /// </summary>
-        public Dictionary<string, List<DiskItemType>> TargetInformation { get; private set; }
+        public List<List<DiskItemType>> ProcessedContent { get; set; }
 
         /// <summary>
         /// The total number of files to scan
@@ -29,14 +29,11 @@ namespace HDDL.IO.Disk
         /// <summary>
         /// Create a PathSetData
         /// </summary>
-        /// <param name="info">Structure information about files and folders arranged by root</param>
-        /// <param name="fileCount">The total number of files to scan</param>
-        /// <param name="directoryCount">The total number of directories</param>
-        public PathSetData(Dictionary<string, List<DiskItemType>> info, int fileCount, int directoryCount)
+        public PathSetData()
         {
-            TargetInformation = info;
-            TotalFiles = fileCount;
-            TotalDirectories = directoryCount;
+            ProcessedContent = new List<List<DiskItemType>>();
+            TotalFiles = 0;
+            TotalDirectories = 0;
         }
     }
 }

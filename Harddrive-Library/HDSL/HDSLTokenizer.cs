@@ -15,6 +15,9 @@ namespace HDDL.HDSL
     /// </summary>
     class HDSLTokenizer
     {
+        private const int Minimum_Column = 1;
+        private const int Minimum_Row = 1;
+
         /// <summary>
         /// The currently targeted HDSL code
         /// </summary>
@@ -60,8 +63,8 @@ namespace HDDL.HDSL
         {
             Outcome.Clear();
             buffer = new ListStack<char>(code);
-            col = 0;
-            row = 0;
+            col = Minimum_Column;
+            row = Minimum_Row;
 
             // Loop through the code and pick out the tokens one by one, in order of discovery
             while (!buffer.Empty)
@@ -222,7 +225,7 @@ namespace HDDL.HDSL
             }
             else if (item == '\r')
             {
-                col = 0;
+                col = Minimum_Column;
             }
             else
             {
@@ -599,6 +602,26 @@ namespace HDDL.HDSL
                 else if (text == "progress")
                 {
                     token = new HDSLToken(HDSLTokenTypes.ProgressMode, keyword.ToString(), row, col, text);
+                }
+                else if (text == "include")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Include, keyword.ToString(), row, col, text);
+                }
+                else if (text == "exclude")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Exclude, keyword.ToString(), row, col, text);
+                }
+                else if (text == "dynamic")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Dynamic, keyword.ToString(), row, col, text);
+                }
+                else if (text == "exclusions")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Exclusions, keyword.ToString(), row, col, text);
+                }
+                else if (text == "bookmarks")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Bookmarks, keyword.ToString(), row, col, text);
                 }
                 else
                 {
