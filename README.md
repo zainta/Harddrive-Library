@@ -73,7 +73,7 @@ HDSL is a simple query language designed for the retrieval of files and director
    * Removes matching entries from the current database.
  * `[Bookmark] = '<absolute directory path string>';`
    * Creates a bookmark reference.
-   * Bookmarks can be substituted for scan and find location.
+   * Bookmarks can be substituted for scan, exclusion definition, purge, and find paths.
  * `scan [spinner|progress|text|quiet - defaults to text] [path[, path, path]];`
    * Performs a disk item scan with the requested display mode on the provided paths.  
  * `exclude [dynamic] path[, path, path];` 
