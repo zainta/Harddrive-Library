@@ -2,7 +2,6 @@
 // Licensed under the MIT License, (the "License"); you may not use this file except in compliance with the License. 
 // You may obtain a copy of the License at https://mit-license.org/
 
-using HDDL.Data;
 using HDDL.HDSL.Logging;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,9 +14,9 @@ namespace HDDL.HDSL
     public class HDSLResult
     {
         /// <summary>
-        /// The paths that matched the query
+        /// A set of all query results from the script
         /// </summary>
-        public DiskItem[] Results { get; private set; }
+        public IEnumerable<HDSLQueryOutcome> Results { get; private set; }
 
         /// <summary>
         /// Any errors encountered during the process
@@ -28,7 +27,7 @@ namespace HDDL.HDSL
         /// Creates a success result with the resulting paths as its contents
         /// </summary>
         /// <param name="paths">The records matching the query</param>
-        public HDSLResult(IEnumerable<DiskItem> items)
+        public HDSLResult(IEnumerable<HDSLQueryOutcome> items)
         {
             Results = items.ToArray();
             Errors = new HDSLLogBase[] { };
@@ -40,7 +39,7 @@ namespace HDDL.HDSL
         /// <param name="errors">The errors encountered during execution</param>
         public HDSLResult(IEnumerable<HDSLLogBase> errors)
         {
-            Results = new DiskItem[] { };
+            Results = new HDSLQueryOutcome[] { };
             Errors = errors.ToArray();
         }
     }

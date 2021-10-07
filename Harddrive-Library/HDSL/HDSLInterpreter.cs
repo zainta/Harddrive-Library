@@ -54,7 +54,7 @@ namespace HDDL.HDSL
         public HDSLResult Interpret(bool closeDb)
         {
             HDSLResult result = null;
-            var results = new List<DiskItem>();
+            var results = new List<HDSLQueryOutcome>();
 
             try
             {
@@ -75,7 +75,7 @@ namespace HDDL.HDSL
                             HandlePurgeStatement();
                             break;
                         case HDSLTokenTypes.Find:
-                            results.AddRange(HandleFindStatement());
+                            results.Add(HandleFindStatement());
                             break;
                         case HDSLTokenTypes.Scan:
                             HandleScanStatement();
@@ -92,6 +92,9 @@ namespace HDDL.HDSL
                             break;
                         case HDSLTokenTypes.Exclude:
                             HandleExcludeStatement();
+                            break;
+                        case HDSLTokenTypes.Check:
+                            results.Add(HandleIntegrityCheck());
                             break;
                         default:
                             _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Unexpected token '{Peek().Code}'."));
@@ -112,6 +115,7 @@ namespace HDDL.HDSL
             else
             {
                 result = new HDSLResult(results);
+                results.ForEach(r => r.Parent = result);
             }
 
             return result;
@@ -222,9 +226,441 @@ namespace HDDL.HDSL
             return results;
         }
 
+        /// <summary>
+        /// Interprets and returns a comma seperated list of filtered location references
+        /// </summary>
+        /// <param name="failOnNone">Whether or not the method should log an error if no paths are discovered</param>
+        /// <returns>A list containing the strings</returns>
+        private List<FilteredLocationItem> GetFilteredLocationList(bool failOnNone = true)
+        {
+            HDSLToken first = null;
+            var results = new List<FilteredLocationItem>();
+
+            // get the list of references
+            while (More() && (Peek().Type == HDSLTokenTypes.String || 
+                              Peek().Type == HDSLTokenTypes.BookmarkReference))
+            {
+                // save the first one for error reporting
+                if (first == null) first = Peek();
+
+                var reference = GetFilteredLocationItem(null);
+                if (reference != null && _errors.Count == 0)
+                {
+                    results.Add(reference);
+                }
+                else
+                {
+                    break;
+                }
+
+                // check if we have at least 2 more tokens remaining, one is a comma and the next is a string or bookmark
+                // if so, then this is a list
+                if (More(2) &&
+                    Peek().Type == HDSLTokenTypes.Comma &&
+                    (Peek(1).Type == HDSLTokenTypes.String || Peek(1).Type == HDSLTokenTypes.BookmarkReference))
+                {
+                    // strip the comma so the loop continues
+                    Pop();
+                }
+            }
+
+            if (failOnNone && results.Count == 0)
+            {
+                if (first != null)
+                {
+                    _errors.Add(new HDSLLogBase(first.Column, first.Row, $"No valid filtered references found."));
+                }
+            }
+            return results;
+        }
+
+        /// <summary>
+        /// Interprets the next set of tokens into a FilteredLocationItem and returns it
+        /// 
+        /// Syntax:
+        /// path [in/within/under -- default within] [:[wildcard filter][attribute filter[, attribute filter, ...]]]
+        /// </summary>
+        /// <param name="itemName">An optional (if hot generated) name</param>
+        /// <returns></returns>
+        private FilteredLocationItem GetFilteredLocationItem(string itemName)
+        {
+            FilteredLocationItem result = null;
+            if (More())
+            {
+                string path = null;
+                if (Peek().Type == HDSLTokenTypes.String)
+                {
+                    path = PathHelper.EnsurePath(Pop().Literal);
+                }
+                else if (Peek().Type == HDSLTokenTypes.BookmarkReference)
+                {
+                    // check to see if the reference is a predefined Filtered Reference Location
+                    // if so, grab that and modify it
+                    if ((result = _dh.GetFilteredLocations().Where(fl => fl.ItemName == Peek().Literal).SingleOrDefault()?.Copy()) == null)
+                    {
+                        path = _dh.ApplyBookmarks(Pop().Code);
+                    }
+                    else
+                    {
+                        Pop();
+                    }
+                }
+                else
+                {
+                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Valid path expected."));
+                }
+
+                if (_errors.Count == 0)
+                {
+                    // get the exploration mode
+                    var explorationMode = FilteredLocationExplorationMethod.Within;
+                    if (Peek().Type == HDSLTokenTypes.In ||
+                        Peek().Type == HDSLTokenTypes.Within ||
+                        Peek().Type == HDSLTokenTypes.Under)
+                    {
+                        switch (Pop().Type)
+                        {
+                            case HDSLTokenTypes.In:
+                                explorationMode = FilteredLocationExplorationMethod.In;
+                                break;
+                            case HDSLTokenTypes.Within:
+                                explorationMode = FilteredLocationExplorationMethod.Within;
+                                break;
+                            case HDSLTokenTypes.Under:
+                                explorationMode = FilteredLocationExplorationMethod.Under;
+                                break;
+                        }
+                    }
+
+                    if (result == null)
+                    {
+                        // at this point, we have a result
+                        result = new FilteredLocationItem()
+                        {
+                            Id = Guid.NewGuid(),
+                            Target = path,
+                            Filter = null,
+                            ExplorationMode = explorationMode,
+                            ItemName = itemName,
+                            ExpectsReadOnly = null,
+                            ExpectsArchive = null,
+                            ExpectsSystem = null,
+                            ExpectsHidden = null,
+                            ExpectsNonIndexed = null
+                        };
+                    }
+                    else if (!string.IsNullOrWhiteSpace(itemName))
+                    {
+                        // if a new name is provided then use that
+                        result.ItemName = itemName;
+                        result.ExplorationMode = explorationMode;
+                    }
+
+                    // do we have additional filtering?
+                    if (More() && Peek().Type == HDSLTokenTypes.Colon)
+                    {
+                        Pop();
+
+                        bool setReadOnly = false, 
+                            setArchive = false, 
+                            setSystem = false, 
+                            setHidden = false, 
+                            setNonIndexed = false;
+
+                        // loop until we stop satisfying the criteria and reach the end of the line
+                        while (More() && 
+                            Peek().Type == HDSLTokenTypes.String ||
+                            Peek().Type == HDSLTokenTypes.Readonly ||
+                            Peek().Type == HDSLTokenTypes.Archive ||
+                            Peek().Type == HDSLTokenTypes.System ||
+                            Peek().Type == HDSLTokenTypes.Hidden ||
+                            Peek().Type == HDSLTokenTypes.NonIndexed)
+                        {
+                            var type = Peek().Type;
+                            switch (type)
+                            {
+                                case HDSLTokenTypes.String: // this is a wildcard
+                                    if (string.IsNullOrWhiteSpace(result.Filter))
+                                    {
+                                        result.Filter = Pop().Literal;
+                                    }
+                                    else
+                                    {
+                                        _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"The filter can only be set once."));
+                                    }
+                                    break;
+                                case HDSLTokenTypes.Readonly:
+                                    Pop();
+                                    if (!setReadOnly)
+                                    {
+                                        setReadOnly = true;
+                                        if (More() && Peek().Family == HDSLTokenFamilies.BooleanValues)
+                                        {
+                                            if (Peek().Type == HDSLTokenTypes.True)
+                                            {
+                                                Pop();
+                                                result.ExpectsReadOnly = true;
+                                            }
+                                            else if (Peek().Type == HDSLTokenTypes.False)
+                                            {
+                                                Pop();
+                                                result.ExpectsReadOnly = false;
+                                            }
+                                            else
+                                            {
+                                                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Unknown boolean value encountered."));
+                                            }
+                                        }
+                                        else
+                                        {
+                                            _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"True or false expected."));
+                                        }
+                                    }
+                                    else
+                                    {
+                                        _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Readonly attribute already set."));
+                                    }
+                                    break;
+                                case HDSLTokenTypes.Archive:
+                                    Pop();
+                                    if (!setArchive)
+                                    {
+                                        setArchive = true;
+                                        if (More() && Peek().Family == HDSLTokenFamilies.BooleanValues)
+                                        {
+                                            if (Peek().Type == HDSLTokenTypes.True)
+                                            {
+                                                Pop();
+                                                result.ExpectsArchive = true;
+                                            }
+                                            else if (Peek().Type == HDSLTokenTypes.False)
+                                            {
+                                                Pop();
+                                                result.ExpectsArchive = false;
+                                            }
+                                            else
+                                            {
+                                                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Unknown boolean value encountered."));
+                                            }
+                                        }
+                                        else
+                                        {
+                                            _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"True or false expected."));
+                                        }
+                                    }
+                                    else
+                                    {
+                                        _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Archive attribute already set."));
+                                    }
+                                    break;
+                                case HDSLTokenTypes.System:
+                                    Pop();
+                                    if (!setSystem)
+                                    {
+                                        setSystem = true;
+                                        if (More() && Peek().Family == HDSLTokenFamilies.BooleanValues)
+                                        {
+                                            if (Peek().Type == HDSLTokenTypes.True)
+                                            {
+                                                Pop();
+                                                result.ExpectsSystem = true;
+                                            }
+                                            else if (Peek().Type == HDSLTokenTypes.False)
+                                            {
+                                                Pop();
+                                                result.ExpectsSystem = false;
+                                            }
+                                            else
+                                            {
+                                                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Unknown boolean value encountered."));
+                                            }
+                                        }
+                                        else
+                                        {
+                                            _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"True or false expected."));
+                                        }
+                                    }
+                                    else
+                                    {
+                                        _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"System attribute already set."));
+                                    }
+                                    break;
+                                case HDSLTokenTypes.Hidden:
+                                    Pop();
+                                    if (!setHidden)
+                                    {
+                                        setHidden = true;
+                                        if (More() && Peek().Family == HDSLTokenFamilies.BooleanValues)
+                                        {
+                                            if (Peek().Type == HDSLTokenTypes.True)
+                                            {
+                                                Pop();
+                                                result.ExpectsHidden = true;
+                                            }
+                                            else if (Peek().Type == HDSLTokenTypes.False)
+                                            {
+                                                Pop();
+                                                result.ExpectsHidden = false;
+                                            }
+                                            else
+                                            {
+                                                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Unknown boolean value encountered."));
+                                            }
+                                        }
+                                        else
+                                        {
+                                            _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"True or false expected."));
+                                        }
+                                    }
+                                    else
+                                    {
+                                        _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Hidden attribute already set."));
+                                    }
+                                    break;
+                                case HDSLTokenTypes.NonIndexed:
+                                    Pop();
+                                    if (!setNonIndexed)
+                                    {
+                                        setNonIndexed = true;
+                                        if (More() && Peek().Family == HDSLTokenFamilies.BooleanValues)
+                                        {
+                                            if (Peek().Type == HDSLTokenTypes.True)
+                                            {
+                                                Pop();
+                                                result.ExpectsNonIndexed = true;
+                                            }
+                                            else if (Peek().Type == HDSLTokenTypes.False)
+                                            {
+                                                Pop();
+                                                result.ExpectsNonIndexed = false;
+                                            }
+                                            else
+                                            {
+                                                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Unknown boolean value encountered."));
+                                            }
+                                        }
+                                        else
+                                        {
+                                            _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"True or false expected."));
+                                        }
+                                    }
+                                    else
+                                    {
+                                        _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Non-Indexed attribute already set."));
+                                    }
+                                    break;
+                            }
+
+                            // check if we have at least 2 more tokens remaining, one is a comma and the next is an additional filter definition's start
+                            // if so, then this is a list
+                            if (More(2) &&
+                                Peek().Type == HDSLTokenTypes.Comma &&
+                                   (Peek(1).Type == HDSLTokenTypes.String ||
+                                    Peek(1).Type == HDSLTokenTypes.Readonly ||
+                                    Peek(1).Type == HDSLTokenTypes.Archive ||
+                                    Peek(1).Type == HDSLTokenTypes.System ||
+                                    Peek(1).Type == HDSLTokenTypes.Hidden ||
+                                    Peek(1).Type == HDSLTokenTypes.NonIndexed))
+                            {
+                                // strip the comma so the loop continues
+                                Pop();
+                            }
+
+                            if (_errors.Count > 0)
+                            {
+                                result = null;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Unexpected end of file."));
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Interprets the next token to get the display mode
+        /// </summary>
+        /// <param name="defaultDisplayMode">The default if none is found</param>
+        /// <returns>The resulting display mode</returns>
+        private Scanning.EventWrapperDisplayModes GetDisplayMode(Scanning.EventWrapperDisplayModes defaultDisplayMode = Scanning.EventWrapperDisplayModes.Text)
+        {
+            var displayMode = defaultDisplayMode;
+            if (Peek().Type == HDSLTokenTypes.ProgressMode ||
+                Peek().Type == HDSLTokenTypes.QuietMode ||
+                Peek().Type == HDSLTokenTypes.SpinnerMode ||
+                Peek().Type == HDSLTokenTypes.TextMode)
+            {
+                switch (Pop().Type)
+                {
+                    case HDSLTokenTypes.ProgressMode:
+                        displayMode = Scanning.EventWrapperDisplayModes.ProgressBar;
+                        break;
+                    case HDSLTokenTypes.QuietMode:
+                        displayMode = Scanning.EventWrapperDisplayModes.Displayless;
+                        break;
+                    case HDSLTokenTypes.SpinnerMode:
+                        displayMode = Scanning.EventWrapperDisplayModes.Spinner;
+                        break;
+                    case HDSLTokenTypes.TextMode:
+                        displayMode = Scanning.EventWrapperDisplayModes.Text;
+                        break;
+                }
+            }
+
+            return displayMode;
+        }
+
         #endregion
 
         #region Statement Handlers
+
+        /// <summary>
+        /// Allows the execution of an integrity check through HDSL script
+        /// 
+        /// Purpose:
+        /// Allows scripts to run integrity scan
+        /// 
+        /// Syntax:
+        /// check [spinner|progress|text|quiet - defaults to text] filtered location reference, [filtered location reference[, filtered location reference, ...]];
+        /// </summary>
+        private HDSLQueryOutcome HandleIntegrityCheck()
+        {
+            if (More() && Peek().Type == HDSLTokenTypes.Check)
+            {
+                Pop();
+
+                var displayMode = GetDisplayMode();
+
+                // get the list of locations to perform integrity checks on
+                var paths = GetFilteredLocationList();
+                if (paths.Count > 0)
+                {
+                    // insert invocation here...
+                    var scan = new Scanning.IntegrityScanEventWrapper(_dh, paths, true, displayMode);
+                    if (scan.Go())
+                    {
+                        return scan.Result;
+                    }
+                }
+                else
+                {
+                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"No paths were provided for the integrity scan.  Please provide at least one filtered location reference."));
+                }
+
+            }
+            else
+            {
+                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'check' expected."));
+            }
+
+            return new Scanning.IntegrityScanResultSet(new DiskItem[] { }, new DiskItem[] { });
+        }
 
         /// <summary>
         /// Handles the interpretation of a region exclusion declaration
@@ -299,7 +735,7 @@ namespace HDDL.HDSL
                 {
                     // Retrieve the exclusions in the list that actually exist
                     var exclusions = (from e in _dh.GetExclusions()
-                                      where 
+                                      where
                                         paths.Where(p => p.Equals(e.Region, StringComparison.InvariantCultureIgnoreCase)).Any() == true
                                       select e).ToArray();
                     _dh.Delete(exclusions);
@@ -331,29 +767,7 @@ namespace HDDL.HDSL
             {
                 Pop();
 
-                var displayMode = Scanning.DiskScanEventWrapperDisplayModes.Text;
-                if (Peek().Type == HDSLTokenTypes.ProgressMode ||
-                    Peek().Type == HDSLTokenTypes.QuietMode ||
-                    Peek().Type == HDSLTokenTypes.SpinnerMode ||
-                    Peek().Type == HDSLTokenTypes.TextMode)
-                {
-                    switch (Pop().Type)
-                    {
-                        case HDSLTokenTypes.ProgressMode:
-                            displayMode = Scanning.DiskScanEventWrapperDisplayModes.ProgressBar;
-                            break;
-                        case HDSLTokenTypes.QuietMode:
-                            displayMode = Scanning.DiskScanEventWrapperDisplayModes.Displayless;
-                            break;
-                        case HDSLTokenTypes.SpinnerMode:
-                            displayMode = Scanning.DiskScanEventWrapperDisplayModes.Spinner;
-                            break;
-                        case HDSLTokenTypes.TextMode:
-                            displayMode = Scanning.DiskScanEventWrapperDisplayModes.Text;
-                            break;
-                    }
-                }
-
+                var displayMode = GetDisplayMode();
                 var scanPaths = GetPathList();
                 if (scanPaths.Count > 0)
                 {
@@ -378,10 +792,12 @@ namespace HDDL.HDSL
         /// Bookmarks cannot be used until they have been defined
         /// 
         /// Syntax:
-        /// bookmark = path / full file path / path:wildcard pair;
+        /// bookmark = path; <-- defines a bookmark
+        /// bookmark = path [in/within/under -- default within] [:[wildcard filter][attribute filter, [attribute filter, ...]]]; <-- defines a filtered location reference
         /// 
         /// Examples:
         /// [homeDir] = 'C:\Users\SWDev';
+        /// [winSys] = in 'C:\Windows':system true;
         /// </summary>
         private void HandleBookmarkDefinitionStatement()
         {
@@ -391,7 +807,9 @@ namespace HDDL.HDSL
                 if (More() && Peek().Type == HDSLTokenTypes.Equal)
                 {
                     Pop();
-                    if (More() && Peek().Type == HDSLTokenTypes.String)
+                    if (More(1) && 
+                        Peek().Type == HDSLTokenTypes.String && 
+                        (Peek(1).Type == HDSLTokenTypes.EndOfLine || Peek(1).Type == HDSLTokenTypes.EndOfFile))
                     {
                         var markValueToken = Pop();
                         var markValue = PathHelper.EnsurePath(markValueToken.Literal);
@@ -446,9 +864,28 @@ namespace HDDL.HDSL
                             _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Path '{markValueToken.Literal}' does not exist."));
                         }
                     }
+                    else if (More(1) &&
+                        (Peek().Type == HDSLTokenTypes.String || Peek().Type == HDSLTokenTypes.BookmarkReference))
+                    {
+                        var reference = GetFilteredLocationItem(markName);
+
+                        if (!string.IsNullOrWhiteSpace(reference.Target))
+                        {
+                            if (!_dh.GetFilteredLocations().Where(fl => fl.ItemName == reference.ItemName).Any())
+                            {
+                                _dh.Insert(reference);
+                                _dh.WriteFilteredLocations();
+                            }
+                            else
+                            {
+                                _dh.Update(reference);
+                                _dh.WriteFilteredLocations();
+                            }
+                        }
+                    }
                     else
                     {
-                        _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"String expected."));
+                        _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Unknown bookmark definition type."));
                     }
                 }
                 else
@@ -469,7 +906,7 @@ namespace HDDL.HDSL
         /// A purge statement removes entries from the database (it does not delete actual files)
         /// 
         /// Syntax:
-        /// purge [bookmarks | exclusions | path[, path, path] [where clause]];
+        /// purge [bookmarks | exclusions | filters | path[, path, path] [where clause]];
         /// </summary>
         private void HandlePurgeStatement()
         {
@@ -489,6 +926,11 @@ namespace HDDL.HDSL
                     {
                         Pop();
                         _dh.ClearBookmarks();
+                    }
+                    else if (Peek().Type == HDSLTokenTypes.Filters)
+                    {
+                        Pop();
+                        _dh.ClearFilteredLocations();
                     }
                     else
                     {
@@ -534,7 +976,7 @@ namespace HDDL.HDSL
         /// find [file pattern] [in/within/under [path[, path, path]] - defaults to current] [where clause];
         /// </summary>
         /// <returns>The results find statement</returns>
-        private DiskItem[] HandleFindStatement()
+        private FindQueryResultSet HandleFindStatement()
         {
             if (More() && Peek().Type == HDSLTokenTypes.Find)
             {
@@ -578,7 +1020,7 @@ namespace HDDL.HDSL
 
                     if (_errors.Count > 0)
                     {
-                        return new DiskItem[] { };
+                        return new FindQueryResultSet(new DiskItem[] { });
                     }
                 }
                 else
@@ -618,14 +1060,14 @@ namespace HDDL.HDSL
                 }
 
                 // Done
-                return results.ToArray();
+                return new FindQueryResultSet(results);
             }
             else
             {
                 _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, "'find' expected."));
             }
 
-            return new DiskItem[] { };
+            return new FindQueryResultSet(new DiskItem[] { });
         }
 
         #endregion

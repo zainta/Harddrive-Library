@@ -94,6 +94,11 @@ namespace HDDL.HDSL
                     Tokens.Add(new HDSLToken(HDSLTokenTypes.Comma, Pop(), row, col, ","));
                     continue;
                 }
+                else if (More() && Peek() == ':') // Colon
+                {
+                    Tokens.Add(new HDSLToken(HDSLTokenTypes.Colon, Pop(), row, col, ":"));
+                    continue;
+                }
                 else if (More() && char.IsDigit(Peek()) && GetNumbers()) // Whole and real numbers
                 {
                     continue;
@@ -622,6 +627,38 @@ namespace HDDL.HDSL
                 else if (text == "bookmarks")
                 {
                     token = new HDSLToken(HDSLTokenTypes.Bookmarks, keyword.ToString(), row, col, text);
+                }
+                else if (text == "readonly")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Readonly, keyword.ToString(), row, col, text);
+                }
+                else if (text == "archive")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Archive, keyword.ToString(), row, col, text);
+                }
+                else if (text == "system")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.System, keyword.ToString(), row, col, text);
+                }
+                else if (text == "hidden")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Hidden, keyword.ToString(), row, col, text);
+                }
+                else if (text == "nonindexed")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.NonIndexed, keyword.ToString(), row, col, text);
+                }
+                else if (text == "true")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.True, keyword.ToString(), row, col, text);
+                }
+                else if (text == "false")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.False, keyword.ToString(), row, col, text);
+                }
+                else if (text == "filters")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Filters, keyword.ToString(), row, col, text);
                 }
                 else
                 {

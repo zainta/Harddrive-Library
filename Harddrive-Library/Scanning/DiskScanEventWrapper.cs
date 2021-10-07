@@ -37,6 +37,11 @@ namespace HDDL.Scanning
         string _dbPath;
 
         /// <summary>
+        /// Tracks whether or not the scan has completed
+        /// </summary>
+        bool _done;
+
+        /// <summary>
         /// The paths to scan
         /// </summary>
         IEnumerable<string> _scanPaths;
@@ -44,7 +49,7 @@ namespace HDDL.Scanning
         /// <summary>
         /// Primary method of feedback used to display progress
         /// </summary>
-        private DiskScanEventWrapperDisplayModes _displayMode;
+        private EventWrapperDisplayModes _displayMode;
 
         /// <summary>
         /// The UI element used for feedback (if applicable)
@@ -57,11 +62,12 @@ namespace HDDL.Scanning
         /// <param name="premade">The diskscan instance to monitor</param>
         /// <param name="displayMode">The mode to use to output progress feedback</param>
         /// <param name="allowRecreation">Whether or not to prompt for, and perform, database recreation if it already exists</param>
-        public DiskScanEventWrapper(DiskScan premade, bool allowRecreation, DiskScanEventWrapperDisplayModes displayMode)
+        public DiskScanEventWrapper(DiskScan premade, bool allowRecreation, EventWrapperDisplayModes displayMode)
         {
             _scanner = premade;
             _uiFeedbackDisplay = null;
             _displayMode = displayMode;
+            _done = false;
 
             _allowRecreation = allowRecreation;
             _dbPath = null;
@@ -75,11 +81,12 @@ namespace HDDL.Scanning
         /// <param name="scanPaths">The paths to start scans from</param>
         /// <param name="displayMode">The mode to use to output progress feedback</param>
         /// <param name="allowRecreation">Whether or not to prompt for, and perform, database recreation if it already exists</param>
-        public DiskScanEventWrapper(DataHandler handler, IEnumerable<string> scanPaths, bool allowRecreation, DiskScanEventWrapperDisplayModes displayMode)
+        public DiskScanEventWrapper(DataHandler handler, IEnumerable<string> scanPaths, bool allowRecreation, EventWrapperDisplayModes displayMode)
         {
             _scanner = new DiskScan(handler, scanPaths);
             _uiFeedbackDisplay = null;
             _displayMode = displayMode;
+            _done = false;
 
             _allowRecreation = allowRecreation;
             _dbPath = null;
@@ -93,11 +100,12 @@ namespace HDDL.Scanning
         /// <param name="scanPaths">The paths to start scans from</param>
         /// <param name="displayMode">The mode to use to output progress feedback</param>
         /// <param name="allowRecreation">Whether or not to prompt for, and perform, database recreation if it already exists</param>
-        public DiskScanEventWrapper(string dbPath, IEnumerable<string> scanPaths, bool allowRecreation, DiskScanEventWrapperDisplayModes displayMode)
+        public DiskScanEventWrapper(string dbPath, IEnumerable<string> scanPaths, bool allowRecreation, EventWrapperDisplayModes displayMode)
         {
             _scanner = null;
             _uiFeedbackDisplay = null;
             _displayMode = displayMode;
+            _done = false;
 
             _allowRecreation = allowRecreation;
             _dbPath = dbPath;
@@ -121,9 +129,10 @@ namespace HDDL.Scanning
         /// <param name="scanPaths">The paths to start scans from</param>
         private bool Initialize(bool allowRecreation, string dbPath = null, IEnumerable<string> scanPaths = null)
         {
+            _done = false;
             var recreate = false;
-            var allowPrompts = _displayMode != DiskScanEventWrapperDisplayModes.Displayless;
-            if (allowRecreation && _displayMode != DiskScanEventWrapperDisplayModes.Displayless)
+            var allowPrompts = _displayMode != EventWrapperDisplayModes.Displayless;
+            if (allowRecreation && _displayMode != EventWrapperDisplayModes.Displayless)
             {
                 if (File.Exists(dbPath) &&
                     !string.IsNullOrWhiteSpace(dbPath))
@@ -186,19 +195,19 @@ namespace HDDL.Scanning
             {
                 switch (_displayMode)
                 {
-                    case DiskScanEventWrapperDisplayModes.ProgressBar:
+                    case EventWrapperDisplayModes.ProgressBar:
                         Console.Write($"Performing scans on '{string.Join("\', \'", _scanner.ScanTargets)}\' - ");
                         break;
-                    case DiskScanEventWrapperDisplayModes.Spinner:
+                    case EventWrapperDisplayModes.Spinner:
                         Console.Write($"Performing scans on '{string.Join("\', \'", _scanner.ScanTargets)}\' - ");
                         break;
-                    case DiskScanEventWrapperDisplayModes.Text:
+                    case EventWrapperDisplayModes.Text:
                         Console.Write($"Performing scans on '{string.Join("\', \'", _scanner.ScanTargets)}\' - ");
                         break;
                 }
             }
 
-            if (_displayMode != DiskScanEventWrapperDisplayModes.Displayless)
+            if (_displayMode != EventWrapperDisplayModes.Displayless)
             {
                 _scanner.ScanEventOccurred += Scanner_ScanEventOccurred;
                 _scanner.ScanEnded += Scanner_ScanEnded;
@@ -211,9 +220,10 @@ namespace HDDL.Scanning
             }
             _scanner.StartScan();
 
-            while (_scanner.Status == ScanStatus.InitiatingScan ||
+            while (!_done &&
+                (_scanner.Status == ScanStatus.InitiatingScan ||
                 _scanner.Status == ScanStatus.Scanning ||
-                _scanner.Status == ScanStatus.Deleting)
+                _scanner.Status == ScanStatus.Deleting))
             {
                 if (allowPrompts)
                 {
@@ -239,12 +249,14 @@ namespace HDDL.Scanning
         {
             switch (_displayMode)
             {
-                case DiskScanEventWrapperDisplayModes.ProgressBar:
-                case DiskScanEventWrapperDisplayModes.Spinner:
-                case DiskScanEventWrapperDisplayModes.Text:
+                case EventWrapperDisplayModes.ProgressBar:
+                case EventWrapperDisplayModes.Spinner:
+                case EventWrapperDisplayModes.Text:
                     Console.WriteLine("No valid scanning paths were provided.");
                     break;
             }
+
+            _done = true;
         }
 
         private void _scanner_ScanExplorationEnds(DiskScan scanner)
@@ -252,10 +264,10 @@ namespace HDDL.Scanning
             _uiFeedbackDisplay = null;
             switch (_displayMode)
             {
-                case DiskScanEventWrapperDisplayModes.ProgressBar:
-                case DiskScanEventWrapperDisplayModes.Spinner:
-                case DiskScanEventWrapperDisplayModes.Text:
-                    Console.WriteLine("Ready!");
+                case EventWrapperDisplayModes.ProgressBar:
+                case EventWrapperDisplayModes.Spinner:
+                case EventWrapperDisplayModes.Text:
+                    Console.WriteLine("Ready!       ");
                     break;
             }
         }
@@ -264,10 +276,11 @@ namespace HDDL.Scanning
         {
             switch (_displayMode)
             {
-                case DiskScanEventWrapperDisplayModes.ProgressBar:
-                case DiskScanEventWrapperDisplayModes.Spinner:
-                case DiskScanEventWrapperDisplayModes.Text:
+                case EventWrapperDisplayModes.ProgressBar:
+                case EventWrapperDisplayModes.Spinner:
+                case EventWrapperDisplayModes.Text:
                     _uiFeedbackDisplay = new Spinner(Console.CursorLeft, Console.CursorTop);
+                    Console.Write("  - Working...");
                     break;
             }
         }
@@ -276,10 +289,10 @@ namespace HDDL.Scanning
         {
             switch (_displayMode)
             {
-                case DiskScanEventWrapperDisplayModes.ProgressBar:
+                case EventWrapperDisplayModes.ProgressBar:
                     _uiFeedbackDisplay = new ProgressBar(Console.CursorLeft, Console.CursorTop, 60, 0, 0, fileCount + directoryCount);
                     break;
-                case DiskScanEventWrapperDisplayModes.Spinner:
+                case EventWrapperDisplayModes.Spinner:
                     _uiFeedbackDisplay = new Spinner(Console.CursorLeft, Console.CursorTop);
                     break;
             }
@@ -289,16 +302,18 @@ namespace HDDL.Scanning
         {
             switch (_displayMode)
             {
-                case DiskScanEventWrapperDisplayModes.ProgressBar:
+                case EventWrapperDisplayModes.ProgressBar:
                     Console.WriteLine($"-- Done! {new String(' ', ((ProgressBar)_uiFeedbackDisplay).Width - 7)}");
                     break;
-                case DiskScanEventWrapperDisplayModes.Spinner:
+                case EventWrapperDisplayModes.Spinner:
                     Console.WriteLine("-- Done!");
                     break;
-                case DiskScanEventWrapperDisplayModes.Text:
+                case EventWrapperDisplayModes.Text:
                     Console.WriteLine(string.Format("Done -- Total time: {0}", elapsed.GetScanDuration()));
                     break;
             }
+
+            _done = true;
         }
 
         private void Scanner_ScanEventOccurred(DiskScan scanner, ScanEvent evnt)
@@ -315,10 +330,10 @@ namespace HDDL.Scanning
             {
                 switch (_displayMode)
                 {
-                    case DiskScanEventWrapperDisplayModes.ProgressBar:
+                    case EventWrapperDisplayModes.ProgressBar:
                         ((ProgressBar)_uiFeedbackDisplay).Value++;
                         break;
-                    case DiskScanEventWrapperDisplayModes.Text:
+                    case EventWrapperDisplayModes.Text:
                         Console.WriteLine($"Discovered {itemType} @ '{evnt.Path}'.");
                         break;
                 }
@@ -327,10 +342,10 @@ namespace HDDL.Scanning
             {
                 switch (_displayMode)
                 {
-                    case DiskScanEventWrapperDisplayModes.ProgressBar:
+                    case EventWrapperDisplayModes.ProgressBar:
                         ((ProgressBar)_uiFeedbackDisplay).Value++;
                         break;
-                    case DiskScanEventWrapperDisplayModes.Text:
+                    case EventWrapperDisplayModes.Text:
                         Console.WriteLine($"Rediscovered {itemType} @ '{evnt.Path}'.");
                         break;
                 }
@@ -339,10 +354,10 @@ namespace HDDL.Scanning
             {
                 switch (_displayMode)
                 {
-                    case DiskScanEventWrapperDisplayModes.ProgressBar:
+                    case EventWrapperDisplayModes.ProgressBar:
                         ((ProgressBar)_uiFeedbackDisplay).Value++;
                         break;
-                    case DiskScanEventWrapperDisplayModes.Text:
+                    case EventWrapperDisplayModes.Text:
                         Console.WriteLine($"!!Database Error!! {evnt.Error.Message}");
                         break;
                 }
@@ -353,7 +368,7 @@ namespace HDDL.Scanning
         {
             switch (_displayMode)
             {
-                case DiskScanEventWrapperDisplayModes.Text:
+                case EventWrapperDisplayModes.Text:
                     if (additions > 0)
                     {
                         Console.WriteLine($"Successfully added {additions} records to the database.");
@@ -374,7 +389,7 @@ namespace HDDL.Scanning
         {
             switch (_displayMode)
             {
-                case DiskScanEventWrapperDisplayModes.Text:
+                case EventWrapperDisplayModes.Text:
                     if (total > 0)
                     {
                         Console.WriteLine($"{total} Old entries were Successfully expunged from the database.");

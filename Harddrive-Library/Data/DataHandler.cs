@@ -3,7 +3,6 @@
 // You may obtain a copy of the License at https://mit-license.org/
 
 using HDDL.IO.Disk;
-using Microsoft.VisualBasic.CompilerServices;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -35,6 +34,10 @@ namespace HDDL.Data
         /// The exclusion cache
         /// </summary>
         private List<ExclusionItem> _exclusionCache;
+        /// <summary>
+        /// The filtered location cache
+        /// </summary>
+        private List<FilteredLocationItem> _filteredLocationCache;
 
         /// <summary>
         /// Stores pending database actions for DiskItems
@@ -52,6 +55,11 @@ namespace HDDL.Data
         private RecordActionContainer<ExclusionItem> _exclusions;
 
         /// <summary>
+        /// Stores pending database actions for Filtered Locations
+        /// </summary>
+        private RecordActionContainer<FilteredLocationItem> _filterLocations;
+
+        /// <summary>
         /// The current database connection
         /// </summary>
         private SQLiteConnection _connection;
@@ -66,8 +74,10 @@ namespace HDDL.Data
             _diskItems = new RecordActionContainer<DiskItem>();
             _bookmarks = new RecordActionContainer<BookmarkItem>();
             _exclusions = new RecordActionContainer<ExclusionItem>();
+            _filterLocations = new RecordActionContainer<FilteredLocationItem>();
             _bookmarkCache = null;
             _exclusionCache = null;
+            _filteredLocationCache = null;
         }
 
         ~DataHandler()
@@ -112,13 +122,28 @@ namespace HDDL.Data
                                 size integer,
                                 lastWritten text,
                                 lastAccessed text,
-                                created text not null
+                                created text not null,
+                                hash text,
+                                lastHashed text
                                 );
 
                             create table if not exists bookmarks (
                                 id text not null primary key,
                                 target text not null,
                                 itemName text not null
+                                );
+
+                            create table if not exists filteredlocations (
+                                id text not null primary key,
+                                target text not null,
+                                filter text,
+                                expectsReadOnly integer,
+                                expectsArchive integer,
+                                expectsSystem integer,
+                                expectsHidden integer,
+                                expectsNonIndexed integer,
+                                itemName text not null,
+                                explorationMode text
                                 );
 
                             create table if not exists exclusions (
@@ -531,7 +556,185 @@ namespace HDDL.Data
 
         #endregion
 
+        #region Filtered Locations Related
+
+        /// <summary>
+        /// Retrieves and returns the filtered locations
+        /// </summary>
+        /// <returns></returns>
+        public List<FilteredLocationItem> GetFilteredLocations()
+        {
+            if (_filteredLocationCache == null ||
+                (_filteredLocationCache != null && _filteredLocationCache.Count == 0))
+            {
+                _filteredLocationCache = new List<FilteredLocationItem>();
+
+                var locations = ExecuteReader(@"select * from filteredlocations");
+                while (locations.Read())
+                {
+                    _filteredLocationCache.Add(new FilteredLocationItem(locations));
+                }
+            }
+
+            return _filteredLocationCache;
+        }
+
+        /// <summary>
+        /// Clears any cached filtered locations, forcing them to be reloaded for the next GetFilteredLocation() call
+        /// </summary>
+        public void ClearFilteredLocationCache()
+        {
+            _filteredLocationCache.Clear();
+            _filteredLocationCache = null;
+        }
+
+        /// <summary>
+        /// Deletes all filtered locations from the database
+        /// </summary>
+        public long ClearFilteredLocations()
+        {
+            var count = GetCount("filteredlocations");
+            ExecuteNonQuery("delete from filteredlocations");
+            return count;
+        }
+
+        /// <summary>
+        /// Queues the records for transactionary insertion
+        /// </summary>
+        /// <param name="items">The records to be added</param>
+        /// <returns></returns>
+        public void Insert(params FilteredLocationItem[] items)
+        {
+            foreach (var item in items)
+            {
+                _filterLocations.Inserts.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Queues the records for the transactionary update
+        /// </summary>
+        /// <param name="items">The records to be updated</param>
+        public void Update(params FilteredLocationItem[] items)
+        {
+            foreach (var item in items)
+            {
+                _filterLocations.Updates.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Queues the records for the transactionary deletion
+        /// </summary>
+        /// <param name="items"></param>
+        public void Delete(params FilteredLocationItem[] items)
+        {
+            foreach (var item in items)
+            {
+                _filterLocations.Deletions.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Performs a transactionary database execution of all pending inserts, updates, and deletes
+        /// </summary>
+        /// <returns>A tuple in the format total [inserts, updates, deletes]</returns>
+        public Tuple<long, long, long> WriteFilteredLocations()
+        {
+            long inserts = 0, updates = 0, deletes = 0;
+            if (_filterLocations.HasWork)
+            {
+                using (var transaction = EnsureConnection().BeginTransaction())
+                {
+                    if (_filterLocations.Inserts.Count > 0)
+                    {
+                        foreach (var insert in _filterLocations.Inserts)
+                        {
+                            ExecuteNonQuery(insert.ToInsertStatement());
+                            inserts++;
+                        }
+                        _filterLocations.Inserts.Clear();
+                    }
+
+                    if (_filterLocations.Updates.Count > 0)
+                    {
+                        foreach (var update in _filterLocations.Updates)
+                        {
+                            ExecuteNonQuery(update.ToUpdateStatement());
+                            updates++;
+                        }
+                        _filterLocations.Updates.Clear();
+                    }
+
+                    if (_filterLocations.Deletions.Count > 0)
+                    {
+                        var sql = new StringBuilder("(");
+                        foreach (var delete in _filterLocations.Deletions)
+                        {
+                            if (sql.Length > 0)
+                            {
+                                sql.Append(", ");
+                            }
+                            sql.Append($"'{delete.Id}'");
+                            deletes++;
+                        }
+                        sql.Append(")");
+
+                        deletes = GetCount($"filteredlocations where id in {sql};");
+                        ExecuteNonQuery($"DELETE from filteredlocations where id in {sql};");
+                        _filterLocations.Deletions.Clear();
+                    }
+
+                    transaction.Commit();
+                }
+            }
+
+            if (inserts > 0 || updates > 0 || deletes > 0)
+            {
+                ClearFilteredLocationCache();
+            }
+
+            return new Tuple<long, long, long>(inserts, updates, deletes);
+        }
+
+        #endregion
+
         #region DiskItem Related
+
+        /// <summary>
+        /// Retrieves and returns the current number of Disk Items in the database
+        /// </summary>
+        /// <returns>The number of Disk Item records in the database</returns>
+        public long GetDiskItemCount()
+        {
+            var count = ExecuteScalar<long>("select count(*) from diskitems;");
+            return count;
+        }
+
+        /// <summary>
+        /// Updates the provided records' integrity hashes and last hashed dates
+        /// </summary>
+        /// <param name="diskitems">The records to check</param>
+        /// <returns></returns>
+        public int UpdateHashes(IEnumerable<DiskItem> diskitems)
+        {
+            var count = 0;
+            if (diskitems.Count() > 0)
+            {
+                using (var transaction = EnsureConnection().BeginTransaction())
+                {
+                    foreach (var diskitem in diskitems)
+                    {
+                        ExecuteNonQuery(diskitem.ToHashUpdateStatement());
+                        count++;
+                    }
+
+                    transaction.Commit();
+                }
+            }
+
+            return count;
+        }
 
         /// <summary>
         /// Removes the matching diskitem records from the database, effectively removing tracking for those files.  
@@ -617,13 +820,13 @@ namespace HDDL.Data
         /// <returns>The matching DiskItems</returns>
         private IEnumerable<DiskItem> GetFilteredDiskItems(string whereDetail, string filter, IEnumerable<string> paths, string depthSpecification)
         {
-            filter = filter.Replace("*", "%");
             var queries = new List<string>();
             var results = new List<DiskItem>();
             foreach (var path in paths)
             {
                 var depth = PathHelper.GetDependencyCount(new DiskItemType(path, false));
-                var query = $"select * from diskitems where path like '{path}%' and itemName like '{filter}' and {depthSpecification}".Replace("[current]", depth.ToString());
+                var filterClause = !string.IsNullOrWhiteSpace(filter) ? $" and itemName like '{filter.Replace("*", "%")}'" : string.Empty;
+                var query = $"select * from diskitems where path like '{path}%'{filterClause} and {depthSpecification}".Replace("[current]", depth.ToString());
                 if (!string.IsNullOrWhiteSpace(whereDetail))
                 {
                     queries.Add($"{query} and ({whereDetail});");

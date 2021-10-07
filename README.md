@@ -14,6 +14,9 @@ The command utility supports the following parameters:
   * Defaults to creating `files database.db` in the utility's containing folder.
 * hdsl -scan: `<path>[, <path>, <path>]`
   * Performs a location scan to populate the database on the given location.  Any number of paths can be provided.
+* hdsl -check: `<filtered location reference>, [<filtered location reference>[, <filtered location reference>, ...]]`
+  * Executes an integrity check by comparing the logged hashes in the database against fresh ones from the designated targets.
+  * Note: See below HDSL -> Bookmark definition statement for how to write filtered location references.
 * hdsl -run: `<HDSL script string>`
   * Executes the given HDSL code against the current databasee and outputs the results to the command prompt.
 * hdsl -exec: `<HDSL script file path>`
@@ -29,6 +32,8 @@ The command utility supports the following parameters:
     * w => last write date
     * a => last access date
     * c => creation date
+    * h => checksum hash
+    * d => last checksum date
   * Column Format Strings (use either, but not both)
     * -columns: `<any combination of column letters, e.g "psc" (quotes optional) for the full path, followed by size and finally creation date>`
     * -columns: `<a comma seperated series of letter keys followed by a colon and then a number, where that number is the width of the column.  e.g "p:100,s:40,c:70" (no quotes)>`
@@ -45,6 +50,7 @@ The command utility supports the following parameters:
 Parameters are always handled in the following order:
 * -db
 * -scan
+* -check
 * -run
 * -exec
 
@@ -69,13 +75,20 @@ HDSL offers a shorthand parameter alternative format that, while less legible, a
 HDSL is a simple query language designed for the retrieval of files and directories based on their locations and characteristics.  The system currently implements the following statements:
  * `find [file search pattern - defaults to *.*] [in/within/under [path[, path, path]] - defaults to current] [where clause];`
    * Retrieves the items that match the query and displays them.
- * `purge [bookmarks | exclusions | path[, path, path] [where clause]];`
+ * `purge [bookmarks | exclusions | filters | path[, path, path] [where clause]];`
    * Removes matching entries from the current database.
  * `[Bookmark] = '<absolute directory path string>';`
    * Creates a bookmark reference.
-   * Bookmarks can be substituted for scan, exclusion definition, purge, and find paths.
+   * Bookmarks can be substituted for scan, exclusion definition, purge, filtered location reference, and find paths.
+ * `bookmark = path [in/within/under -- default within] [:[wildcard filter][attribute filter, [attribute filter, ...]]];`
+   * Creates a filtered location reference.
+   * Filtered Location References are only used by integration checks.
  * `scan [spinner|progress|text|quiet - defaults to text] [path[, path, path]];`
    * Performs a disk item scan with the requested display mode on the provided paths.  
+ * `check [spinner|progress|text|quiet - defaults to text] filtered location reference, [filtered location reference[, filtered location reference, ...]];`
+   * Performs an integrity check against the database.  
+   * If no previous integrity check has been performed, simply stores the values in the database.
+   * Note that filtered location references, while storable in the database, can also be typed out literally.
  * `exclude [dynamic] path[, path, path];` 
    * Adds an exclusion for the given paths
  * `include path[, path, path];`

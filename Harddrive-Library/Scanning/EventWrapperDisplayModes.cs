@@ -11,9 +11,9 @@ using System.Threading.Tasks;
 namespace HDDL.Scanning
 {
     /// <summary>
-    /// The modes of output possible for the DiskScanEventWrapper class
+    /// The modes of output possible for the scan event wrapper classes
     /// </summary>
-    public enum DiskScanEventWrapperDisplayModes
+    public enum EventWrapperDisplayModes
     {
         ProgressBar,
         Spinner,

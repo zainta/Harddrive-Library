@@ -200,6 +200,8 @@ namespace HDDL.HDSL.Where
                 switch (ValueType)
                 {
                     case WhereValueTypes.DateTime:
+                        result = $"'{DateTimeDataHelper.ConvertToString((DateTime)_actual)}'";
+                        break;
                     case WhereValueTypes.String:
                         result = $"'{_actual}'";
                         break;

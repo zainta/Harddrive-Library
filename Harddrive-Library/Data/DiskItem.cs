@@ -86,6 +86,16 @@ namespace HDDL.Data
         public int Depth { get; set; }
 
         /// <summary>
+        /// A calculated hash
+        /// </summary>
+        public string FileHash { get; set; }
+
+        /// <summary>
+        /// When the calculated hash was generated
+        /// </summary>
+        public DateTime HashTimestamp { get; set; }
+
+        /// <summary>
         /// Creates an instance from the current record in the data reader
         /// </summary>
         /// <param name="row"></param>
@@ -103,6 +113,8 @@ namespace HDDL.Data
             LastAccessed = DateTimeDataHelper.ConvertToDateTime(row.GetString("lastAccessed"));
             CreationDate = DateTimeDataHelper.ConvertToDateTime(row.GetString("created"));
             Depth = row.GetInt32("depth");
+            FileHash = row.GetString("hash");
+            HashTimestamp = DateTimeDataHelper.ConvertToDateTime(row.GetString("lastHashed"));
         }
 
         /// <summary>
@@ -120,7 +132,7 @@ namespace HDDL.Data
         public override string ToInsertStatement()
         {
             return $@"insert into diskitems 
-                        (id, parentId, firstScanned, lastScanned, path, itemName, isFile, extension, size, lastWritten, lastAccessed, created, depth) 
+                        (id, parentId, firstScanned, lastScanned, path, itemName, isFile, extension, size, lastWritten, lastAccessed, created, depth, hash, lastHashed) 
                       values 
                         ('{Id}', 
                          '{ParentId}', 
@@ -134,7 +146,9 @@ namespace HDDL.Data
                          '{DateTimeDataHelper.ConvertToString(LastWritten)}', 
                          '{DateTimeDataHelper.ConvertToString(LastAccessed)}', 
                          '{DateTimeDataHelper.ConvertToString(CreationDate)}', 
-                         {Depth});";
+                         {Depth},
+                         '{FileHash}',
+                         '{DateTimeDataHelper.ConvertToString(HashTimestamp)}' );";
         }
 
         /// <summary>
@@ -156,6 +170,20 @@ namespace HDDL.Data
                         lastAccessed = '{DateTimeDataHelper.ConvertToString(LastAccessed)}', 
                         created = '{DateTimeDataHelper.ConvertToString(CreationDate)}', 
                         depth = {Depth}
+                      where 
+                        path = '{DataHelper.Sanitize(Path)}';";
+        }
+
+        /// <summary>
+        /// Generates and returns a SQLite Update statement to this record's integrity hash related fields
+        /// </summary>
+        /// <returns>The line of SQL</returns>
+        public string ToHashUpdateStatement()
+        {
+            return $@"update diskitems 
+                      set 
+                        hash = '{FileHash}',
+                        lastHashed = '{DateTimeDataHelper.ConvertToString(HashTimestamp)}'
                       where 
                         path = '{DataHelper.Sanitize(Path)}';";
         }

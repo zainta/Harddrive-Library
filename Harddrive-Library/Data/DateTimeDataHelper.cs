@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace HDDL.Data
 {
@@ -43,6 +39,16 @@ namespace HDDL.Data
         public static string ConvertToString(DateTime dt)
         {
             return dt.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss.fff");
+        }
+
+        /// <summary>
+        /// Converts a DateTime to a format for display
+        /// </summary>
+        /// <param name="dt">The datetime to convert</param>
+        /// <returns></returns>
+        public static string ToString(DateTime dt)
+        {
+            return dt.ToString("MM/dd/yyyy hh:mm:ss tt");
         }
     }
 }

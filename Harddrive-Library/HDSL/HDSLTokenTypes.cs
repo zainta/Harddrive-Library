@@ -11,7 +11,7 @@ namespace HDDL.HDSL
     {
         // Data Types
 
-        BookmarkReference, // <...>
+        BookmarkReference, // [...]
         String, // ' (also stores paths)
         WholeNumber, // a number without a decimal point
         RealNumber, // a number with a decimal point
@@ -21,6 +21,7 @@ namespace HDDL.HDSL
 
         Whitespace,
         Comma,
+        Colon,
 
         // Keywords
 
@@ -46,8 +47,11 @@ namespace HDDL.HDSL
         Dynamic,
         Bookmarks,
         Exclusions,
+        True,
+        False,
+        Filters,
 
-        // * attribute keywords
+        // value keywords
         Size,
         Written,
         Accessed,
@@ -56,6 +60,13 @@ namespace HDDL.HDSL
         LastScan,
         FirstScan,
         Name,
+
+        // attribute keywords
+        Readonly,
+        Archive,
+        System,
+        Hidden,
+        NonIndexed,
 
         // Relational Operators
 
