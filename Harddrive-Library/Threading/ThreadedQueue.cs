@@ -121,47 +121,54 @@ namespace HDDL.Threading
                     _ending =
                         Task.Run(() =>
                         {
-                            while (Status == ThreadQueueStatus.Starting || Status == ThreadQueueStatus.Active)
+                            try
                             {
-                                #region Check for Dead Workers
-
-                                var deads = (from t in _threads where t.Status != TaskStatus.Running select t);
-                                var indicesToAdd = new List<int>();
-                                foreach (var dead in deads)
+                                while (Status == ThreadQueueStatus.Starting || Status == ThreadQueueStatus.Active)
                                 {
-                                    var index = _threads.IndexOf(dead);
-                                    _threads.RemoveAt(index);
-                                    indicesToAdd.Add(index);
-                                }
-                                indicesToAdd.ForEach(i => AddRunner(i));
+                                    #region Check for Dead Workers
 
-                                #endregion
-
-                                #region Feed Workers
-
-                                var needy = (from q in _workerJobs 
-                                             where q.Value == null 
-                                             select q.Key);
-                                foreach (var key in needy)
-                                {
-                                    T work;
-                                    if (_allWork.TryDequeue(out work))
+                                    var deads = (from t in _threads where t.Status != TaskStatus.Running select t);
+                                    var indicesToAdd = new List<int>();
+                                    foreach (var dead in deads)
                                     {
-                                        _workerJobs[key] = work;
+                                        var index = _threads.IndexOf(dead);
+                                        _threads.RemoveAt(index);
+                                        indicesToAdd.Add(index);
                                     }
-                                    else
+                                    indicesToAdd.ForEach(i => AddRunner(i));
+
+                                    #endregion
+
+                                    #region Feed Workers
+
+                                    var needy = (from q in _workerJobs
+                                                 where q.Value == null
+                                                 select q.Key);
+                                    foreach (var key in needy)
+                                    {
+                                        T work;
+                                        if (_allWork.TryDequeue(out work))
+                                        {
+                                            _workerJobs[key] = work;
+                                        }
+                                        else
+                                        {
+                                            break;
+                                        }
+                                    }
+
+                                    if (needy.Count() == _workerJobs.Count &&
+                                        _allWork.IsEmpty)
                                     {
                                         break;
                                     }
-                                }
 
-                                if (needy.Count() == _workerJobs.Count &&
-                                    _allWork.IsEmpty)
-                                {
-                                    break;
+                                    #endregion
                                 }
+                            }
+                            catch (Exception ex)
+                            {
 
-                                #endregion
                             }
                         })
                         .ContinueWith((tsk) =>

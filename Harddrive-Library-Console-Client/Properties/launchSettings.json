@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Harddrive-Library-Console-Client": {
+      "commandName": "Project",
+      "commandLineArgs": "-check: \"'C:\\Windows':system true\" -dm: s"
+    }
+  }
+}
