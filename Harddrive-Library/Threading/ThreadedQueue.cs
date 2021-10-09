@@ -50,6 +50,18 @@ namespace HDDL.Threading
         /// </summary>
         private readonly List<Action<T>> _actions;
 
+        private readonly object _activeTasksLock = new object();
+
+        /// <summary>
+        /// The number of active tasks
+        /// </summary>
+        private int _activeTasks;
+
+        /// <summary>
+        /// Indicates whether or not the feeder task is filling the jobs for the workers
+        /// </summary>
+        private bool _feeding;
+
         /// <summary>
         /// The ThreadedQueue's current state
         /// </summary>
@@ -86,6 +98,7 @@ namespace HDDL.Threading
             Status = ThreadQueueStatus.Idle;
             _total = -1;
             FaultCause = null;
+            _feeding = false;
 
             if (_actions.Count > threadCount)
             {
@@ -106,6 +119,7 @@ namespace HDDL.Threading
                 _threads.Clear();
                 _allWork = new ConcurrentQueue<T>(work);
                 _total = work.Count();
+                _feeding = false;
 
                 if (_allWork.Count > 0)
                 {
@@ -116,59 +130,59 @@ namespace HDDL.Threading
                         AddRunner(i);
                     }
 
-                    Status = ThreadQueueStatus.Active;
                     // create the feeder thread and store the ending point
                     _ending =
                         Task.Run(() =>
                         {
-                            while (Status == ThreadQueueStatus.Starting || Status == ThreadQueueStatus.Active)
+                            try
                             {
-                                #region Check for Dead Workers
-
-                                var deads = (from t in _threads where t.Status != TaskStatus.Running select t);
-                                var indicesToAdd = new List<int>();
-                                foreach (var dead in deads)
+                                while (GetTaskCount() > 0)
                                 {
-                                    var index = _threads.IndexOf(dead);
-                                    _threads.RemoveAt(index);
-                                    indicesToAdd.Add(index);
-                                }
-                                indicesToAdd.ForEach(i => AddRunner(i));
+                                    var needy = (from q in _workerJobs
+                                                 where q.Value == null
+                                                 select q.Key);
 
-                                #endregion
-
-                                #region Feed Workers
-
-                                var needy = (from q in _workerJobs 
-                                             where q.Value == null 
-                                             select q.Key);
-                                foreach (var key in needy)
-                                {
-                                    T work;
-                                    if (_allWork.TryDequeue(out work))
+                                    if (needy.Count() > 0)
                                     {
-                                        _workerJobs[key] = work;
+                                        _feeding = true;
                                     }
-                                    else
+
+                                    foreach (var key in needy)
+                                    {
+                                        T work;
+                                        if (_allWork.TryDequeue(out work))
+                                        {
+                                            _workerJobs[key] = work;
+                                        }
+                                        else
+                                        {
+                                            break;
+                                        }
+                                    }
+                                    _feeding = false;
+
+                                    if (needy.Count() == _workerJobs.Count &&
+                                        _allWork.IsEmpty)
                                     {
                                         break;
                                     }
                                 }
+                            }
+                            catch (Exception ex)
+                            {
 
-                                if (needy.Count() == _workerJobs.Count &&
-                                    _allWork.IsEmpty)
-                                {
-                                    break;
-                                }
-
-                                #endregion
                             }
                         })
                         .ContinueWith((tsk) =>
                         {
+                            while (GetTaskCount() > 0)
+                            {
+                                // wait until all threads complete their work.
+                            }
+
                             Status = ThreadQueueStatus.Idle;
                         });
-                        
+                    Status = ThreadQueueStatus.Active;
                 }
             }
             else
@@ -186,30 +200,38 @@ namespace HDDL.Threading
         {
             try
             {
-                // loop while we have work waiting and we are executing or we have work in our bucket
-                while (Status == ThreadQueueStatus.Starting || Status == ThreadQueueStatus.Active)
+                while (Status == ThreadQueueStatus.Starting)
                 {
-                    if (Status == ThreadQueueStatus.Active)
+
+                }
+
+                // loop while we have work waiting and we are executing or we have work in our bucket
+                while (((!_allWork.IsEmpty || _workerJobs[taskWorkQueueId] != null) && 
+                    Status == ThreadQueueStatus.Active) || _feeding)
+                {
+                    if (_workerJobs[taskWorkQueueId] != null)
                     {
-                        if (_workerJobs[taskWorkQueueId] != null)
+                        try
                         {
-                            try
-                            {
-                                action(_workerJobs[taskWorkQueueId]);
-                            }
-                            catch (Exception ex)
-                            {
-                                Status = ThreadQueueStatus.Faulted;
-                                FaultCause = ex;
-                            }
-                            _workerJobs[taskWorkQueueId] = null;
+                            action(_workerJobs[taskWorkQueueId]);
                         }
+                        catch (Exception ex)
+                        {
+                            Status = ThreadQueueStatus.Faulted;
+                            FaultCause = ex;
+                        }
+                        _workerJobs[taskWorkQueueId] = null;
                     }
                 }
             }
             catch (KeyNotFoundException ex)
             {
                 // we don't care about the exception that occurred.  If one does occur, though, kill the thread and start a new one.
+            }
+            finally
+            {
+                // Indicate that we are done.
+                SubTask();
             }
         }
 
@@ -228,6 +250,9 @@ namespace HDDL.Threading
 
             // get the task
             _threads.Add(Task.Run(() => ActionRunner(threadId, action)));
+
+            // Track the new task
+            AddTask();
         }
 
         /// <summary>
@@ -246,6 +271,43 @@ namespace HDDL.Threading
         public void WaitAll()
         {
             _ending.Wait();
+        }
+
+        /// <summary>
+        /// Thread safely returns the number of active tasks
+        /// </summary>
+        /// <returns></returns>
+        private int GetTaskCount()
+        {
+            var result = 0;
+            lock(_activeTasksLock)
+            {
+                result = _activeTasks;
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Thread safely increments the number of active tasks
+        /// </summary>
+        private void AddTask()
+        {
+            lock(_activeTasksLock)
+            {
+                _activeTasks++;
+            }
+        }
+
+        /// <summary>
+        /// Thread safely decrements the number of active tasks
+        /// </summary>
+        private void SubTask()
+        {
+            lock (_activeTasksLock)
+            {
+                _activeTasks--;
+            }
         }
 
         /// <summary>

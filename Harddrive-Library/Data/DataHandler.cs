@@ -126,12 +126,14 @@ namespace HDDL.Data
                                 hash text,
                                 lastHashed text
                                 );
+                             create unique index diskitems_path_index on diskitems(path);
 
                             create table if not exists bookmarks (
                                 id text not null primary key,
                                 target text not null,
                                 itemName text not null
                                 );
+                            create unique index bookmarks_itemName_index on bookmarks(itemName);
 
                             create table if not exists filteredlocations (
                                 id text not null primary key,
@@ -145,11 +147,13 @@ namespace HDDL.Data
                                 itemName text not null,
                                 explorationMode text
                                 );
+                            create unique index filteredlocations_itemName_index on filteredlocations(itemName);
 
                             create table if not exists exclusions (
                                 id text not null primary key,
                                 region text not null
-                                );",
+                                );
+                            create unique index exclusions_region_index on exclusions(region);",
                                 sqltCon))
                     {
 

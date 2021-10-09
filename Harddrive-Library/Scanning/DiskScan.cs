@@ -30,6 +30,7 @@ namespace HDDL.Scanning
         public delegate void ScanDiskStructureExplorationBegins(DiskScan scanner);
         public delegate void ScanDiskStructureExplorationEnds(DiskScan scanner);
         public delegate void NoValidScanPathsProvided(DiskScan scanner);
+        public delegate void PathHelperExploringLocation(DiskScan scanner, string path, bool isFile);
 
         /// <summary>
         /// Occurs when the status changes
@@ -75,6 +76,11 @@ namespace HDDL.Scanning
         /// Occurs when either no scan paths are supplied or those that are do not exist
         /// </summary>
         public event NoValidScanPathsProvided NoValidScanPaths;
+
+        /// <summary>
+        /// Occurs when a location's exploration begins
+        /// </summary>
+        public event PathHelperExploringLocation ScanDiskExploring;
 
         /// <summary>
         /// Where to start scanning from
@@ -214,9 +220,11 @@ namespace HDDL.Scanning
                 // Apply bookmarks and ensure paths
                 _startingPaths = (from p in _startingPaths select _dh.ApplyBookmarks(p)).ToList();
 
+                PathHelper.ExploringLocation += PathHelper_ExploringLocation;
                 ScanExplorationBegins?.Invoke(this);
                 info = PathHelper.GetProcessedPathContents(_startingPaths, _dh.GetProcessedExclusions());
                 ScanExplorationEnds?.Invoke(this);
+                PathHelper.ExploringLocation -= PathHelper_ExploringLocation;
 
                 _durations.DirectoryStructureScanDuration = DateTime.Now.Subtract(_directoryStructureScanStart);
             });
@@ -236,7 +244,7 @@ namespace HDDL.Scanning
                     });
 
                     // Define the threadqueue here because we need to refer to it
-                    var queue = new ThreadedQueue<DiskItemType>((work) => WorkerMethod(work), 1);
+                    var queue = new ThreadedQueue<DiskItemType>((work) => WorkerMethod(work), 4);
 
                     // Perform the processing work
                     _directoryStructureProcessingStart = DateTime.Now;
@@ -468,6 +476,11 @@ namespace HDDL.Scanning
             }
 
             return count;
+        }
+
+        private void PathHelper_ExploringLocation(string path, bool isFile)
+        {
+            ScanDiskExploring?.Invoke(this, path, isFile);
         }
     }
 }

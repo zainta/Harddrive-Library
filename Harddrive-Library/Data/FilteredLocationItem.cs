@@ -173,37 +173,37 @@ namespace HDDL.Data
             }
             if (ExpectsReadOnly.HasValue)
             {
-                AppendSafely(upds, $"set expectsReadOnly = {BoolToStr(ExpectsReadOnly)}", ", ");
+                AppendSafely(upds, $"expectsReadOnly = {BoolToStr(ExpectsReadOnly)}", ", ");
             }
             if (ExpectsArchive.HasValue)
             {
-                AppendSafely(upds, $"set expectsArchive = {BoolToStr(ExpectsArchive)}", ", ");
+                AppendSafely(upds, $"expectsArchive = {BoolToStr(ExpectsArchive)}", ", ");
             }
             if (ExpectsSystem.HasValue)
             {
-                AppendSafely(upds, $"set expectsSystem = {BoolToStr(ExpectsSystem)}", ", ");
+                AppendSafely(upds, $"expectsSystem = {BoolToStr(ExpectsSystem)}", ", ");
             }
             if (ExpectsHidden.HasValue)
             {
-                AppendSafely(upds, $"set expectsHidden = {BoolToStr(ExpectsHidden)}", ", ");
+                AppendSafely(upds, $"expectsHidden = {BoolToStr(ExpectsHidden)}", ", ");
             }
             if (ExpectsNonIndexed.HasValue)
             {
-                AppendSafely(upds, $"set expectsNonIndexed = {BoolToStr(ExpectsNonIndexed)}", ", ");
+                AppendSafely(upds, $"expectsNonIndexed = {BoolToStr(ExpectsNonIndexed)}", ", ");
             }
 
             var sql = $@"update filteredlocations 
                         set target = '{DataHelper.Sanitize(Target)}',
-                        set explorationMode = '{ExplorationMode}'[additionsUpdates]
+                            explorationMode = '{ExplorationMode}'[additionsUpdates]
                         where itemName = '{ItemName}';";
 
             if (upds.Length > 0)
             {
-                sql = sql.Replace("[additionsColumns]", $", {upds}");
+                sql = sql.Replace("[additionsUpdates]", $", {upds}");
             }
             else
             {
-                sql = sql.Replace("[additionsColumns]", string.Empty);
+                sql = sql.Replace("[additionsUpdates]", string.Empty);
             }
 
             return sql;

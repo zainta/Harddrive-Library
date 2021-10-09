@@ -152,9 +152,12 @@ namespace HDDL.Scanning
                 {
                     case EventWrapperDisplayModes.ProgressBar:
                     case EventWrapperDisplayModes.Spinner:
-                    case EventWrapperDisplayModes.Text:
                         Console.Write($"Performing integrity scans on '{string.Join("\', \'", scanLocations)}\' - ");
                         break;
+                    case EventWrapperDisplayModes.Text:
+                        Console.WriteLine($"Performing integrity scans on '{string.Join("\', \'", scanLocations)}\'...");
+                        break;
+
                 }
             }
 

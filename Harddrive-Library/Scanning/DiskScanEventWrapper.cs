@@ -201,9 +201,6 @@ namespace HDDL.Scanning
                     case EventWrapperDisplayModes.Spinner:
                         Console.Write($"Performing scans on '{string.Join("\', \'", _scanner.ScanTargets)}\' - ");
                         break;
-                    case EventWrapperDisplayModes.Text:
-                        Console.Write($"Performing scans on '{string.Join("\', \'", _scanner.ScanTargets)}\' - ");
-                        break;
                 }
             }
 
@@ -217,6 +214,7 @@ namespace HDDL.Scanning
                 _scanner.ScanExplorationBegins += _scanner_ScanExplorationBegins;
                 _scanner.ScanExplorationEnds += _scanner_ScanExplorationEnds;
                 _scanner.NoValidScanPaths += _scanner_NoValidScanPaths;
+                _scanner.ScanDiskExploring += _scanner_ScanDiskExploring;
             }
             _scanner.StartScan();
 
@@ -266,7 +264,6 @@ namespace HDDL.Scanning
             {
                 case EventWrapperDisplayModes.ProgressBar:
                 case EventWrapperDisplayModes.Spinner:
-                case EventWrapperDisplayModes.Text:
                     Console.WriteLine("Ready!       ");
                     break;
             }
@@ -278,9 +275,26 @@ namespace HDDL.Scanning
             {
                 case EventWrapperDisplayModes.ProgressBar:
                 case EventWrapperDisplayModes.Spinner:
-                case EventWrapperDisplayModes.Text:
                     _uiFeedbackDisplay = new Spinner(Console.CursorLeft, Console.CursorTop);
                     Console.Write("  - Working...");
+                    break;
+            }
+        }
+
+        private void _scanner_ScanDiskExploring(DiskScan scanner, string path, bool isFile)
+        {
+            switch (_displayMode)
+            {
+                case EventWrapperDisplayModes.Text:
+                    _uiFeedbackDisplay = new Spinner(Console.CursorLeft, Console.CursorTop);
+                    if (isFile)
+                    {
+                        Console.WriteLine($"Found {path}...");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Exploring {path}...");
+                    }
                     break;
             }
         }
@@ -334,7 +348,7 @@ namespace HDDL.Scanning
                         ((ProgressBar)_uiFeedbackDisplay).Value++;
                         break;
                     case EventWrapperDisplayModes.Text:
-                        Console.WriteLine($"Discovered {itemType} @ '{evnt.Path}'.");
+                        Console.WriteLine($"Processed {itemType} @ '{evnt.Path}'.");
                         break;
                 }
             }
@@ -346,7 +360,7 @@ namespace HDDL.Scanning
                         ((ProgressBar)_uiFeedbackDisplay).Value++;
                         break;
                     case EventWrapperDisplayModes.Text:
-                        Console.WriteLine($"Rediscovered {itemType} @ '{evnt.Path}'.");
+                        Console.WriteLine($"Reprocessed {itemType} @ '{evnt.Path}'.");
                         break;
                 }
             }

@@ -18,6 +18,14 @@ namespace HDDL.IO.Disk
     /// </summary>
     class PathHelper
     {
+        internal delegate void PathHelperExploringLocation(string path, bool isFile);
+
+        /// <summary>
+        /// Occurs when a location is discovered by the path processing method's recursive method
+        /// </summary>
+        internal static event PathHelperExploringLocation ExploringLocation;
+
+
         /// <summary>
         /// Takes a path and, if it contains text, ensures that it ends in a forward slash (\)
         /// </summary>
@@ -111,7 +119,7 @@ namespace HDDL.IO.Disk
 
             return (from d in results
                     orderby d.Count(f => f == Path.DirectorySeparatorChar || f == Path.AltDirectorySeparatorChar) ascending
-                    select new DiskItemType(EnsurePath(d), false));
+                    select new DiskItemType(d, false));
         }
 
         /// <summary>
@@ -204,6 +212,8 @@ namespace HDDL.IO.Disk
             Func<string, List<DiskItemType>, List<DiskItemType>, bool> recursor = null;
             recursor = (path, files, directories) =>
             {
+                ExploringLocation?.Invoke(path, false);
+
                 // exclusions will have ensured paths while path won't be ensured.
                 if (IsWithinPaths(path, excludedPaths))
                 {
@@ -249,6 +259,7 @@ namespace HDDL.IO.Disk
                             isFile = true;
                             foreach (var file in Directory.GetFiles(path))
                             {
+                                ExploringLocation?.Invoke(file, true);
                                 files.Add(new DiskItemType(file, true));
                             };
                         }

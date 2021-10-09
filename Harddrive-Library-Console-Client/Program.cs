@@ -136,7 +136,7 @@ namespace HDSL
                     }
                     else if (set is IntegrityScanResultSet)
                     {
-                        ((IntegrityScanResultSet)set).Display(null, null, _count, _embellish, IntegrityResultSetDisplayModes.Scanned);
+                        ((IntegrityScanResultSet)set).Display(null, null, _count, _embellish, IntegrityResultSetDisplayModes.Changed);
                     }
                 }
             }
