@@ -255,6 +255,7 @@ namespace HDDL.Scanning
                             queue.Start(dependencyOrderedQueues.Dequeue());
                         }
                     }
+                    queue.WaitAll();
 
                     _durations.DirectoryStructureProcessingDuration = DateTime.Now.Subtract(_directoryStructureProcessingStart);
 

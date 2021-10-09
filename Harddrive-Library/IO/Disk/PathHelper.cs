@@ -130,13 +130,27 @@ namespace HDDL.IO.Disk
         /// <returns>The number of dependencies</returns>
         public static int GetDependencyCount(DiskItemType diskItemType)
         {
-            var dependencyLevel = AnchorPath(diskItemType).Count();
-            if (diskItemType.IsFile)
+            return GetDependencyCount(diskItemType.Path, diskItemType.IsFile);
+        }
+
+        /// <summary>
+        /// Returns the number of levels from the root the given path is (including the root)
+        /// Adds 1 for files
+        /// </summary>
+        /// <param name="path">The path to test</param>
+        /// <param name="isFile">If the path is a file or directory</param>
+        /// <returns>The number of dependencies</returns>
+        public static int GetDependencyCount(string path, bool isFile)
+        {
+            var primCount = path.Where(c => c == Path.DirectorySeparatorChar).Count();
+            var secCount = path.Where(c => c == Path.AltDirectorySeparatorChar).Count();
+
+            if (isFile)
             {
-                dependencyLevel++;
+                return primCount + secCount;
             }
 
-            return dependencyLevel;
+            return primCount + secCount - 1;
         }
 
         /// <summary>
@@ -188,6 +202,34 @@ namespace HDDL.IO.Disk
         }
 
         /// <summary>
+        /// Takes a disk item type and a dependency level sorted list dictionary and adds the item to the correct dependency level list
+        /// </summary>
+        /// <param name="target">The dictionary to add to</param>
+        /// <param name="item">The item to add it to</param>
+        private static void SafelyAdd(ConcurrentDictionary<int, List<DiskItemType>> target, DiskItemType item)
+        {
+            var level = GetDependencyCount(item);
+            target.TryAdd(level, new List<DiskItemType>());
+            target[level].Add(item);
+        }
+
+        /// <summary>
+        /// Returns the number of total items in all sublists in the dictionary
+        /// </summary>
+        /// <param name="focus">The dictionary to process</param>
+        /// <returns></returns>
+        private static long GetTotal(ConcurrentDictionary<int, List<DiskItemType>> focus)
+        {
+            long result = 0;
+            foreach (var key in focus.Keys)
+            {
+                result += focus[key].Count;
+            }
+
+            return result;
+        }
+
+        /// <summary>
         /// Takes a list of paths and sorts them and their contents by disk.  
         /// 
         /// This prevents multiple threads from trying to read the same hard drive at once.
@@ -206,10 +248,10 @@ namespace HDDL.IO.Disk
             // extract the excluded regions so we can more easily query it
             var excludedPaths = (from e in exclusions select e.Region);
 
-            var allFiles = new List<DiskItemType>();
-            var allDirectories = new List<DiskItemType>();
+            var allFiles = new ConcurrentDictionary<int, List<DiskItemType>>();
+            var allDirectories = new ConcurrentDictionary<int, List<DiskItemType>>();
             var unlistables = new ConcurrentBag<DiskItemType>();
-            Func<string, List<DiskItemType>, List<DiskItemType>, bool> recursor = null;
+            Func<string, ConcurrentDictionary<int, List<DiskItemType>>, ConcurrentDictionary<int, List<DiskItemType>>, bool> recursor = null;
             recursor = (path, files, directories) =>
             {
                 ExploringLocation?.Invoke(path, false);
@@ -228,31 +270,11 @@ namespace HDDL.IO.Disk
                     try
                     {
                         var outcome = true;
-                        //foreach (var dir in Directory.GetDirectories(path).Select(p => $"{p}\\"))
-                        //{
-                        //    var subDirs = new List<DiskItemType>();
-                        //    var subFiles = new List<DiskItemType>();
-                        //    if ((outcome = recursor(dir, subFiles, subDirs)))
-                        //    {
-                        //        files.AddRange(subFiles);
-                        //        directories.AddRange(subDirs);
-                        //    }
-                        //}
-                        var subDirs = new ConcurrentBag<DiskItemType>();
-                        var subFiles = new ConcurrentBag<DiskItemType>();
                         Parallel.ForEach(Directory.GetDirectories(path).Select(p => $"{p}\\"),
                             (dir) =>
                             {
-                                var setD = new List<DiskItemType>();
-                                var setF = new List<DiskItemType>();
-                                if ((outcome = recursor(dir, setF, setD)))
-                                {
-                                    setD.ForEach(d => subDirs.Add(d));
-                                    setF.ForEach(f => subFiles.Add(f));
-                                }
+                                outcome = recursor(dir, files, directories);
                             });
-                        directories.AddRange(subDirs);
-                        files.AddRange(subFiles);
 
                         if (outcome)
                         {
@@ -260,7 +282,7 @@ namespace HDDL.IO.Disk
                             foreach (var file in Directory.GetFiles(path))
                             {
                                 ExploringLocation?.Invoke(file, true);
-                                files.Add(new DiskItemType(file, true));
+                                SafelyAdd(files, new DiskItemType(file, true));
                             };
                         }
                     }
@@ -276,7 +298,7 @@ namespace HDDL.IO.Disk
                     var ensured = EnsurePath(path);
                     if (ensured != null)
                     {
-                        directories.Add(new DiskItemType(ensured, false));
+                        SafelyAdd(directories, new DiskItemType(ensured, false));
                     }
                     else
                     {
@@ -332,7 +354,7 @@ namespace HDDL.IO.Disk
                 {
                     if (File.Exists(path))
                     {
-                        allFiles.Add(new DiskItemType(path, true));
+                        SafelyAdd(allFiles, new DiskItemType(path, true));
                     }
                     else if (Directory.Exists(path))
                     {
@@ -348,36 +370,40 @@ namespace HDDL.IO.Disk
             foreach (var path in paths)
             {
                 var dit = new DiskItemType(path, File.Exists(path));
-                var anchors = AnchorPath(dit);
+                var anchors = AnchorPath(dit)
+                    .Select((t) =>
+                    {
+                        t.Path = EnsurePath(t.Path);
+                        if (string.IsNullOrWhiteSpace(t.Path))
+                        {
+                            return null;
+                        }
+
+                        return t;
+                    })
+                    .Where(t => !string.IsNullOrWhiteSpace(t.Path));
                 if (anchors.Count() > 0)
                 {
-                    var nonDuplicates = anchors.Where(ap => !allDirectories.Where(d => d.Path == ap.Path).Any());
+                    var allDirs = new List<DiskItemType>();
+                    foreach (var key in allDirectories.Keys)
+                    {
+                        allDirs.AddRange(allDirectories[key]);
+                    }
+
+                    var nonDuplicates = anchors.Where(ap => !allDirs.Where(d => d.Path == ap.Path).Any());
                     foreach (var item in nonDuplicates)
                     {
-                        allDirectories.Add(item);
+                        SafelyAdd(allDirectories, item);
                     }
                 }
             }
 
-            // then group the items by and sort the groups by their distance from the root (called Dependency Count or Depth)
-            var sortedFiles =
-                (from work in allFiles
-                 group work by GetDependencyCount(work) into dependyLevel
-                 orderby dependyLevel.Key ascending
-                 select dependyLevel.ToList()).ToList();
-
-            var sortedDirectories =
-                (from work in allDirectories
-                 group work by GetDependencyCount(work) into dependyLevel
-                 orderby dependyLevel.Key ascending
-                 select dependyLevel.ToList()).ToList();
-
             // now that we have everything sorted and ready to go, merge the groups with the directories first
-            result.ProcessedContent.AddRange(sortedDirectories);
-            result.ProcessedContent.AddRange(sortedFiles);
+            result.ProcessedContent.AddRange(allDirectories.Values);
+            result.ProcessedContent.AddRange(allFiles.Values);
 
-            result.TotalDirectories = allDirectories.Count;
-            result.TotalFiles = allFiles.Count;
+            result.TotalDirectories = GetTotal(allDirectories);
+            result.TotalFiles = GetTotal(allFiles);
 
             return result;
         }

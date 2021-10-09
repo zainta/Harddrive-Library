@@ -3,6 +3,7 @@
 // You may obtain a copy of the License at https://mit-license.org/
 
 using HDDL.Data;
+using HDDL.HDSL;
 using HDDL.UI;
 using System;
 using System.Collections.Generic;
@@ -55,6 +56,11 @@ namespace HDDL.Scanning
         /// The UI element used for feedback (if applicable)
         /// </summary>
         private TextualUIElementBase _uiFeedbackDisplay;
+
+        /// <summary>
+        /// The results of the disk scan
+        /// </summary>
+        public HDSLQueryOutcome Result { get; private set; }
 
         /// <summary>
         /// Takes a premade DiskScan instance and wraps it
@@ -314,19 +320,7 @@ namespace HDDL.Scanning
 
         private void Scanner_ScanEnded(DiskScan scanner, long totalDeleted, Timings elapsed, ScanOperationOutcome outcome)
         {
-            switch (_displayMode)
-            {
-                case EventWrapperDisplayModes.ProgressBar:
-                    Console.WriteLine($"-- Done! {new String(' ', ((ProgressBar)_uiFeedbackDisplay).Width - 7)}");
-                    break;
-                case EventWrapperDisplayModes.Spinner:
-                    Console.WriteLine("-- Done!");
-                    break;
-                case EventWrapperDisplayModes.Text:
-                    Console.WriteLine(string.Format("Done -- Total time: {0}", elapsed.GetScanDuration()));
-                    break;
-            }
-
+            (Result as DiskScanResultSet).Times = elapsed;
             _done = true;
         }
 
@@ -380,36 +374,20 @@ namespace HDDL.Scanning
 
         private void Scanner_ScanDatabaseActivityCompleted(DiskScan scanner, long additions, long updates, long deletions)
         {
-            switch (_displayMode)
-            {
-                case EventWrapperDisplayModes.Text:
-                    if (additions > 0)
-                    {
-                        Console.WriteLine($"Successfully added {additions} records to the database.");
-                    }
-                    if (updates > 0)
-                    {
-                        Console.WriteLine($"Successfully updated {updates} records in the database.");
-                    }
-                    if (deletions > 0)
-                    {
-                        Console.WriteLine($"Successfully deleted {deletions} records from the database.");
-                    }
-                    break;
-            }
+            Result = new DiskScanResultSet(additions, updates, deletions, null);
         }
 
         private void Scanner_DeletionsOccurred(DiskScan scanner, long total)
         {
-            switch (_displayMode)
-            {
-                case EventWrapperDisplayModes.Text:
-                    if (total > 0)
-                    {
-                        Console.WriteLine($"{total} Old entries were Successfully expunged from the database.");
-                    }
-                    break;
-            }
+            //switch (_displayMode)
+            //{
+            //    case EventWrapperDisplayModes.Text:
+            //        if (total > 0)
+            //        {
+            //            Console.WriteLine($"{total} Old entries were Successfully expunged from the database.");
+            //        }
+            //        break;
+            //}
         }
 
         #endregion

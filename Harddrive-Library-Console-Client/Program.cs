@@ -82,7 +82,10 @@ namespace HDSL
             if (scanPaths.Length > 0)
             {
                 var scanWrapper = new DiskScanEventWrapper(dbPath, scanPaths, true, displayMode);
-                scanWrapper.Go();
+                if (scanWrapper.Go())
+                {
+                    (scanWrapper.Result as DiskScanResultSet)?.Display(_count, _embellish);
+                }
             }
 
             if (checkPaths.Length > 0)
@@ -137,6 +140,10 @@ namespace HDSL
                     else if (set is IntegrityScanResultSet)
                     {
                         ((IntegrityScanResultSet)set).Display(null, null, _count, _embellish, IntegrityResultSetDisplayModes.Changed);
+                    }
+                    else if (set is DiskScanResultSet)
+                    {
+                        ((DiskScanResultSet)set).Display(_count, _embellish);
                     }
                 }
             }

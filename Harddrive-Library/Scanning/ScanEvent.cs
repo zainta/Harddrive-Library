@@ -45,5 +45,18 @@ namespace HDDL.Scanning
             IsFile = isFile;
             Error = error;
         }
+
+        public override string ToString()
+        {
+            var fileIndicator = IsFile ? "file" : "dir";
+            if (Error == null)
+            {
+                return $"{Nature} for {fileIndicator} '{Path}'";
+            }
+            else
+            {
+                return $"{Nature} for {fileIndicator} '{Path}' - {Error}";
+            }
+        }
     }
 }

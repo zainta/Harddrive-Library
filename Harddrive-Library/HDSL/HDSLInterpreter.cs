@@ -78,7 +78,7 @@ namespace HDDL.HDSL
                             results.Add(HandleFindStatement());
                             break;
                         case HDSLTokenTypes.Scan:
-                            HandleScanStatement();
+                            results.Add(HandleScanStatement());
                             break;
                         case HDSLTokenTypes.EndOfFile:
                             Pop();
@@ -761,7 +761,7 @@ namespace HDDL.HDSL
         /// Syntax:
         /// scan [spinner|progress|text|quiet - defaults to text] [path[, path, path]];
         /// </summary>
-        private void HandleScanStatement()
+        private HDSLQueryOutcome HandleScanStatement()
         {
             if (More() && Peek().Type == HDSLTokenTypes.Scan)
             {
@@ -772,7 +772,10 @@ namespace HDDL.HDSL
                 if (scanPaths.Count > 0)
                 {
                     var dsw = new Scanning.DiskScanEventWrapper(_dh, scanPaths, true, displayMode);
-                    dsw.Go();
+                    if (dsw.Go())
+                    {
+                        return dsw.Result;
+                    }
                 }
                 else
                 {
@@ -783,6 +786,8 @@ namespace HDDL.HDSL
             {
                 _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'scan' expected."));
             }
+
+            return new Scanning.DiskScanResultSet(-1, -1, -1, new Scanning.Timings());
         }
 
         /// <summary>

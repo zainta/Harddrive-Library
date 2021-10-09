@@ -19,12 +19,12 @@ namespace HDDL.IO.Disk
         /// <summary>
         /// The total number of files to scan
         /// </summary>
-        public int TotalFiles { get; set; }
+        public long TotalFiles { get; set; }
 
         /// <summary>
         /// The total number of directories
         /// </summary>
-        public int TotalDirectories { get; set; }
+        public long TotalDirectories { get; set; }
 
         /// <summary>
         /// Create a PathSetData

@@ -46,5 +46,10 @@ namespace HDDL.Data
             Updates = new ConcurrentBag<T>();
             Deletions = new ConcurrentBag<T>();
         }
+
+        public override string ToString()
+        {
+            return $"Contains {Inserts.Count} inserts, {Updates.Count} updates, and {Deletions.Count} deletions";
+        }
     }
 }
