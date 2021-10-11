@@ -1,0 +1,6 @@
+﻿Use "-help:" with an accompanying letter to invoke help on the subject.
+	"-help: o" for the commandline options.
+	"-help: s" for the available commandline option shortcuts.
+	"-help: l" for the HDSL language syntax.
+	"-help: f" for the available commandline flags.
+	"-help: h" for this information.  Running the application without any arguments will also redisplays this documentation.

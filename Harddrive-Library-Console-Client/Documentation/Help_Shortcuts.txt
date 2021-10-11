@@ -1,0 +1,6 @@
+﻿Shortcut Help
+
+Shortcuts shortened version of options and work identically to their longer counterparts.
+
+	hdsl ex'<hdsl file path>'
+		A shorthand invocation of the -exec parameter.

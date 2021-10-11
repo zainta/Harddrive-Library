@@ -46,6 +46,13 @@ The command utility supports the following parameters:
     * s - displays a spinner to assure the user that the application is running.
     * t - outputs running textual log of activities.
     * q - executes without producing any output.
+* hdsl -help: o/l/f/s/h (or any combination)
+  * Displays help for specific topics.
+    * o - Commandline option documentation.
+    * s - Commandline option shortcut documentation.
+    * l - HDSL statement documentation.
+    * f - Commandline flag documentation.
+    * h - Help command documentation.
 
 Parameters are always handled in the following order:
 * -db

@@ -9,6 +9,22 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Documentation\Help_Flags.txt" />
+    <None Remove="Documentation\Help_HDSL.txt" />
+    <None Remove="Documentation\Help_Help.txt" />
+    <None Remove="Documentation\Help_Shortcuts.txt" />
+    <None Remove="Help.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Documentation\Help_Flags.txt" />
+    <EmbeddedResource Include="Documentation\Help_HDSL.txt" />
+    <EmbeddedResource Include="Documentation\Help_Help.txt" />
+    <EmbeddedResource Include="Documentation\Help_Options.txt" />
+    <EmbeddedResource Include="Documentation\Help_Shortcuts.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Harddrive-Library\Harddrive-Library.csproj" />
   </ItemGroup>
 

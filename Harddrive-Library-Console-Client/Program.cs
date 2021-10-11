@@ -7,7 +7,9 @@ using HDDL.IO.Parameters;
 using HDDL.IO.Settings;
 using HDDL.Scanning;
 using System;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 
 namespace HDSL
@@ -24,6 +26,9 @@ namespace HDSL
 
         static void Main(string[] args)
         {
+            // tracks whether or not a request was made of the application
+            var receivedOrder = false;
+
             var manager = IniFileManager.Explore(Ini_File_Location, true, false, false,
                 new IniSubsection("HDSL_DB", null, new IniValue("DatabaseLocation", defaultValue: "file database.db") ));
 
@@ -37,6 +42,7 @@ namespace HDSL
                 new ParameterRuleOption("exec", false, true, null, "-"),
                 new ParameterRuleOption("dm", false, true, "t", "-"),
                 new ParameterRuleOption("check", true, true, null, "-"),
+                new ParameterRuleOption("help", true, true, null, "-"),
                 new ParameterRuleShortcut("ex"),
                 new ParameterRuleFlag(new FlagDefinition[] {
                     new FlagDefinition('e', true, true),
@@ -44,6 +50,37 @@ namespace HDSL
                     new FlagDefinition('s', true, false) }, "-")
                 );
             ph.Comb(args);
+
+            // Handle Help
+            var helpRequest = ph.GetAllParam("help").Where(p => !string.IsNullOrWhiteSpace(p)).ToArray();
+            if (helpRequest.Length > 0)
+            {
+                receivedOrder = true;
+
+                foreach (var item in helpRequest)
+                {
+                    switch (item.ToLower())
+                    {
+                        case "o":
+                            DisplayHelp("HDSL.Documentation.Help_Options.txt");
+                            break;
+                        case "l":
+                            DisplayHelp("HDSL.Documentation.Help_HDSL.txt");
+                            break;
+                        case "f":
+                            DisplayHelp("HDSL.Documentation.Help_Flags.txt");
+                            break;
+                        case "s":
+                            DisplayHelp("HDSL.Documentation.Help_Shortcuts.txt");
+                            break;
+                        case "h":
+                        default:
+                            DisplayHelp("HDSL.Documentation.Help_Help.txt");
+                            break;
+                    }
+                }
+                Environment.Exit(0);
+            }
 
             var dbPath = ph["db"];
             var scanPaths = ph.GetAllParam("scan").Where(p => !string.IsNullOrWhiteSpace(p)).ToArray();
@@ -75,12 +112,14 @@ namespace HDSL
             // (this will use hte value stored in db, so if it is set by option then it will update)
             if (ph.GetFlag("s"))
             {
+                receivedOrder = true;
                 manager[@"HDSL_DB>DatabaseLocation"].Value = dbPath;
                 manager.WriteFile(Ini_File_Location, Ini_File_Location);
             }
 
             if (scanPaths.Length > 0)
             {
+                receivedOrder = true;
                 var scanWrapper = new DiskScanEventWrapper(dbPath, scanPaths, true, displayMode);
                 if (scanWrapper.Go())
                 {
@@ -90,6 +129,7 @@ namespace HDSL
 
             if (checkPaths.Length > 0)
             {
+                receivedOrder = true;
                 var statement = $"check {ConvertDisplayMode(displayMode)} {string.Join(", ", checkPaths)};";
                 HandleDisplay(HDSLProvider.ExecuteCode(statement, dbPath), ph.GetParam("paging"), ph.GetParam("columns", -1));
             }
@@ -97,13 +137,33 @@ namespace HDSL
             // Execute a line of code
             if (!string.IsNullOrWhiteSpace(runScript))
             {
+                receivedOrder = true;
                 HandleDisplay(HDSLProvider.ExecuteCode(runScript, dbPath), ph.GetParam("paging"), ph.GetParam("columns", -1));
             }
 
             // Execute the contents of a code file
             if (!string.IsNullOrWhiteSpace(executeFile))
             {
+                receivedOrder = true;
                 HandleDisplay(HDSLProvider.ExecuteScript(executeFile, dbPath), ph.GetParam("paging"), ph.GetParam("columns", -1));
+            }
+
+            if (!receivedOrder)
+            {
+                DisplayHelp("HDSL.Documentation.Help_Help.txt");
+            }
+        }
+
+        /// <summary>
+        /// Displays the requested embedded resource on the commandline prompt
+        /// </summary>
+        /// <param name="resourceName"></param>
+        private static void DisplayHelp(string resourceName)
+        {
+            var current = Assembly.GetExecutingAssembly();
+            using (var f = new StreamReader(current.GetManifestResourceStream(resourceName)))
+            {
+                Console.WriteLine(f.ReadToEnd());
             }
         }
 
