@@ -41,7 +41,7 @@ The command utility supports the following parameters:
   * The first value is the page index.  If omitted, all pages are displayed.
   * The second value is the number of rows per page.  If omitted, defaults to 32.
 * hdsl -dm: p/s/t/q
-  * Sets the display mode for any scans performed.  SUpports the following parameters:
+  * Sets the display mode for any scans performed.  Supports the following parameters:
     * p - displays a progress bar representing scan progress.
     * s - displays a spinner to assure the user that the application is running.
     * t - outputs running textual log of activities.
@@ -75,21 +75,33 @@ HDSL offers a shorthand parameter alternative format that, while less legible, a
 HDSL is a simple query language designed for the retrieval of files and directories based on their locations and characteristics.  The system currently implements the following statements:
  * `find [file search pattern - defaults to *.*] [in/within/under [path[, path, path]] - defaults to current] [where clause];`
    * Retrieves the items that match the query and displays them.
+   * e.g `find '*.dll' in 'C:\Windows\System32' where size < 1024000;` to search for all dll files in C:\Windows\System32 that are under 1mb in size.
  * `purge [bookmarks | exclusions | filters | path[, path, path] [where clause]];`
    * Removes matching entries from the current database.
+   * e.g `purge;` deletes all file tracking records from the database
+   * e.g `purge exclusions;` deletes all exclusions, etc.
  * `[Bookmark] = '<absolute directory path string>';`
    * Creates a bookmark reference.
    * Bookmarks can be substituted for scan, exclusion definition, purge, filtered location reference, and find paths.
+   * e.g `[winSys] = 'C:\Windows\System';` creates a bookmark to the C:\Windows\System directory.
  * `bookmark = path [in/within/under -- default within] [:[wildcard filter][attribute filter, [attribute filter, ...]]];`
+   * Valid attribute keywords are `system`, `hidden`, `archive`, `readonly`, `notindexed`.
    * Creates a filtered location reference.
    * Filtered Location References are only used by integration checks.
+   * e.g `[winSysFiles] = 'C:\Windows':system true;` to create a filtered location reference to the C:\Windows directory's system files.
  * `scan [spinner|progress|text|quiet - defaults to text] [path[, path, path]];`
    * Performs a disk item scan with the requested display mode on the provided paths.  
+   * `scan text 'C:\';` will scan the entire C: drive.
  * `check [spinner|progress|text|quiet - defaults to text] filtered location reference, [filtered location reference[, filtered location reference, ...]];`
-   * Performs an integrity check against the database.  
+   * Performs an integrity check by comparing newly calculated hashes against those stored in the database.  
    * If no previous integrity check has been performed, simply stores the values in the database.
-   * Note that filtered location references, while storable in the database, can also be typed out literally.
+   * Note that filtered location references, while storable in the database, can also be typed out.
+   * `check text 'C:\';` will perform an integrity check on the entire C: drive.
  * `exclude [dynamic] path[, path, path];` 
    * Adds an exclusion for the given paths
+   * The `dynamic` keyword causes any bookmarks in an exclusion to be evaluated when the exclusion is enforced, as opposed to when it is created.
+   * e.g `exclude [Win];` will be stored as an exclusion of the specified value of the `[Win]` bookmark, where as `exclude dynamic [win];` will store the bookmark text.  This means that any changes made to [win] will automatically be picked up.
  * `include path[, path, path];`
    * Deletes exclusions for the given paths
+   * e.g `include [win];` will remove the previous example.  Note that exclusions are not cascaded.
+ * -- creates a line comment.
