@@ -111,4 +111,4 @@ HDSL is a simple query language designed for the retrieval of files and director
  * `include path[, path, path];`
    * Deletes exclusions for the given paths
    * e.g `include [win];` will remove the previous example.  Note that exclusions are not cascaded.
- * -- creates a line comment.
+ * `--` creates a line comment.
