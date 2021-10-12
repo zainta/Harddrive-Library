@@ -6,6 +6,7 @@ using System;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Data;
 using System.Data.SQLite;
+using System.IO;
 
 namespace HDDL.Data
 {
@@ -96,6 +97,11 @@ namespace HDDL.Data
         public DateTime HashTimestamp { get; set; }
 
         /// <summary>
+        /// The file's attribute bit-field
+        /// </summary>
+        public FileAttributes Attributes { get; set; }
+
+        /// <summary>
         /// Creates an instance from the current record in the data reader
         /// </summary>
         /// <param name="row"></param>
@@ -115,6 +121,7 @@ namespace HDDL.Data
             Depth = row.GetInt32("depth");
             FileHash = row.GetString("hash");
             HashTimestamp = DateTimeDataHelper.ConvertToDateTime(row.GetString("lastHashed"));
+            Attributes = row["attributes"] is DBNull ? 0 : (FileAttributes)Enum.ToObject(typeof(FileAttributes), row.GetInt32("attributes"));
         }
 
         /// <summary>
@@ -132,7 +139,7 @@ namespace HDDL.Data
         public override string ToInsertStatement()
         {
             return $@"insert into diskitems 
-                        (id, parentId, firstScanned, lastScanned, path, itemName, isFile, extension, size, lastWritten, lastAccessed, created, depth, hash, lastHashed) 
+                        (id, parentId, firstScanned, lastScanned, path, itemName, isFile, extension, size, lastWritten, lastAccessed, created, depth, hash, lastHashed, attributes) 
                       values 
                         ('{Id}', 
                          '{ParentId}', 
@@ -148,7 +155,8 @@ namespace HDDL.Data
                          '{DateTimeDataHelper.ConvertToString(CreationDate)}', 
                          {Depth},
                          '{FileHash}',
-                         '{DateTimeDataHelper.ConvertToString(HashTimestamp)}' );";
+                         '{DateTimeDataHelper.ConvertToString(HashTimestamp)}',
+                         {Convert.ToInt32(Attributes)});";
         }
 
         /// <summary>
@@ -169,7 +177,8 @@ namespace HDDL.Data
                         lastWritten = '{DateTimeDataHelper.ConvertToString(LastWritten)}', 
                         lastAccessed = '{DateTimeDataHelper.ConvertToString(LastAccessed)}', 
                         created = '{DateTimeDataHelper.ConvertToString(CreationDate)}', 
-                        depth = {Depth}
+                        depth = {Depth},
+                        attributes = {Convert.ToInt32(Attributes)}
                       where 
                         path = '{DataHelper.Sanitize(Path)}';";
         }

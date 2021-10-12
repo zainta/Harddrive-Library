@@ -5,6 +5,7 @@
 using HDDL.Data;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -27,6 +28,8 @@ namespace HDDL.HDSL
         private const int Column_Default_Width_Creation = 23;
         private const int Column_Default_Width_Hash = 50;
         private const int Column_Default_Width_LastHashed = 23;
+        private const int Column_Default_Width_Attributes = 10;
+        private const int Column_Default_Width_Attributes_Extended = 12;
 
         private const string Column_Name_Location = "Location";
         private const string Column_Name_FullPath = "Path";
@@ -39,6 +42,8 @@ namespace HDDL.HDSL
         private const string Column_Name_Creation = "Created";
         private const string Column_Name_Hash = "Checksum Hash";
         private const string Column_Name_LastHashed = "Last Hashed";
+        private const string Column_Name_Attributes = "Attributes";
+        private const string Column_Name_Attributes_Extended = "Attributes ";
 
         private const int Default_Page_Row_Count = 32;
         private const int Default_Page_Index = -1;
@@ -214,6 +219,20 @@ namespace HDDL.HDSL
                                     index++;
                                 }
                                 break;
+                            case "t": // attribute column
+                                if (!Contains(results, Column_Name_Attributes))
+                                {
+                                    results.Add(new Tuple<string, int, int>(Column_Name_Attributes, results.Count, int.Parse(definitions[index + 1])));
+                                    index++;
+                                }
+                                break;
+                            case "T": // attribute column
+                                if (!Contains(results, Column_Name_Attributes_Extended))
+                                {
+                                    results.Add(new Tuple<string, int, int>(Column_Name_Attributes_Extended, results.Count, int.Parse(definitions[index + 1])));
+                                    index++;
+                                }
+                                break;
                         }
                     }
                 }
@@ -288,6 +307,18 @@ namespace HDDL.HDSL
                             if (!Contains(results, Column_Name_LastHashed))
                             {
                                 results.Add(new Tuple<string, int, int>(Column_Name_LastHashed, index, Column_Default_Width_LastHashed));
+                            }
+                            break;
+                        case 't': // attribute column
+                            if (!Contains(results, Column_Name_Attributes))
+                            {
+                                results.Add(new Tuple<string, int, int>(Column_Name_Attributes, index, Column_Default_Width_Attributes));
+                            }
+                            break;
+                        case 'T': // attribute column
+                            if (!Contains(results, Column_Name_Attributes_Extended))
+                            {
+                                results.Add(new Tuple<string, int, int>(Column_Name_Attributes_Extended, index, Column_Default_Width_Attributes_Extended));
                             }
                             break;
                     }
@@ -441,6 +472,87 @@ namespace HDDL.HDSL
             return $"{value.Substring(0, maxlength - 3)}...";
         }
 
+        /// <summary>
+        /// Takes a file attribute value and returns the first letter of each selected attribute in a block
+        /// </summary>
+        /// <param name="attributes">The attributes to process</param>
+        /// <param name="expanded">Whether or not to include attributes beyond the more commonly known ones (readonly, hidden, archive, system, directory, and normal)</param>
+        /// <returns>The abbreviated string</returns>
+        private string GetAttributeAbbreviation(FileAttributes attributes, bool expanded = false)
+        {
+            var results = new StringBuilder();
+            var vals = Enum.GetValues<FileAttributes>();
+            foreach (var v in vals)
+            {
+                if (attributes.HasFlag(v))
+                {
+                    switch (v)
+                    {
+                        case FileAttributes.ReadOnly:
+                            results.Append('r');
+                            break;
+                        case FileAttributes.Hidden:
+                            results.Append('h');
+                            break;
+                        case FileAttributes.System:
+                            results.Append('s');
+                            break;
+                        case FileAttributes.Archive:
+                            results.Append('a');
+                            break;
+                        case FileAttributes.Directory:
+                            results.Append('d');
+                            break;
+                        case FileAttributes.Normal:
+                            results.Append('n');
+                            break;
+                        case FileAttributes.Device:
+                            if (expanded)
+                                results.Append('v');
+                            break;
+                        case FileAttributes.Temporary:
+                            if (expanded)
+                                results.Append('t');
+                            break;
+                        case FileAttributes.SparseFile:
+                            if (expanded)
+                                results.Append('p');
+                            break;
+                        case FileAttributes.ReparsePoint:
+                            if (expanded)
+                                results.Append('P');
+                            break;
+                        case FileAttributes.Compressed:
+                            if (expanded)
+                                results.Append('c');
+                            break;
+                        case FileAttributes.Offline:
+                            if (expanded)
+                                results.Append('o');
+                            break;
+                        case FileAttributes.NotContentIndexed:
+                            if (expanded)
+                                results.Append('i');
+                            break;
+                        case FileAttributes.Encrypted:
+                            if (expanded)
+                                results.Append('e');
+                            break;
+                        case FileAttributes.IntegrityStream:
+                            if (expanded)
+                                results.Append('I');
+                            break;
+                        case FileAttributes.NoScrubData:
+                            if (expanded)
+                                results.Append('S');
+                            break;
+                    }
+                }
+            }
+
+            return results.ToString();
+        }
+
         #endregion
 
         /// <summary>
@@ -582,6 +694,16 @@ namespace HDDL.HDSL
                             case Column_Name_LastHashed:
                                 format = $"{{0, -{col.Item3}}}";
                                 shortened = DateTimeDataHelper.ToString(di.HashTimestamp);
+                                sb.Append(string.Format(format, shortened));
+                                break;
+                            case Column_Name_Attributes:
+                                format = $"{{0, -{col.Item3}}}";
+                                shortened = GetAttributeAbbreviation(di.Attributes);
+                                sb.Append(string.Format(format, shortened));
+                                break;
+                            case Column_Name_Attributes_Extended:
+                                format = $"{{0, -{col.Item3}}}";
+                                shortened = GetAttributeAbbreviation(di.Attributes, true);
                                 sb.Append(string.Format(format, shortened));
                                 break;
                         }

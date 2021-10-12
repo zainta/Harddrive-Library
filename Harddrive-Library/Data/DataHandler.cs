@@ -124,7 +124,8 @@ namespace HDDL.Data
                                 lastAccessed text,
                                 created text not null,
                                 hash text,
-                                lastHashed text
+                                lastHashed text,
+                                attributes integer
                                 );
                              create unique index diskitems_path_index on diskitems(path);
 

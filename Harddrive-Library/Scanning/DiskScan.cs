@@ -330,7 +330,8 @@ namespace HDDL.Scanning
                             LastAccessed = item.FInfo.LastAccessTimeUtc,
                             LastWritten = item.FInfo.LastWriteTimeUtc,
                             CreationDate = item.FInfo.CreationTimeUtc,
-                            Depth = PathHelper.GetDependencyCount(new DiskItemType(item.FInfo.FullName, true))
+                            Depth = PathHelper.GetDependencyCount(new DiskItemType(item.FInfo.FullName, true)),
+                            Attributes = item.FInfo.Attributes
                         };
                     }
                     else
@@ -349,7 +350,8 @@ namespace HDDL.Scanning
                             LastAccessed = item.DInfo.LastAccessTimeUtc,
                             LastWritten = item.DInfo.LastWriteTimeUtc,
                             CreationDate = item.DInfo.CreationTimeUtc,
-                            Depth = PathHelper.GetDependencyCount(new DiskItemType(item.DInfo.FullName, false))
+                            Depth = PathHelper.GetDependencyCount(new DiskItemType(item.DInfo.FullName, false)),
+                            Attributes = item.DInfo.Attributes
                         };
                     }
                 }
