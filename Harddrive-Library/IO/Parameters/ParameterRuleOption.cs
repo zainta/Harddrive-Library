@@ -73,7 +73,7 @@ namespace HDDL.IO.Parameters
                     {
                         i++;
 
-                        if (AcceptsCommaLists)
+                        if (AcceptsCommaLists && args.Length < i)
                         {
                             // We don't care if there is a comma at the beginning because we are here.
                             // Therefore, there must be a comma at the start of this argument here or at the end of the last one
@@ -82,6 +82,12 @@ namespace HDDL.IO.Parameters
                             {
                                 more = false;
                             }
+                        }
+                        else if (args.Length <= i)
+                        {
+                            // there's nothing for us here.
+                            more = false;
+                            break;
                         }
                         else
                         {

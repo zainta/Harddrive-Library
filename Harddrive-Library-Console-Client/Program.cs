@@ -51,6 +51,17 @@ namespace HDSL
                 );
             ph.Comb(args);
 
+            // ensure that our columns and paging parameters are valid or will be defaulted
+            // (defaulted = null or whitespace, but if the only way to get whitespace is if the user omits a value for the -columns or -paging options)
+            if (ph.GetParam("paging") == string.Empty || 
+                ph.GetParam("columns", -1) == string.Empty)
+            {
+                Console.WriteLine("Improper paging or column format strings provided.");
+                DisplayHelp("HDSL.Documentation.Help_Options.txt");
+                Environment.Exit(0);
+            }
+
+
             // Handle Help
             var helpRequest = ph.GetAllParam("help").Where(p => !string.IsNullOrWhiteSpace(p)).ToArray();
             if (helpRequest.Length > 0)
