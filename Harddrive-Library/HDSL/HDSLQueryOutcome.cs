@@ -30,6 +30,8 @@ namespace HDDL.HDSL
         private const int Column_Default_Width_LastHashed = 23;
         private const int Column_Default_Width_Attributes = 10;
         private const int Column_Default_Width_Attributes_Extended = 12;
+        private const int Column_Default_Width_Attributes_Three = 20;
+        private const int Column_Default_Width_Attributes_Extended_Three = 30;
 
         private const string Column_Name_Location = "Location";
         private const string Column_Name_FullPath = "Path";
@@ -44,6 +46,8 @@ namespace HDDL.HDSL
         private const string Column_Name_LastHashed = "Last Hashed";
         private const string Column_Name_Attributes = "Attributes";
         private const string Column_Name_Attributes_Extended = "Attributes ";
+        private const string Column_Name_Attributes_Three = "Attributes  ";
+        private const string Column_Name_Attributes_Extended_Three = "Attributes   ";
 
         private const int Default_Page_Row_Count = 32;
         private const int Default_Page_Index = -1;
@@ -219,17 +223,31 @@ namespace HDDL.HDSL
                                     index++;
                                 }
                                 break;
-                            case "t": // attribute column
+                            case "t": // simple attribute column
                                 if (!Contains(results, Column_Name_Attributes))
                                 {
                                     results.Add(new Tuple<string, int, int>(Column_Name_Attributes, results.Count, int.Parse(definitions[index + 1])));
                                     index++;
                                 }
                                 break;
-                            case "T": // attribute column
+                            case "T": // extended attribute column
                                 if (!Contains(results, Column_Name_Attributes_Extended))
                                 {
                                     results.Add(new Tuple<string, int, int>(Column_Name_Attributes_Extended, results.Count, int.Parse(definitions[index + 1])));
+                                    index++;
+                                }
+                                break;
+                            case "3": // three character simple attribute column
+                                if (!Contains(results, Column_Name_Attributes_Three))
+                                {
+                                    results.Add(new Tuple<string, int, int>(Column_Name_Attributes_Three, results.Count, int.Parse(definitions[index + 1])));
+                                    index++;
+                                }
+                                break;
+                            case "#": // three character extended attribute column
+                                if (!Contains(results, Column_Name_Attributes_Extended_Three))
+                                {
+                                    results.Add(new Tuple<string, int, int>(Column_Name_Attributes_Extended_Three, results.Count, int.Parse(definitions[index + 1])));
                                     index++;
                                 }
                                 break;
@@ -309,16 +327,28 @@ namespace HDDL.HDSL
                                 results.Add(new Tuple<string, int, int>(Column_Name_LastHashed, index, Column_Default_Width_LastHashed));
                             }
                             break;
-                        case 't': // attribute column
+                        case 't': // simple attribute column
                             if (!Contains(results, Column_Name_Attributes))
                             {
                                 results.Add(new Tuple<string, int, int>(Column_Name_Attributes, index, Column_Default_Width_Attributes));
                             }
                             break;
-                        case 'T': // attribute column
+                        case 'T': // extended attribute column
                             if (!Contains(results, Column_Name_Attributes_Extended))
                             {
                                 results.Add(new Tuple<string, int, int>(Column_Name_Attributes_Extended, index, Column_Default_Width_Attributes_Extended));
+                            }
+                            break;
+                        case '3': // three character simple attribute column
+                            if (!Contains(results, Column_Name_Attributes_Three))
+                            {
+                                results.Add(new Tuple<string, int, int>(Column_Name_Attributes_Three, index, Column_Default_Width_Attributes_Three));
+                            }
+                            break;
+                        case '#': // three character extended attribute column
+                            if (!Contains(results, Column_Name_Attributes_Extended_Three))
+                            {
+                                results.Add(new Tuple<string, int, int>(Column_Name_Attributes_Extended_Three, index, Column_Default_Width_Attributes_Extended_Three));
                             }
                             break;
                     }
@@ -476,9 +506,9 @@ namespace HDDL.HDSL
         /// Takes a file attribute value and returns the first letter of each selected attribute in a block
         /// </summary>
         /// <param name="attributes">The attributes to process</param>
-        /// <param name="expanded">Whether or not to include attributes beyond the more commonly known ones (readonly, hidden, archive, system, directory, and normal)</param>
+        /// <param name="mode">The way to display the attributes.</param>
         /// <returns>The abbreviated string</returns>
-        private string GetAttributeAbbreviation(FileAttributes attributes, bool expanded = false)
+        private string GetAttributeAbbreviation(FileAttributes attributes, AttributeDisplayMethods mode = AttributeDisplayMethods.Simple)
         {
             var results = new StringBuilder();
             var vals = Enum.GetValues<FileAttributes>();
@@ -486,71 +516,156 @@ namespace HDDL.HDSL
             {
                 if (attributes.HasFlag(v))
                 {
-                    switch (v)
-                    {
-                        case FileAttributes.ReadOnly:
-                            results.Append('r');
-                            break;
-                        case FileAttributes.Hidden:
-                            results.Append('h');
-                            break;
-                        case FileAttributes.System:
-                            results.Append('s');
-                            break;
-                        case FileAttributes.Archive:
-                            results.Append('a');
-                            break;
-                        case FileAttributes.Directory:
-                            results.Append('d');
-                            break;
-                        case FileAttributes.Normal:
-                            results.Append('n');
-                            break;
-                        case FileAttributes.Device:
-                            if (expanded)
-                                results.Append('v');
-                            break;
-                        case FileAttributes.Temporary:
-                            if (expanded)
-                                results.Append('t');
-                            break;
-                        case FileAttributes.SparseFile:
-                            if (expanded)
-                                results.Append('p');
-                            break;
-                        case FileAttributes.ReparsePoint:
-                            if (expanded)
-                                results.Append('P');
-                            break;
-                        case FileAttributes.Compressed:
-                            if (expanded)
-                                results.Append('c');
-                            break;
-                        case FileAttributes.Offline:
-                            if (expanded)
-                                results.Append('o');
-                            break;
-                        case FileAttributes.NotContentIndexed:
-                            if (expanded)
-                                results.Append('i');
-                            break;
-                        case FileAttributes.Encrypted:
-                            if (expanded)
-                                results.Append('e');
-                            break;
-                        case FileAttributes.IntegrityStream:
-                            if (expanded)
-                                results.Append('I');
-                            break;
-                        case FileAttributes.NoScrubData:
-                            if (expanded)
-                                results.Append('S');
-                            break;
-                    }
+                    Append(results, v, mode);
                 }
             }
 
             return results.ToString();
+        }
+
+        /// <summary>
+        /// Appends the correct thing to the string builder based on the mode and attribute
+        /// </summary>
+        /// <param name="sb">The string builder to append to</param>
+        /// <param name="attribute">The attribute to represent</param>
+        /// <param name="mode">The mode of display</param>
+        private void Append(StringBuilder sb, FileAttributes attribute, AttributeDisplayMethods mode)
+        {
+            if (mode == AttributeDisplayMethods.ThreeCharacterExtended ||
+                                mode == AttributeDisplayMethods.ThreeCharacterSimple)
+            {
+                if (sb.Length > 0)
+                {
+                    sb.Append(", ");
+                }
+                sb.Append(GetAbbreviation(attribute));
+            }
+            else if (mode == AttributeDisplayMethods.Extended)
+            {
+                sb.Append(GetLetter(attribute));
+            }
+        }
+
+        private char GetLetter(FileAttributes attribute)
+        {
+            var result = ' ';
+            switch (attribute)
+            {
+                case FileAttributes.ReadOnly:
+                    result = 'r';
+                    break;
+                case FileAttributes.Hidden:
+                    result = 'h';
+                    break;
+                case FileAttributes.System:
+                    result = 's';
+                    break;
+                case FileAttributes.Archive:
+                    result = 'a';
+                    break;
+                case FileAttributes.Directory:
+                    result = 'd';
+                    break;
+                case FileAttributes.Normal:
+                    result = 'n';
+                    break;
+                case FileAttributes.Device:
+                    result = 'v';
+                    break;
+                case FileAttributes.Temporary:
+                    result = 't';
+                    break;
+                case FileAttributes.SparseFile:
+                    result = 'p';
+                    break;
+                case FileAttributes.ReparsePoint:
+                    result = 'P';
+                    break;
+                case FileAttributes.Compressed:
+                    result = 'c';
+                    break;
+                case FileAttributes.Offline:
+                    result = 'o';
+                    break;
+                case FileAttributes.NotContentIndexed:
+                    result = 'i';
+                    break;
+                case FileAttributes.Encrypted:
+                    result = 'e';
+                    break;
+                case FileAttributes.IntegrityStream:
+                    result = 'I';
+                    break;
+                case FileAttributes.NoScrubData:
+                    result = 'S';
+                    break;
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Returns the three character abbreviation for the given attribute
+        /// </summary>
+        /// <param name="attribute">The attribute to return the abbreviation for</param>
+        /// <returns></returns>
+        private string GetAbbreviation(FileAttributes attribute)
+        {
+            var result = string.Empty;
+
+            switch (attribute)
+            {
+                case FileAttributes.ReadOnly:
+                    result = "rdo";
+                    break;
+                case FileAttributes.Hidden:
+                    result = "hdn";
+                    break;
+                case FileAttributes.System:
+                    result = "sys";
+                    break;
+                case FileAttributes.Archive:
+                    result = "arc";
+                    break;
+                case FileAttributes.Directory:
+                    result = "dir";
+                    break;
+                case FileAttributes.Normal:
+                    result = "nrm";
+                    break;
+                case FileAttributes.Device:
+                    result = "dvc";
+                    break;
+                case FileAttributes.Temporary:
+                    result = "tmp";
+                    break;
+                case FileAttributes.SparseFile:
+                    result = "spf";
+                    break;
+                case FileAttributes.ReparsePoint:
+                    result = "rpc";
+                    break;
+                case FileAttributes.Compressed:
+                    result = "cmp";
+                    break;
+                case FileAttributes.Offline:
+                    result = "off";
+                    break;
+                case FileAttributes.NotContentIndexed:
+                    result = "nci";
+                    break;
+                case FileAttributes.Encrypted:
+                    result = "enc";
+                    break;
+                case FileAttributes.IntegrityStream:
+                    result = "ist";
+                    break;
+                case FileAttributes.NoScrubData:
+                    result = "nsd";
+                    break;
+            }
+
+            return result;
         }
 
         #endregion
@@ -698,12 +813,22 @@ namespace HDDL.HDSL
                                 break;
                             case Column_Name_Attributes:
                                 format = $"{{0, -{col.Item3}}}";
-                                shortened = GetAttributeAbbreviation(di.Attributes);
+                                shortened = GetAttributeAbbreviation(di.Attributes, AttributeDisplayMethods.Simple);
                                 sb.Append(string.Format(format, shortened));
                                 break;
                             case Column_Name_Attributes_Extended:
                                 format = $"{{0, -{col.Item3}}}";
-                                shortened = GetAttributeAbbreviation(di.Attributes, true);
+                                shortened = GetAttributeAbbreviation(di.Attributes, AttributeDisplayMethods.Extended);
+                                sb.Append(string.Format(format, shortened));
+                                break;
+                            case Column_Name_Attributes_Three:
+                                format = $"{{0, -{col.Item3}}}";
+                                shortened = GetAttributeAbbreviation(di.Attributes, AttributeDisplayMethods.ThreeCharacterSimple);
+                                sb.Append(string.Format(format, shortened));
+                                break;
+                            case Column_Name_Attributes_Extended_Three:
+                                format = $"{{0, -{col.Item3}}}";
+                                shortened = GetAttributeAbbreviation(di.Attributes, AttributeDisplayMethods.ThreeCharacterExtended);
                                 sb.Append(string.Format(format, shortened));
                                 break;
                         }
