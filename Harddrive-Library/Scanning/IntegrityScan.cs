@@ -96,7 +96,7 @@ namespace HDDL.Scanning
         /// <summary>
         /// The scan location
         /// </summary>
-        private List<FilteredLocationItem> _startLocations;
+        private List<DiskItem> _scanTargets;
 
         private ScanStatus _status;
         /// <summary>
@@ -123,13 +123,13 @@ namespace HDDL.Scanning
         /// Creates an integrity scan
         /// </summary>
         /// <param name="dbPath">Where the tracking database is located</param>
-        /// <param name="scansLocations">The locations to integrity scan</param>
-        public IntegrityScan(string dbPath, params FilteredLocationItem[] scansLocations)
+        /// <param name="scanTargets">The integrity scan's targets</param>
+        public IntegrityScan(string dbPath, params DiskItem[] scanTargets)
         {
             Status = ScanStatus.Ready;
             _scanMarker = DateTime.Now;
             _dh = new DataHandler(dbPath);
-            _startLocations = new List<FilteredLocationItem>(scansLocations);
+            _scanTargets = new List<DiskItem>(scanTargets);
             _all = new ConcurrentBag<DiskItem>();
             _changes = new ConcurrentBag<DiskItem>();
         }
@@ -138,13 +138,13 @@ namespace HDDL.Scanning
         /// Creates an integrity scan
         /// </summary>
         /// <param name="dh">A precreated data handler instance to use rather than create a new one</param>
-        /// <param name="scansLocations">The locations to integrity scan</param>
-        public IntegrityScan(DataHandler dh, IEnumerable<FilteredLocationItem> scansLocations)
+        /// <param name="scanTargets">The integrity scan's targets</param>
+        public IntegrityScan(DataHandler dh, IEnumerable<DiskItem> scanTargets)
         {
             Status = ScanStatus.Ready;
             _scanMarker = DateTime.Now;
             _dh = dh;
-            _startLocations = new List<FilteredLocationItem>(scansLocations);
+            _scanTargets = new List<DiskItem>(scanTargets);
             _all = new ConcurrentBag<DiskItem>();
             _changes = new ConcurrentBag<DiskItem>();
         }
@@ -158,59 +158,17 @@ namespace HDDL.Scanning
             try
             {
                 Status = ScanStatus.InitiatingScan;
-                Preparing?.Invoke(this, from p in _startLocations select p.Target);
-
-                // first get all of the relevant items from the database
-                var count = 0;
-                var workDictionary = new Dictionary<FilteredLocationItem, IEnumerable<DiskItem>>();
-                foreach (var loc in _startLocations)
-                {
-                    IEnumerable<DiskItem> workSet = null;
-                    switch (loc.ExplorationMode)
-                    {
-                        case FilteredLocationExplorationMethod.In:
-                            workSet = _dh.GetFilteredDiskItemsByIn(null, loc.Filter, new string[] { loc.Target });
-                            break;
-                        case FilteredLocationExplorationMethod.Under:
-                            workSet = _dh.GetFilteredDiskItemsByUnder(null, loc.Filter, new string[] { loc.Target });
-                            break;
-                        case FilteredLocationExplorationMethod.Within:
-                            workSet = _dh.GetFilteredDiskItemsByWithin(null, loc.Filter, new string[] { loc.Target });
-                            break;
-                    }
-
-                    // Get all items within the given filter area,
-                    // then only take files that match the additional filters on the FilteredLocationItem
-                    var work = new ConcurrentBag<DiskItem>();
-                    Parallel.ForEach(workSet, 
-                        (di) =>
-                        {
-                            if (di.IsFile && loc.IsMatch(di.Path))
-                            {
-                                work.Add(di);
-                            }
-                        });
-
-                    if (work.Count > 0)
-                    {
-                        workDictionary.Add(loc, work);
-                        count += work.Count();
-                    }
-                }
+                Preparing?.Invoke(this, from p in _scanTargets select p.Path);
 
                 Status = ScanStatus.Scanning;
-                ScanStarts?.Invoke(this, count);
+                ScanStarts?.Invoke(this, _scanTargets.Count);
 
                 _all.Clear();
                 _changes.Clear();
-                // now loop through our work dictionary and perform an integrity scan on each item of each subset
-                foreach (var loc in workDictionary.Keys)
-                {
-                    var tq = new ThreadedQueue<DiskItem>((di) => WorkerMethod(di),
-                        1);
-                    tq.Start(workDictionary[loc]);
-                    tq.WaitAll();
-                }
+                var tq = new ThreadedQueue<DiskItem>((di) => WorkerMethod(di),
+                        maxThreads);
+                tq.Start(_scanTargets);
+                tq.WaitAll();
 
                 _dh.UpdateHashes(_all);
 

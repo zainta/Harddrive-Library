@@ -14,11 +14,11 @@ namespace HDDL.HDSL
         Whitespace,
         LanguageKeywords,
         ValueKeywords,
-        AttributeKeywords,
+        AttributeLiterals,
         RelativeOperators, // Greater Than, Less Than, Equal, Not Equal
         LogicalOperators, // And, Or
+        StateOperators, // + and -
         Metadata,
-        BooleanValues,
         StructuralOperators,
         Comment
     }

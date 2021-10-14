@@ -42,9 +42,9 @@ namespace HDDL.Scanning
         bool _done;
 
         /// <summary>
-        /// The paths to scan
+        /// The integrity scan's targets
         /// </summary>
-        IEnumerable<FilteredLocationItem> _scanPaths;
+        IEnumerable<DiskItem> _scanTargets;
 
         /// <summary>
         /// Primary method of feedback used to display progress
@@ -65,12 +65,12 @@ namespace HDDL.Scanning
         /// Takes a premade DiskScan instance and wraps it
         /// </summary>
         /// <param name="handler">The datahandler to use with the integrity scan</param>
-        /// <param name="scanPaths">The paths to start scans from</param>
+        /// <param name="scanTargets">The integrity scan's targets</param>
         /// <param name="displayMode">The mode to use to output progress feedback</param>
         /// <param name="allowScanRequest">Whether or not the wrapper is allowed to prompt for an initial disk scan</param>
-        public IntegrityScanEventWrapper(DataHandler handler, IEnumerable<FilteredLocationItem> scanPaths, bool allowScanRequest, EventWrapperDisplayModes displayMode)
+        public IntegrityScanEventWrapper(DataHandler handler, IEnumerable<DiskItem> scanTargets, bool allowScanRequest, EventWrapperDisplayModes displayMode)
         {
-            _scanner = new IntegrityScan(handler, scanPaths);
+            _scanner = new IntegrityScan(handler, scanTargets);
             _uiFeedbackDisplay = null;
             _displayMode = displayMode;
             _dh = handler;
@@ -78,7 +78,7 @@ namespace HDDL.Scanning
             Result = null;
 
             _allowScanRequest = allowScanRequest;
-            _scanPaths = scanPaths;
+            _scanTargets = scanTargets;
         }
 
         /// <summary>
@@ -87,63 +87,24 @@ namespace HDDL.Scanning
         /// <returns>true on completion, false otherwise</returns>
         public bool Go()
         {
-            return Initialize(_allowScanRequest, _scanPaths);
+            return Initialize(_allowScanRequest, _scanTargets);
         }
 
         /// <summary>
         /// Performs initialization, binds to the scanner's events and ensures that everything is ready
         /// </summary>
         /// <param name="allowScanRequest">Whether or not the wrapper is allowed to prompt for an initial disk scan</param>
-        /// <param name="scanPaths">The paths to start scans from</param>
-        private bool Initialize(bool allowScanRequest, IEnumerable<FilteredLocationItem> scanPaths = null)
+        /// <param name="scanTargets">The integrity scan's targets</param>
+        private bool Initialize(bool allowScanRequest, IEnumerable<DiskItem> scanTargets)
         {
+            if (scanTargets == null) return false; 
+
             _done = false;
-            var performFreshScan = false;
             var allowPrompts = _displayMode != EventWrapperDisplayModes.Displayless;
-            if (allowScanRequest && _displayMode != EventWrapperDisplayModes.Displayless)
-            {
-                if (_dh.GetDiskItemCount() == 0)
-                {
-                    Console.Write($"Database '{_dh.ConnectionString}' is empty.  Would you like to perform an initial scan on each of the provided locations? (y/n): ");
-                    ConsoleKeyInfo k;
-                    int origX = Console.CursorLeft, origY = Console.CursorTop;
-                    do
-                    {
-                        k = Console.ReadKey();
-                        Console.CursorLeft = origX;
-                        Console.CursorTop = origY;
-                    } while (
-                        char.ToLower(k.KeyChar) != 'y' &&
-                        char.ToLower(k.KeyChar) != 'n');
-
-                    switch (char.ToLower(k.KeyChar))
-                    {
-                        case 'y':
-                            Console.WriteLine();
-                            performFreshScan = true;
-                            break;
-                        case 'n':
-                            Console.WriteLine();
-                            Console.WriteLine("Unable to perform integrity scan.  No records to populate.");
-                            return false;
-                    }
-                }
-            }
-
-            var scanLocations = from sp in scanPaths select sp.Target;
-            // do we need to do a disk scan first?
-            if (performFreshScan)
-            {
-                DiskScanEventWrapper dsew = new DiskScanEventWrapper(_dh, scanLocations, false, _displayMode);
-                if (!dsew.Go())
-                {
-                    return false;
-                }
-            }
-
+            
             if (_scanner == null)
             {
-                _scanner = new IntegrityScan(_dh, _scanPaths);
+                _scanner = new IntegrityScan(_dh, _scanTargets);
             }
 
             if (allowPrompts)
@@ -152,10 +113,10 @@ namespace HDDL.Scanning
                 {
                     case EventWrapperDisplayModes.ProgressBar:
                     case EventWrapperDisplayModes.Spinner:
-                        Console.Write($"Performing integrity scans on '{string.Join("\', \'", scanLocations)}\' - ");
+                        Console.Write($"Starting integrity scan on {scanTargets.Count()} targets.");
                         break;
                     case EventWrapperDisplayModes.Text:
-                        Console.WriteLine($"Performing integrity scans on '{string.Join("\', \'", scanLocations)}\'...");
+                        Console.WriteLine($"Starting integrity scan on {scanTargets.Count()} targets...");
                         break;
 
                 }

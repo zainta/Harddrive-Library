@@ -34,22 +34,13 @@ namespace HDDL.HDSL
                     case HDSLTokenTypes.Whitespace:
                         Family = HDSLTokenFamilies.Whitespace;
                         break;
-                    case HDSLTokenTypes.True:
-                    case HDSLTokenTypes.False:
-                        Family = HDSLTokenFamilies.BooleanValues;
-                        break;
                     case HDSLTokenTypes.Colon:
                     case HDSLTokenTypes.Comma:
                         Family = HDSLTokenFamilies.StructuralOperators;
                         break;
-                    case HDSLTokenTypes.Readonly:
-                    case HDSLTokenTypes.Archive:
-                    case HDSLTokenTypes.System:
-                    case HDSLTokenTypes.Hidden:
-                    case HDSLTokenTypes.NonIndexed:
-                        Family = HDSLTokenFamilies.AttributeKeywords;
+                    case HDSLTokenTypes.AttributeLiteral:
+                        Family = HDSLTokenFamilies.AttributeLiterals;
                         break;
-                    case HDSLTokenTypes.Filters:
                     case HDSLTokenTypes.Bookmarks:
                     case HDSLTokenTypes.Exclusions:
                     case HDSLTokenTypes.Dynamic:
@@ -95,6 +86,10 @@ namespace HDDL.HDSL
                     case HDSLTokenTypes.GreaterOrEqual:
                     case HDSLTokenTypes.LessOrEqual:
                         Family = HDSLTokenFamilies.RelativeOperators;
+                        break;
+                    case HDSLTokenTypes.Has:
+                    case HDSLTokenTypes.HasNot:
+                        Family = HDSLTokenFamilies.StateOperators;
                         break;
                     case HDSLTokenTypes.MultiLineComment:
                     case HDSLTokenTypes.Comment:

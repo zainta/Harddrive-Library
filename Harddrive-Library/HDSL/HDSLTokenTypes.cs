@@ -47,9 +47,6 @@ namespace HDDL.HDSL
         Dynamic,
         Bookmarks,
         Exclusions,
-        True,
-        False,
-        Filters,
 
         // value keywords
         Size,
@@ -62,11 +59,11 @@ namespace HDDL.HDSL
         Name,
 
         // attribute keywords
-        Readonly,
-        Archive,
-        System,
-        Hidden,
-        NonIndexed,
+        AttributeLiteral,
+
+        // Positivity and Negativity Operators
+        Has,
+        HasNot,
 
         // Relational Operators
 

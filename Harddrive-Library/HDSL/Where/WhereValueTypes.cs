@@ -12,6 +12,7 @@ namespace HDDL.HDSL.Where
         String,
         WholeNumber,
         RealNumber,
-        DateTime
+        DateTime,
+        AttributeLiteral
     }
 }

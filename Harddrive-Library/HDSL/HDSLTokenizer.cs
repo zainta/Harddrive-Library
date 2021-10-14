@@ -7,6 +7,7 @@ using HDDL.HDSL.Logging;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Linq;
 
 namespace HDDL.HDSL
 {
@@ -310,6 +311,35 @@ namespace HDDL.HDSL
                 Outcome.Add(new HDSLLogBase(col, row, string.Format("Unexpected character found.  Expected '{1}'.", start)));
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Checks the text against all available file / directory attributes
+        /// </summary>
+        /// <param name="text">The text to check</param>
+        /// <returns></returns>
+        private bool IsDiskAttributeName(string text)
+        {
+            var attributes = Enum.GetValues<System.IO.FileAttributes>();
+            if (attributes.Select(a => a.ToString()).Where(a => a.Equals(text, StringComparison.InvariantCultureIgnoreCase)).Any())
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Gets the properly cased version of the provided file / directory attribute
+        /// </summary>
+        /// <param name="text">the name of an attribute, in any case</param>
+        /// <returns></returns>
+        private string GetDiskAttributeName(string text)
+        {
+            var attributes = Enum.GetValues<System.IO.FileAttributes>();
+            var selection = attributes.Select(a => a.ToString()).Where(a => a.Equals(text, StringComparison.InvariantCultureIgnoreCase)).SingleOrDefault()?.ToString();
+
+            return selection;
         }
 
         #endregion
@@ -628,37 +658,9 @@ namespace HDDL.HDSL
                 {
                     token = new HDSLToken(HDSLTokenTypes.Bookmarks, keyword.ToString(), row, col, text);
                 }
-                else if (text == "readonly")
+                else if (IsDiskAttributeName(text))
                 {
-                    token = new HDSLToken(HDSLTokenTypes.Readonly, keyword.ToString(), row, col, text);
-                }
-                else if (text == "archive")
-                {
-                    token = new HDSLToken(HDSLTokenTypes.Archive, keyword.ToString(), row, col, text);
-                }
-                else if (text == "system")
-                {
-                    token = new HDSLToken(HDSLTokenTypes.System, keyword.ToString(), row, col, text);
-                }
-                else if (text == "hidden")
-                {
-                    token = new HDSLToken(HDSLTokenTypes.Hidden, keyword.ToString(), row, col, text);
-                }
-                else if (text == "nonindexed")
-                {
-                    token = new HDSLToken(HDSLTokenTypes.NonIndexed, keyword.ToString(), row, col, text);
-                }
-                else if (text == "true")
-                {
-                    token = new HDSLToken(HDSLTokenTypes.True, keyword.ToString(), row, col, text);
-                }
-                else if (text == "false")
-                {
-                    token = new HDSLToken(HDSLTokenTypes.False, keyword.ToString(), row, col, text);
-                }
-                else if (text == "filters")
-                {
-                    token = new HDSLToken(HDSLTokenTypes.Filters, keyword.ToString(), row, col, text);
+                    token = new HDSLToken(HDSLTokenTypes.AttributeLiteral, keyword.ToString(), row, col, GetDiskAttributeName(text));
                 }
                 else
                 {
@@ -697,6 +699,14 @@ namespace HDDL.HDSL
                 else if (Peek() == '<')
                 {
                     token = new HDSLToken(HDSLTokenTypes.LessThan, Pop(), row, col, "<");
+                }
+                else if (Peek() == '+')
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Has, Pop(), row, col, "+");
+                }
+                else if (Peek() == '-')
+                {
+                    token = new HDSLToken(HDSLTokenTypes.HasNot, Pop(), row, col, "-");
                 }
 
                 if (buffer.Count > 1)

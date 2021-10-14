@@ -6,6 +6,7 @@ using HDDL.Collections;
 using HDDL.Data;
 using System;
 using System.Collections.Generic;
+using System.IO;
 
 namespace HDDL.HDSL.Where
 {
@@ -65,7 +66,9 @@ namespace HDDL.HDSL.Where
                 if (tokens.Peek().Family == HDSLTokenFamilies.DataTypes ||
                     tokens.Peek().Family == HDSLTokenFamilies.LogicalOperators ||
                     tokens.Peek().Family == HDSLTokenFamilies.RelativeOperators ||
-                    tokens.Peek().Family == HDSLTokenFamilies.ValueKeywords)
+                    tokens.Peek().Family == HDSLTokenFamilies.ValueKeywords ||
+                    tokens.Peek().Family == HDSLTokenFamilies.AttributeLiterals ||
+                    tokens.Peek().Family == HDSLTokenFamilies.StateOperators)
                 {
                     queue.Push(tokens.Peek());
                 }
@@ -92,6 +95,24 @@ namespace HDDL.HDSL.Where
                     else
                     {
                         result = recursor(tq, topic);
+                    }
+                }
+                else if (tq.Count > 1 && tq.Peek(1).Family == HDSLTokenFamilies.StateOperators)
+                {
+                    var val = tq.Pop();
+                    switch (tq.Pop().Type)
+                    {
+                        case HDSLTokenTypes.Has:
+                            result = new Has(val);
+                            break;
+                        case HDSLTokenTypes.HasNot:
+                            result = new HasNot(val);
+                            break;
+                    }
+
+                    if (tq.Count > 0)
+                    {
+                        result = recursor(tq, result);
                     }
                 }
                 else if (tq.Count > 0 && tq.Peek().Family == HDSLTokenFamilies.LogicalOperators)
@@ -163,6 +184,37 @@ namespace HDDL.HDSL.Where
             throw new NotImplementedException();
         }
 
+        /// <summary>
+        /// Converts the clause into SQL
+        /// </summary>
+        /// <returns></returns>
+        public string ToSQL()
+        {
+            var result = string.Empty;
+            if (LeftContent != null && RightContent != null)
+            {
+                result = $"{LeftContent.ToSQL()} {GetOperatorSign()} {RightContent.ToSQL()}";
+            }
+            else if (LeftValue != null && RightValue != null)
+            {
+                result = $"{LeftValue} {GetOperatorSign()} {RightValue}";
+            }
+            else if (this is Has || this is HasNot)
+            {
+                var attributeValue = Convert.ToInt32(Enum.Parse<FileAttributes>(RightValue.ToString()));
+                if (this is Has)
+                {
+                    result = $"attributes & {attributeValue} = {attributeValue}";
+                }
+                else if (this is HasNot)
+                {
+                    result = $"attributes & {attributeValue} <> {attributeValue}";
+                }
+            }
+
+            return result;
+        }
+
         public override string ToString()
         {
             var result = string.Empty;
@@ -173,6 +225,10 @@ namespace HDDL.HDSL.Where
             else if (LeftValue != null && RightValue != null)
             {
                 result = $"{LeftValue} {GetOperatorSign()} {RightValue}";
+            }
+            else if (this is Has || this is HasNot)
+            {
+                result = $"{GetOperatorSign()}{RightValue}";
             }
 
             return result;

@@ -4,6 +4,7 @@
 
 using HDDL.Data;
 using System;
+using System.IO;
 
 namespace HDDL.HDSL.Where
 {
@@ -102,6 +103,13 @@ namespace HDDL.HDSL.Where
                         break;
                 }
             }
+            else if (token.Family == HDSLTokenFamilies.AttributeLiterals)
+            {
+                IsSlug = true;
+                Keyword = token.Type;
+                ValueType = WhereValueTypes.AttributeLiteral;
+                _actual = Enum.Parse<FileAttributes>(token.Literal);
+            }
             else
             {
                 throw new ArgumentException();
@@ -149,6 +157,9 @@ namespace HDDL.HDSL.Where
                     case HDSLTokenTypes.Now:
                         result = Now;
                         break;
+                    case HDSLTokenTypes.AttributeLiteral:
+                        result = Convert.ToInt32((FileAttributes)_actual);
+                        break;
                 }
             }
             else
@@ -193,7 +204,14 @@ namespace HDDL.HDSL.Where
                     case HDSLTokenTypes.Now:
                         result = DateTimeDataHelper.ConvertToString(Now);
                         break;
+                    case HDSLTokenTypes.AttributeLiteral:
+                        result = _actual.ToString();
+                        break;
                 }
+            }
+            else if (ValueType == WhereValueTypes.AttributeLiteral)
+            {
+                result = _actual.ToString();
             }
             else
             {
