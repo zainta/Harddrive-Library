@@ -41,7 +41,6 @@ namespace HDSL
                 new ParameterRuleOption("run", false, true, null, "-"),
                 new ParameterRuleOption("exec", false, true, null, "-"),
                 new ParameterRuleOption("dm", false, true, "t", "-"),
-                new ParameterRuleOption("check", true, true, null, "-"),
                 new ParameterRuleOption("help", true, true, null, "-"),
                 new ParameterRuleShortcut("ex"),
                 new ParameterRuleFlag(new FlagDefinition[] {
@@ -95,7 +94,6 @@ namespace HDSL
 
             var dbPath = ph["db"];
             var scanPaths = ph.GetAllParam("scan").Where(p => !string.IsNullOrWhiteSpace(p)).ToArray();
-            var checkPaths = ph.GetAllParam("check").Where(p => !string.IsNullOrWhiteSpace(p)).ToArray();
             var runScript = ph["run"];
             var executeFile = !string.IsNullOrWhiteSpace(ph["exec"]) ? ph["exec"] : ph["ex"];
             _embellish = ph.GetFlag("e");
@@ -136,13 +134,6 @@ namespace HDSL
                 {
                     (scanWrapper.Result as DiskScanResultSet)?.Display(_count, _embellish);
                 }
-            }
-
-            if (checkPaths.Length > 0)
-            {
-                receivedOrder = true;
-                var statement = $"check {ConvertDisplayMode(displayMode)} {string.Join(", ", checkPaths)};";
-                HandleDisplay(HDSLProvider.ExecuteCode(statement, dbPath), ph.GetParam("paging"), ph.GetParam("columns", -1));
             }
 
             // Execute a line of code
