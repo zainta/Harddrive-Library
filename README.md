@@ -34,7 +34,7 @@ The command utility supports the following parameters:
     * t => simple attributes (only lists readonly, system, archive, hidden, directory, and normal)
     * T => extended attributes (lists all attributes)
     * 3 => simple three character attributes (only lists readonly, system, archive, hidden, directory, and normal)
-    * # => extended three character attributes (lists all attributes)
+    * \# => extended three character attributes (lists all attributes)
   * Column Format Strings (use either, but not both)
     * -columns: `<any combination of column letters, e.g "psc" (quotes optional) for the full path, followed by size and finally creation date>`
     * -columns: `<a comma seperated series of letter keys followed by a colon and then a number, where that number is the width of the column.  e.g "p:100,s:40,c:70" (no quotes)>`
