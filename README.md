@@ -108,9 +108,13 @@ HDSL is a simple query language designed for the retrieval of files and director
    * e.g `include [win];` will remove the previous example.  Note that exclusions are not cascaded.
  * `--` creates a line comment.
  * `watch [path[, path, path] - defaults to current];`
-   * Creates a `watch` for each of the given paths.  
+   * Creates a watch for each of the given paths.  
    * A watch performs an initial scan and then passively monitors location for activity, updating the database when any is detected.
    * e.g `watch 'C:\';` will watch the entire C: drive, automatically updating when changes occur after the initial scan.
  * `ward (time interval) [file pattern] [in/within/under [path[, path, path]] - defaults to current] [where clause];`
    * Performs an immediate integrity check and then successive ones whenever the interval expires.
    * e.g `ward 5::: under 'C:\Windows\System32' where ext = '.dll' and +system;` will create a ward to perform an integrity check on .dll system files every 5 days.
+   * Time Intervals use the following syntax `d:h:m:s` where each number is optional, but the colons are required for meaning determination.
+     * e.g `5:::` means 5 days.
+     * e.g `10::` means 10 hours.
+     * e.g `1::2:30` means 1 day, 2 minutes, and 30 seconds.
