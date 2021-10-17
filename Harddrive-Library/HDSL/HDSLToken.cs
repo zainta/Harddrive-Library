@@ -36,11 +36,16 @@ namespace HDDL.HDSL
                         break;
                     case HDSLTokenTypes.Colon:
                     case HDSLTokenTypes.Comma:
+                    case HDSLTokenTypes.Dot:
                         Family = HDSLTokenFamilies.StructuralOperators;
                         break;
                     case HDSLTokenTypes.AttributeLiteral:
                         Family = HDSLTokenFamilies.AttributeLiterals;
                         break;
+                    case HDSLTokenTypes.Wards:
+                    case HDSLTokenTypes.Watches:
+                    case HDSLTokenTypes.Ward:
+                    case HDSLTokenTypes.Watch:
                     case HDSLTokenTypes.Bookmarks:
                     case HDSLTokenTypes.Exclusions:
                     case HDSLTokenTypes.Dynamic:

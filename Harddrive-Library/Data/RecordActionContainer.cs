@@ -38,7 +38,7 @@ namespace HDDL.Data
         }
 
         /// <summary>
-        /// Creates an
+        /// Creates a RecordActionContainer to track items of type <typeparamref name="T"/>
         /// </summary>
         public RecordActionContainer()
         {

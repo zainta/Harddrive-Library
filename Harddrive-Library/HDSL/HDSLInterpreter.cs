@@ -96,6 +96,12 @@ namespace HDDL.HDSL
                         case HDSLTokenTypes.Check:
                             results.Add(HandleIntegrityCheck());
                             break;
+                        case HDSLTokenTypes.Ward:
+                            HandleWardDefinition();
+                            break;
+                        case HDSLTokenTypes.Watch:
+                            HandleWatchDefinition();
+                            break;
                         default:
                             _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Unexpected token '{Peek().Code}'."));
                             done = true;
@@ -259,9 +265,273 @@ namespace HDDL.HDSL
             return displayMode;
         }
 
+        /// <summary>
+        /// Gathers the information required for a Find query and returns it
+        /// 
+        /// Syntax
+        /// [file pattern] [in/within/under [path[, path, path]] - defaults to current] [where clause];
+        /// </summary>
+        /// <returns></returns>
+        private FindQueryDetails GetFindDetails()
+        {
+            // the wildcard expression defaults to "*.*".  Defining it explicitly is optional
+            var wildcardExpression = "*.*";
+            if (More() && Peek().Type == HDSLTokenTypes.String)
+            {
+                wildcardExpression = Pop().Literal;
+            }
+
+            // the depth clause is optional, and can take a comma seperated list of paths.
+            // if left out then the system assumes the current directory.
+            var op = FindQueryDepths.Within;
+            var targetPaths = new List<string>();
+            if (More() &&
+                (Peek().Type == HDSLTokenTypes.In ||
+                Peek().Type == HDSLTokenTypes.Under ||
+                Peek().Type == HDSLTokenTypes.Within))
+            {
+                switch (Pop().Type)
+                {
+                    case HDSLTokenTypes.In:
+                        op = FindQueryDepths.In;
+                        break;
+                    case HDSLTokenTypes.Within:
+                        op = FindQueryDepths.Within;
+                        break;
+                    case HDSLTokenTypes.Under:
+                        op = FindQueryDepths.Under;
+                        break;
+                }
+            }
+
+            if (More() &&
+                (Peek().Type == HDSLTokenTypes.String || Peek().Type == HDSLTokenTypes.BookmarkReference))
+            {
+                targetPaths = GetPathList();
+                if (_errors.Count > 0)
+                {
+                    return new FindQueryDetails()
+                    {
+                        ResultsEmpty = true
+                    };
+                }
+            }
+            else
+            {
+                targetPaths.Add(Environment.CurrentDirectory);
+            }
+
+            // the where clause is optional.
+            // If present, it further filters the files selected from the path
+            OperatorBase queryDetail = null;
+            if (More() && Peek().Type == HDSLTokenTypes.Where)
+            {
+                var savePoint = Peek();
+                queryDetail = OperatorBase.ConvertClause(_tokens);
+                if (queryDetail == null)
+                {
+                    _errors.Add(new HDSLLogBase(savePoint.Column, savePoint.Row, $"Bad where clause."));
+                }
+            }
+
+            return new FindQueryDetails()
+            {
+                FurtherDetails = queryDetail,
+                Method = op,
+                Paths = targetPaths,
+                Wildcard = wildcardExpression,
+                ResultsEmpty = false
+            };
+        }
+
+        /// <summary>
+        /// Interprets a timespan from the tokens
+        /// 
+        /// Format:
+        /// d:h:m:s
+        /// </summary>
+        /// <returns></returns>
+        private TimeSpan? GetTimeSpan(bool required = true)
+        {
+            TimeSpan? ts = null;
+            const int Max_Colons = 3;
+
+            var numbers = new Stack<HDSLToken>();
+            var totalColons = 0;
+
+            while (Peek().Type == HDSLTokenTypes.WholeNumber ||
+                Peek().Type == HDSLTokenTypes.Colon)
+            {
+                switch (Peek().Type)
+                {
+                    case HDSLTokenTypes.WholeNumber:
+                        numbers.Push(Pop());
+                        break;
+                    case HDSLTokenTypes.Colon:
+                        if (totalColons > Max_Colons)
+                        {
+                            _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Improper timespan format detected.  <days>:<hours>:<minutes>:<seconds> expected."));
+                        }
+                        numbers.Push(Pop());
+                        totalColons++;
+                        break;
+                }
+            }
+
+            if (numbers.Count == 0 && required)
+            {
+                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Timespan expected."));
+            }
+
+            if (_errors.Count == 0)
+            {
+                // we need to determine which components of the timespan were supplied,
+                // so that 5::30:10 will come out as 5 days, 0 hours, 30 minutes, 10 seconds and
+                // 30:10 will come out as 30 minutes, 10 seconds
+                var colonIndex = 0;
+                var values = new int[] { 0, 0, 0, 0 };
+                while (numbers.Count > 0 && colonIndex <= Max_Colons)
+                {
+                    if (numbers.Peek().Type == HDSLTokenTypes.WholeNumber)
+                    {
+                        values[colonIndex] = int.Parse(numbers.Pop().Literal);
+                    }
+                    else if (numbers.Peek().Type == HDSLTokenTypes.Colon)
+                    {
+                        numbers.Pop();
+                        colonIndex++;
+                    }
+                    else
+                    {
+                        _errors.Add(new HDSLLogBase(numbers.Peek().Column, numbers.Peek().Row, $"Unknown token discovered. {numbers.Peek().Literal}"));
+                    }
+                }
+
+                if (_errors.Count == 0)
+                {
+                    ts = new TimeSpan(values[3], values[2], values[1], values[0]);
+                }
+            }
+
+            return ts;
+        }
+
         #endregion
 
         #region Statement Handlers
+
+        /// <summary>
+        /// Immediately performs a disk scan followed by entering passive mode and watching for changes in the given area, while respecting exclusions
+        /// 
+        /// Purpose:
+        /// Allows setting up monitoring of disk areas
+        /// 
+        /// Syntax:
+        /// watch [path[, path, path] - defaults to current];
+        /// </summary>
+        private void HandleWatchDefinition()
+        {
+            if (Peek().Type == HDSLTokenTypes.Watch)
+            {
+                Pop();
+
+                // the paths are optional, defaulting to the current directory
+                var scanPaths = GetPathList();
+                if (scanPaths.Count == 0)
+                {
+                    scanPaths.Add(Environment.CurrentDirectory);
+                }
+
+                if (_errors.Count == 0)
+                {
+                    foreach (var path in scanPaths)
+                    {
+                        var watch = new WatchItem()
+                        {
+                            Id = Guid.NewGuid(),
+                            InPassiveMode = false,
+                            Path = path,
+                            Target = null
+                        };
+
+                        var dupe = _dh.GetWatches().Where(w => w.Path == watch.Path).SingleOrDefault();
+                        if (dupe == null)
+                        {
+                            _dh.Insert(watch);
+                        }
+                        else
+                        {
+                            dupe.InPassiveMode = false;
+                            _dh.Update(dupe);
+                        }
+                    }
+
+                    _dh.WriteWatches();
+                }
+            }
+            else
+            {
+                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'watch' expected."));
+            }
+        }
+
+        /// <summary>
+        /// Allows scheduling of a periodic integrity check through HDSL
+        /// 
+        /// Purpose:
+        /// Allows scheduling of a periodic integrity check
+        /// 
+        /// Syntax:
+        /// ward (time interval) [file pattern] [in/within/under [path[, path, path]] - defaults to current] [where clause];
+        /// </summary>
+        private void HandleWardDefinition()
+        {
+            if (Peek().Type == HDSLTokenTypes.Ward)
+            {
+                Pop();
+
+                var interval = GetTimeSpan();
+                if (interval.HasValue)
+                {
+                    var details = GetFindDetails();
+                    if (_errors.Count == 0 && !details.ResultsEmpty)
+                    {
+                        // wards are single target, in that each one represents a single path that should receive an integrity check
+                        // generate one ward record for each of the supplied paths
+                        foreach (var path in details.Paths)
+                        {
+                            var whereKeyword = details.FurtherDetails == null ? string.Empty : "where ";
+                            var ward = new WardItem()
+                            {
+                                Id = Guid.NewGuid(),
+                                HDSL = $"check quiet '{details.Wildcard}' {details.Method.ToString().ToLower()} '{path}' {whereKeyword}{details.FurtherDetails};",
+                                NextScan = DateTime.Now,
+                                Path = path,
+                                Target = null,
+                                Interval = interval.Value
+                            };
+
+                            var dupe = _dh.GetWatches().Where(w => w.Path == ward.Path).SingleOrDefault();
+                            if (dupe == null)
+                            {
+                                _dh.Insert(ward);
+                            }
+                            else
+                            {
+                                ward.Id = dupe.Id;
+                                _dh.Update(ward);
+                            }
+                        }
+
+                        _dh.WriteWards();
+                    }
+                }
+            }
+            else
+            {
+                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'ward' expected."));
+            }
+        }
 
         /// <summary>
         /// Allows the execution of an integrity check through HDSL script
@@ -531,7 +801,7 @@ namespace HDDL.HDSL
         /// A purge statement removes entries from the database (it does not delete actual files)
         /// 
         /// Syntax:
-        /// purge [bookmarks | exclusions | path[, path, path] [where clause]];
+        /// purge [bookmarks | exclusions | watches | wards | path[, path, path] [where clause]];
         /// </summary>
         private void HandlePurgeStatement()
         {
@@ -551,6 +821,16 @@ namespace HDDL.HDSL
                     {
                         Pop();
                         _dh.ClearBookmarks();
+                    }
+                    else if (Peek().Type == HDSLTokenTypes.Watches)
+                    {
+                        Pop();
+                        _dh.ClearWatches();
+                    }
+                    else if (Peek().Type == HDSLTokenTypes.Wards)
+                    {
+                        Pop();
+                        _dh.ClearWards();
                     }
                     else
                     {
@@ -591,9 +871,8 @@ namespace HDDL.HDSL
         /// Find statements query the database for files and return them
         /// 
         /// Syntax:
-        /// find <file regular expression> in <path> where *stuffs*
-        /// 
         /// find [file pattern] [in/within/under [path[, path, path]] - defaults to current] [where clause];
+        /// 
         /// </summary>
         /// <returns>The results find statement</returns>
         private FindQueryResultSet HandleFindStatement()
@@ -603,69 +882,23 @@ namespace HDDL.HDSL
                 Pop();
             }
 
-            // the wildcard expression defaults to "*.*".  Defining it explicitly is optional
-            var wildcardExpression = "*.*";
-            if (More() && Peek().Type == HDSLTokenTypes.String)
-            {
-                wildcardExpression = Pop().Literal;
-            }
-
-            // the depth clause is optional, and can take a comma seperated list of paths.
-            // if left out then the system assumes the current directory.
-            HDSLTokenTypes op = HDSLTokenTypes.Within;
-            var targetPaths = new List<string>();
-            if (More() &&
-                (Peek().Type == HDSLTokenTypes.In ||
-                Peek().Type == HDSLTokenTypes.Under ||
-                Peek().Type == HDSLTokenTypes.Within))
-            {
-                op = Pop().Type;
-            }
-
-            if (More() && 
-                (Peek().Type == HDSLTokenTypes.String || Peek().Type == HDSLTokenTypes.BookmarkReference))
-            {
-                targetPaths = GetPathList();
-                if (_errors.Count > 0)
-                {
-                    return new FindQueryResultSet(new DiskItem[] { });
-                }
-            }
-            else
-            {
-                targetPaths.Add(Environment.CurrentDirectory);
-            }
-
-            var results = new List<DiskItem>();
-
-            // the where clause is optional.
-            // If present, it further filters the files selected from the path
-            var queryDetail = string.Empty;
-            if (More() && Peek().Type == HDSLTokenTypes.Where)
-            {
-                var savePoint = Peek();
-                queryDetail = OperatorBase.ConvertClause(_tokens)?.ToSQL();
-                if (string.IsNullOrWhiteSpace(queryDetail))
-                {
-                    _errors.Add(new HDSLLogBase(savePoint.Column, savePoint.Row, $"Bad where clause."));
-                }
-            }
-
-            if (_errors.Count == 0)
+            var details = GetFindDetails();
+            if (_errors.Count == 0 && !details.ResultsEmpty)
             {
                 // execute the query and get the records
+                var results = new List<DiskItem>();
                 try
                 {
-                    switch (op)
+                    switch (details.Method)
                     {
-                        case HDSLTokenTypes.In:
-                            results.AddRange(_dh.GetFilteredDiskItemsByIn(queryDetail, wildcardExpression, targetPaths));
+                        case FindQueryDepths.In:
+                            results.AddRange(_dh.GetFilteredDiskItemsByIn(details.FurtherDetails?.ToSQL(), details.Wildcard, details.Paths));
                             break;
-                        case HDSLTokenTypes.Within:
-                            results.AddRange(_dh.GetFilteredDiskItemsByWithin(queryDetail, wildcardExpression, targetPaths));
+                        case FindQueryDepths.Within:
+                            results.AddRange(_dh.GetFilteredDiskItemsByWithin(details.FurtherDetails?.ToSQL(), details.Wildcard, details.Paths));
                             break;
-                        case HDSLTokenTypes.Under:
-                            results.AddRange(_dh.GetFilteredDiskItemsByUnder(queryDetail, wildcardExpression, targetPaths));
+                        case FindQueryDepths.Under:
+                            results.AddRange(_dh.GetFilteredDiskItemsByUnder(details.FurtherDetails?.ToSQL(), details.Wildcard, details.Paths));
                             break;
                     }
                 }

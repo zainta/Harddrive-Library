@@ -20,8 +20,6 @@ namespace HDDL.HDSL
         // Special
 
         Whitespace,
-        Comma,
-        Colon,
 
         // Keywords
 
@@ -47,6 +45,11 @@ namespace HDDL.HDSL
         Dynamic,
         Bookmarks,
         Exclusions,
+        Ward, // describes a periodic integrity check
+        Watch, // describes an initial scan + follow up monitoring
+        Reset, // used to force a watch to be reenacted as if freshly created
+        Wards,
+        Watches,
 
         // value keywords
         Size,
@@ -64,6 +67,11 @@ namespace HDDL.HDSL
         // Positivity and Negativity Operators
         Has,
         HasNot,
+
+        // Structural Operators
+        Dot,
+        Comma,
+        Colon,
 
         // Relational Operators
 

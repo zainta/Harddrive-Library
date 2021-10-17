@@ -658,6 +658,22 @@ namespace HDDL.HDSL
                 {
                     token = new HDSLToken(HDSLTokenTypes.Bookmarks, keyword.ToString(), row, col, text);
                 }
+                else if (text == "ward")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Ward, keyword.ToString(), row, col, text);
+                }
+                else if (text == "watch")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Watch, keyword.ToString(), row, col, text);
+                }
+                else if (text == "wards")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Wards, keyword.ToString(), row, col, text);
+                }
+                else if (text == "watches")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Watches, keyword.ToString(), row, col, text);
+                }
                 else if (IsDiskAttributeName(text))
                 {
                     token = new HDSLToken(HDSLTokenTypes.AttributeLiteral, keyword.ToString(), row, col, GetDiskAttributeName(text));
@@ -707,6 +723,10 @@ namespace HDDL.HDSL
                 else if (Peek() == '-')
                 {
                     token = new HDSLToken(HDSLTokenTypes.HasNot, Pop(), row, col, "-");
+                }
+                else if (Peek() == '.')
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Dot, Pop(), row, col, ".");
                 }
 
                 if (buffer.Count > 1)

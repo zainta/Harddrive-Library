@@ -36,6 +36,16 @@ namespace HDDL.Data
         private List<ExclusionItem> _exclusionCache;
 
         /// <summary>
+        /// The watch cache
+        /// </summary>
+        private List<WatchItem> _watchCache;
+
+        /// <summary>
+        /// The ward cache
+        /// </summary>
+        private List<WardItem> _wardCache;
+
+        /// <summary>
         /// Stores pending database actions for DiskItems
         /// </summary>
         private RecordActionContainer<DiskItem> _diskItems;
@@ -49,6 +59,16 @@ namespace HDDL.Data
         /// Stores pending database actions for Exclusions
         /// </summary>
         private RecordActionContainer<ExclusionItem> _exclusions;
+
+        /// <summary>
+        /// Stores pending database actions for Watches
+        /// </summary>
+        private RecordActionContainer<WatchItem> _watches;
+
+        /// <summary>
+        /// Stores pending database actions for Wards
+        /// </summary>
+        private RecordActionContainer<WardItem> _wards;
 
         /// <summary>
         /// The current database connection
@@ -65,8 +85,12 @@ namespace HDDL.Data
             _diskItems = new RecordActionContainer<DiskItem>();
             _bookmarks = new RecordActionContainer<BookmarkItem>();
             _exclusions = new RecordActionContainer<ExclusionItem>();
+            _watches = new RecordActionContainer<WatchItem>();
+            _wards = new RecordActionContainer<WardItem>();
             _bookmarkCache = null;
             _exclusionCache = null;
+            _watchCache = null;
+            _wardCache = null;
         }
 
         ~DataHandler()
@@ -117,6 +141,7 @@ namespace HDDL.Data
                                 attributes integer
                                 );
                              create unique index diskitems_path_index on diskitems(path);
+                             create index diskitems_itemName_index on diskitems(itemName);
 
                             create table if not exists bookmarks (
                                 id text not null primary key,
@@ -125,19 +150,21 @@ namespace HDDL.Data
                                 );
                             create unique index bookmarks_itemName_index on bookmarks(itemName);
 
-                            create table if not exists filteredlocations (
+                            create table if not exists watches (
                                 id text not null primary key,
-                                target text not null,
-                                filter text,
-                                expectsReadOnly integer,
-                                expectsArchive integer,
-                                expectsSystem integer,
-                                expectsHidden integer,
-                                expectsNonIndexed integer,
-                                itemName text not null,
-                                explorationMode text
+                                path text not null,
+                                inPassiveMode integer not null
                                 );
-                            create unique index filteredlocations_itemName_index on filteredlocations(itemName);
+                            create unique index watches_path_index on watches(path);
+
+                            create table if not exists wards (
+                                id text not null primary key,
+                                path text not null,
+                                call text not null,
+                                scheduledFor text not null,
+                                interval text not null
+                                );
+                            create unique index wards_path_index on wards(path);
 
                             create table if not exists exclusions (
                                 id text not null primary key,
@@ -228,6 +255,356 @@ namespace HDDL.Data
 
         #endregion
 
+        #region Watch Related
+
+        /// <summary>
+        /// Retrieves and returns the watches
+        /// </summary>
+        /// <returns></returns>
+        public List<WatchItem> GetWatches()
+        {
+            if (_watchCache == null ||
+                (_watchCache != null && _watchCache.Count == 0))
+            {
+                _watchCache = new List<WatchItem>();
+
+                var watches = ExecuteReader(@"select * from watches");
+                while (watches.Read())
+                {
+                    DiskItem di = null;
+                    if (!(watches["path"] is DBNull))
+                    {
+                        di = GetDiskItemByPath(watches.GetString("path"));
+                    }
+
+                    _watchCache.Add(new WatchItem(watches, di));
+                }
+            }
+
+            return _watchCache;
+        }
+
+        /// <summary>
+        /// Clears any cached bookmarks, forcing them to be reloaded for the next GetBookmarks() call
+        /// </summary>
+        public void ClearWatchCache()
+        {
+            if (_watchCache == null) return;
+            _watchCache.Clear();
+            _watchCache = null;
+        }
+
+        /// <summary>
+        /// Deletes all watches from the database
+        /// </summary>
+        public long ClearWatches()
+        {
+            ClearWatchCache();
+
+            var count = GetCount("watches");
+            ExecuteNonQuery("delete from watches");
+            return count;
+        }
+
+        /// <summary>
+        /// Queues the records for transactionary insertion
+        /// </summary>
+        /// <param name="items">The records to be added</param>
+        /// <returns></returns>
+        public void Insert(params WatchItem[] items)
+        {
+            foreach (var item in items)
+            {
+                _watches.Inserts.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Queues the records for transactionary insertion
+        /// </summary>
+        /// <param name="items">The records to be added</param>
+        /// <returns></returns>
+        public void Insert(params string[] items)
+        {
+            foreach (var item in items)
+            {
+                _watches.Inserts.Add(new WatchItem()
+                                    {
+                                        Id = Guid.NewGuid(),
+                                        InPassiveMode = false,
+                                        Path = item,
+                                        Target = null
+                                    });
+            }
+        }
+
+        /// <summary>
+        /// Queues the records for the transactionary update
+        /// </summary>
+        /// <param name="items">The records to be updated</param>
+        public void Update(params WatchItem[] items)
+        {
+            foreach (var item in items)
+            {
+                _watches.Updates.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Queues the record(s) for a reset (having its passive mode turned off to force a fresh disk scan)
+        /// </summary>
+        /// <param name="items">The records to be updated</param>
+        public void Reset(params WatchItem[] items)
+        {
+            foreach (var item in items)
+            {
+                item.InPassiveMode = false;
+                _watches.Updates.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Queues the record(s) for a reset (having its passive mode turned off to force a fresh disk scan)
+        /// </summary>
+        /// <param name="items">The records to be updated</param>
+        public void Reset(params string[] items)
+        {
+            foreach (var item in items)
+            {
+                var watch = GetWatches().Where(w => w.Path == item).SingleOrDefault();
+                watch.InPassiveMode = false;
+                _watches.Updates.Add(watch);
+            }
+        }
+
+        /// <summary>
+        /// Queues the records for the transactionary deletion
+        /// </summary>
+        /// <param name="items"></param>
+        public void Delete(params WatchItem[] items)
+        {
+            foreach (var item in items)
+            {
+                _watches.Deletions.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Performs a transactionary database execution of all pending inserts, updates, and deletes
+        /// </summary>
+        /// <returns>A tuple in the format total [inserts, updates, deletes]</returns>
+        public Tuple<long, long, long> WriteWatches()
+        {
+            long inserts = 0, updates = 0, deletes = 0;
+            if (_watches.HasWork)
+            {
+                using (var transaction = EnsureConnection().BeginTransaction())
+                {
+                    if (_watches.Inserts.Count > 0)
+                    {
+                        foreach (var insert in _watches.Inserts)
+                        {
+                            ExecuteNonQuery(insert.ToInsertStatement());
+                            inserts++;
+                        }
+                        _watches.Inserts.Clear();
+                    }
+
+                    if (_watches.Updates.Count > 0)
+                    {
+                        foreach (var update in _watches.Updates)
+                        {
+                            ExecuteNonQuery(update.ToUpdateStatement());
+                            updates++;
+                        }
+                        _watches.Updates.Clear();
+                    }
+
+                    if (_watches.Deletions.Count > 0)
+                    {
+                        var sql = new StringBuilder("(");
+                        foreach (var delete in _watches.Deletions)
+                        {
+                            if (sql.Length > 1)
+                            {
+                                sql.Append(", ");
+                            }
+                            sql.Append($"'{delete.Id}'");
+                            deletes++;
+                        }
+                        sql.Append(")");
+
+                        deletes = GetCount($"watches where id in {sql};");
+                        ExecuteNonQuery($"DELETE from watches where id in {sql};");
+                        _watches.Deletions.Clear();
+                    }
+
+                    transaction.Commit();
+                }
+            }
+
+            if (inserts > 0 || updates > 0 || deletes > 0)
+            {
+                ClearWatchCache();
+            }
+
+            return new Tuple<long, long, long>(inserts, updates, deletes);
+        }
+
+        #endregion
+
+        #region Ward Related
+
+        /// <summary>
+        /// Retrieves and returns the wards
+        /// </summary>
+        /// <returns></returns>
+        public List<WardItem> GetWards()
+        {
+            if (_wardCache == null ||
+                (_wardCache != null && _wardCache.Count == 0))
+            {
+                _wardCache = new List<WardItem>();
+
+                var wards = ExecuteReader(@"select * from wards");
+                while (wards.Read())
+                {
+                    DiskItem di = null;
+                    if (!(wards["path"] is DBNull))
+                    {
+                        di = GetDiskItemByPath(wards.GetString("path"));
+                    }
+
+                    _wardCache.Add(new WardItem(wards, di));
+                }
+            }
+
+            return _wardCache;
+        }
+
+        /// <summary>
+        /// Clears any cached wards, forcing them to be reloaded for the next GetBookmarks() call
+        /// </summary>
+        public void ClearWardCache()
+        {
+            if (_wardCache == null) return;
+            _wardCache.Clear();
+            _wardCache = null;
+        }
+
+        /// <summary>
+        /// Deletes all watches from the database
+        /// </summary>
+        public long ClearWards()
+        {
+            ClearWardCache();
+
+            var count = GetCount("wards");
+            ExecuteNonQuery("delete from wards");
+            return count;
+        }
+
+        /// <summary>
+        /// Queues the records for transactionary insertion
+        /// </summary>
+        /// <param name="items">The records to be added</param>
+        /// <returns></returns>
+        public void Insert(params WardItem[] items)
+        {
+            foreach (var item in items)
+            {
+                _wards.Inserts.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Queues the records for the transactionary update
+        /// </summary>
+        /// <param name="items">The records to be updated</param>
+        public void Update(params WardItem[] items)
+        {
+            foreach (var item in items)
+            {
+                _wards.Updates.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Queues the records for the transactionary deletion
+        /// </summary>
+        /// <param name="items"></param>
+        public void Delete(params WardItem[] items)
+        {
+            foreach (var item in items)
+            {
+                _wards.Deletions.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Performs a transactionary database execution of all pending inserts, updates, and deletes
+        /// </summary>
+        /// <returns>A tuple in the format total [inserts, updates, deletes]</returns>
+        public Tuple<long, long, long> WriteWards()
+        {
+            long inserts = 0, updates = 0, deletes = 0;
+            if (_wards.HasWork)
+            {
+                using (var transaction = EnsureConnection().BeginTransaction())
+                {
+                    if (_wards.Inserts.Count > 0)
+                    {
+                        foreach (var insert in _wards.Inserts)
+                        {
+                            ExecuteNonQuery(insert.ToInsertStatement());
+                            inserts++;
+                        }
+                        _wards.Inserts.Clear();
+                    }
+
+                    if (_wards.Updates.Count > 0)
+                    {
+                        foreach (var update in _wards.Updates)
+                        {
+                            ExecuteNonQuery(update.ToUpdateStatement());
+                            updates++;
+                        }
+                        _wards.Updates.Clear();
+                    }
+
+                    if (_wards.Deletions.Count > 0)
+                    {
+                        var sql = new StringBuilder("(");
+                        foreach (var delete in _wards.Deletions)
+                        {
+                            if (sql.Length > 1)
+                            {
+                                sql.Append(", ");
+                            }
+                            sql.Append($"'{delete.Id}'");
+                            deletes++;
+                        }
+                        sql.Append(")");
+
+                        deletes = GetCount($"wards where id in {sql};");
+                        ExecuteNonQuery($"DELETE from wards where id in {sql};");
+                        _wards.Deletions.Clear();
+                    }
+
+                    transaction.Commit();
+                }
+            }
+
+            if (inserts > 0 || updates > 0 || deletes > 0)
+            {
+                ClearWardCache();
+            }
+
+            return new Tuple<long, long, long>(inserts, updates, deletes);
+        }
+
+        #endregion
+
         #region Exclusion Related
 
         /// <summary>
@@ -276,6 +653,7 @@ namespace HDDL.Data
         /// </summary>
         public void ClearExclusionCache()
         {
+            if (_exclusionCache == null) return;
             _exclusionCache.Clear();
             _exclusionCache = null;
         }
@@ -285,6 +663,8 @@ namespace HDDL.Data
         /// </summary>
         public long ClearExclusions()
         {
+            ClearExclusionCache();
+
             var count = GetCount("exclusions");
             ExecuteNonQuery("delete from exclusions");
             return count;
@@ -435,6 +815,7 @@ namespace HDDL.Data
         /// </summary>
         public void ClearBookmarkCache()
         {
+            if (_bookmarkCache == null) return;
             _bookmarkCache.Clear();
             _bookmarkCache = null;
         }
@@ -444,6 +825,8 @@ namespace HDDL.Data
         /// </summary>
         public long ClearBookmarks()
         {
+            ClearBookmarkCache();
+
             var count = GetCount("bookmarks");
             ExecuteNonQuery("delete from bookmarks");
             return count;
