@@ -50,6 +50,7 @@ namespace HDDL.HDSL
         Reset, // used to force a watch to be reenacted as if freshly created
         Wards,
         Watches,
+        Passive,
 
         // value keywords
         Size,

@@ -42,6 +42,7 @@ namespace HDDL.HDSL
                     case HDSLTokenTypes.AttributeLiteral:
                         Family = HDSLTokenFamilies.AttributeLiterals;
                         break;
+                    case HDSLTokenTypes.Passive:
                     case HDSLTokenTypes.Wards:
                     case HDSLTokenTypes.Watches:
                     case HDSLTokenTypes.Ward:

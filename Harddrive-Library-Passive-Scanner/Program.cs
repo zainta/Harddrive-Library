@@ -26,8 +26,8 @@ namespace Harddrive_Library_Passive_Scanner
                     services.AddHostedService<Worker>()
                       .Configure<EventLogSettings>(config =>
                       {
-                          config.LogName = "Harddrive Library Service";
-                          config.SourceName = "Harddrive Library Passive Scanner";
+                          config.LogName = "Harddrive-Library Service";
+                          config.SourceName = "Harddrive-Library Passive Scanner";
                       });
                 }).UseWindowsService();
     }

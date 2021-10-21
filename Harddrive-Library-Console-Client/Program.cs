@@ -36,7 +36,7 @@ namespace HDSL
             ph.AddRules(
                 new ParameterRuleOption("columns", true, true, null, "-"),
                 new ParameterRuleOption("paging", false, true, null, "-"),
-                new ParameterRuleOption("db", false, true, manager[@"HDSL_DB>DatabaseLocation"].Value, " - "),
+                new ParameterRuleOption("db", false, true, manager[@"HDSL_DB>DatabaseLocation"].Value, "-"),
                 new ParameterRuleOption("scan", true, true, null, "-"),
                 new ParameterRuleOption("run", false, true, null, "-"),
                 new ParameterRuleOption("exec", false, true, null, "-"),
@@ -53,13 +53,12 @@ namespace HDSL
             // ensure that our columns and paging parameters are valid or will be defaulted
             // (defaulted = null or whitespace, but if the only way to get whitespace is if the user omits a value for the -columns or -paging options)
             if (ph.GetParam("paging") == string.Empty || 
-                ph.GetParam("columns", -1) == string.Empty)
+                ph.GetParam("columns") == string.Empty)
             {
                 Console.WriteLine("Improper paging or column format strings provided.");
                 DisplayHelp("HDSL.Documentation.Help_Options.txt");
                 Environment.Exit(0);
             }
-
 
             // Handle Help
             var helpRequest = ph.GetAllParam("help").Where(p => !string.IsNullOrWhiteSpace(p)).ToArray();

@@ -107,9 +107,10 @@ HDSL is a simple query language designed for the retrieval of files and director
    * Deletes exclusions for the given paths
    * e.g `include [win];` will remove the previous example.  Note that exclusions are not cascaded.
  * `--` creates a line comment.
- * `watch [path[, path, path] - defaults to current];`
+ * `watch [passive] [path[, path, path] - defaults to current];`
    * Creates a watch for each of the given paths.  
    * A watch performs an initial scan and then passively monitors location for activity, updating the database when any is detected.
+   * The `passive` keyword causes the watch to start in passive mode, causing it to skip the initial scan.
    * e.g `watch 'C:\';` will watch the entire C: drive, automatically updating when changes occur after the initial scan.
  * `ward (time interval) [file pattern] [in/within/under [path[, path, path]] - defaults to current] [where clause];`
    * Performs an immediate integrity check and then successive ones whenever the interval expires.

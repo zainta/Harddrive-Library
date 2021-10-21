@@ -427,13 +427,20 @@ namespace HDDL.HDSL
         /// Allows setting up monitoring of disk areas
         /// 
         /// Syntax:
-        /// watch [path[, path, path] - defaults to current];
+        /// watch [passive] [path[, path, path] - defaults to current];
         /// </summary>
         private void HandleWatchDefinition()
         {
             if (Peek().Type == HDSLTokenTypes.Watch)
             {
                 Pop();
+
+                bool initiallyPassive = false;
+                if (Peek().Type == HDSLTokenTypes.Passive)
+                {
+                    Pop();
+                    initiallyPassive = true;
+                }
 
                 // the paths are optional, defaulting to the current directory
                 var scanPaths = GetPathList();
@@ -449,7 +456,7 @@ namespace HDDL.HDSL
                         var watch = new WatchItem()
                         {
                             Id = Guid.NewGuid(),
-                            InPassiveMode = false,
+                            InPassiveMode = initiallyPassive,
                             Path = path,
                             Target = null
                         };

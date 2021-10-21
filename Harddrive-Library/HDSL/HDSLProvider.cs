@@ -40,6 +40,29 @@ namespace HDDL.HDSL
         }
 
         /// <summary>
+        /// Runs a chunk of code as a query against the indexed files in the database
+        /// </summary>
+        /// <param name="code">The code to execute</param>
+        /// <param name="dh">The datahandler to use</param>
+        /// <returns>An HDSLResult containing either errors or the results of the query</returns>
+        public static HDSLResult ExecuteCode(string code, DataHandler dh)
+        {
+            HDSLResult result;
+            var t = new HDSLTokenizer(true);
+            var logs = t.Tokenize(code);
+            if (logs.Length == 0)
+            {
+                result = Execute(t.Tokens, dh);
+            }
+            else
+            {
+                result = new HDSLResult(logs);
+            }
+
+            return result;
+        }
+
+        /// <summary>
         /// Runs the contents of a file as a query against the indexed files in the database
         /// </summary>
         /// <param name="path">The script file to execute</param>
@@ -67,17 +90,41 @@ namespace HDDL.HDSL
 
             if (result == null)
             {
-                var results = new List<string>();
-                var t = new HDSLTokenizer(true);
-                var logs = t.Tokenize(code);
-                if (logs.Length == 0)
+                result = ExecuteCode(code, dbPath);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Runs the contents of a file as a query against the indexed files in the database
+        /// </summary>
+        /// <param name="path">The script file to execute</param>
+        /// <param name="dh">The datahandler to use</param>
+        /// <returns>An HDSLResult containing either errors or the results of the query</returns>
+        public static HDSLResult ExecuteScript(string path, DataHandler dh)
+        {
+            string code = null;
+            HDSLResult result = null;
+            try
+            {
+                if (File.Exists(path))
                 {
-                    result = Execute(t.Tokens, dbPath);
+                    code = File.ReadAllText(path);
                 }
                 else
                 {
-                    result = new HDSLResult(logs);
+                    result = new HDSLResult(new HDSLLogBase[] { new HDSLLogBase(-1, -1, $"Script file not found. '{path}'") });
                 }
+            }
+            catch (Exception ex)
+            {
+                result = new HDSLResult(new HDSLLogBase[] { new HDSLLogBase(-1, -1, $"Unable to load script file '{path}': {ex}") });
+            }
+
+            if (result == null)
+            {
+                result = ExecuteCode(code, dh);
             }
 
             return result;
@@ -96,8 +143,19 @@ namespace HDDL.HDSL
                 DataHandler.InitializeDatabase(dbPath);
             }
 
+            return Execute(tokens, new DataHandler(dbPath));
+        }
+
+        /// <summary>
+        /// Uses an HDSLInterpreter to execute the provided tokens, returns the results and populates the out variable
+        /// </summary>
+        /// <param name="tokens">A set of HDSLTokens generated from a script</param>
+        /// <param name="dh">The datahandler to use</param>
+        /// <returns>An HDSLResult containing either errors or the results of the query</returns>
+        private static HDSLResult Execute(ListStack<HDSLToken> tokens, DataHandler dh)
+        {
             HDSLResult result;
-            var interpreter = new HDSLInterpreter(tokens, new DataHandler(dbPath));
+            var interpreter = new HDSLInterpreter(tokens, dh);
             result = interpreter.Interpret(false);
 
             return result;

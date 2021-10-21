@@ -674,6 +674,10 @@ namespace HDDL.HDSL
                 {
                     token = new HDSLToken(HDSLTokenTypes.Watches, keyword.ToString(), row, col, text);
                 }
+                else if (text == "passive")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Passive, keyword.ToString(), row, col, text);
+                }
                 else if (IsDiskAttributeName(text))
                 {
                     token = new HDSLToken(HDSLTokenTypes.AttributeLiteral, keyword.ToString(), row, col, GetDiskAttributeName(text));
