@@ -30,8 +30,11 @@ namespace Harddrive_Library_Passive_Scanner
             _iniFile = IniFileManager.Explore($"{fi.Directory.FullName}\\db location.ini", true, false, false,
                 new IniSubsection("HDSL_DB", null,
                     new IniValue("DatabaseLocation", defaultValue: "file database.db")),
-                new IniSubsection("HDSL_Scans", null,
-                    new IniValue("InitialScript", defaultValue: "")));
+                new IniSubsection("HDSL_Passives", null,
+                    new IniValue("InitialScript", defaultValue: ""),
+                    new IniValue("SideloadScript", defaultValue: ""),
+                    new IniValue("DeleteSideloadScriptAfterConsumption", defaultValue: "False"),
+                    new IniValue("ConsumedSideloadScriptExtension", defaultValue: ".done")));
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)

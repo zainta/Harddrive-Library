@@ -30,8 +30,9 @@ namespace HDDL.IO.Disk
         /// Takes a path and, if it contains text, ensures that it ends in a forward slash (\)
         /// </summary>
         /// <param name="path">The path to check</param>
+        /// <param name="ignoreNonExistent">If true, then EnsurePath will return the value unmodified if the target does not exist</param>
         /// <returns></returns>
-        public static string EnsurePath(string path)
+        public static string EnsurePath(string path, bool ignoreNonExistent = false)
         {
             var result = path;
             if (!string.IsNullOrWhiteSpace(path))
@@ -53,7 +54,10 @@ namespace HDDL.IO.Disk
                         }
                         break;
                     case DiskItemStatus.NonExistent:
-                        result = null;
+                        if (!ignoreNonExistent)
+                        {
+                            result = null;
+                        }
                         break;
                 }
             }
@@ -75,10 +79,11 @@ namespace HDDL.IO.Disk
         /// Takes a set of paths and, if it contains text, ensures that they end in forward slashes (\)
         /// </summary>
         /// <param name="paths">The paths to check</param>
+        /// <param name="ignoreNonExistent">If true, then EnsurePath will return the value unmodified if the target does not exist</param>
         /// <returns></returns>
-        public static string[] EnsurePath(IEnumerable<string> paths)
+        public static string[] EnsurePath(IEnumerable<string> paths, bool ignoreNonExistent = false)
         {
-            var result = paths.Select(p => EnsurePath(p)).Where(p => p != null);
+            var result = paths.Select(p => EnsurePath(p, ignoreNonExistent)).Where(p => p != null);
             return result.ToArray();
         }
 
@@ -246,7 +251,7 @@ namespace HDDL.IO.Disk
             paths = EnsurePath(paths);
 
             // extract the excluded regions so we can more easily query it
-            var excludedPaths = (from e in exclusions select e.Region);
+            var excludedItems = (from e in exclusions select e.Path);
 
             var allFiles = new ConcurrentDictionary<int, List<DiskItemType>>();
             var allDirectories = new ConcurrentDictionary<int, List<DiskItemType>>();
@@ -257,7 +262,7 @@ namespace HDDL.IO.Disk
                 ExploringLocation?.Invoke(path, false);
 
                 // exclusions will have ensured paths while path won't be ensured.
-                if (IsWithinPaths(path, excludedPaths))
+                if (IsWithinPaths(path, excludedItems))
                 {
                     // this is not a failure because we have been told not to do it.
                     return true; 
@@ -281,8 +286,12 @@ namespace HDDL.IO.Disk
                             isFile = true;
                             foreach (var file in Directory.GetFiles(path))
                             {
-                                ExploringLocation?.Invoke(file, true);
-                                SafelyAdd(files, new DiskItemType(file, true));
+                                // specific files can be excluded, so check
+                                if (!excludedItems.Where(ei => ei.Equals(file, StringComparison.InvariantCultureIgnoreCase)).Any())
+                                {
+                                    ExploringLocation?.Invoke(file, true);
+                                    SafelyAdd(files, new DiskItemType(file, true));
+                                }
                             };
                         }
                     }

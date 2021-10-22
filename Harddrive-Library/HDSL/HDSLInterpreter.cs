@@ -183,31 +183,71 @@ namespace HDDL.HDSL
         /// Interprets and returns a comma seperated list of strings
         /// </summary>
         /// <param name="failOnNone">Whether or not the method should log an error if no paths are discovered</param>
+        /// <param name="expandBookmarks">Whether or not to automatically expand bookmarks</param>
         /// <returns>A list containing the strings</returns>
         private List<string> GetPathList(bool failOnNone = true, bool expandBookmarks = true)
         {
             HDSLToken first = null;
             var results = new List<string>();
             // get the list of paths
-            while (More() && Peek().Type == HDSLTokenTypes.String || Peek().Type == HDSLTokenTypes.BookmarkReference)
+            while (More() && Peek().Type == HDSLTokenTypes.String || 
+                Peek().Type == HDSLTokenTypes.BookmarkReference ||
+                Peek().Type == HDSLTokenTypes.Force)
             {
                 // save the first one for error reporting
                 if (first == null) first = Peek();
 
+                var forced = false;
+                // if the force keyword shows up and the next token is a string or bookmark then continue
+                if (More(1) && 
+                    Peek().Type == HDSLTokenTypes.Force &&
+                    (Peek(1).Type == HDSLTokenTypes.String || Peek(1).Type == HDSLTokenTypes.BookmarkReference))
+                {
+                    Pop();
+                    forced = true;
+                }
+
+                // get the value in its proper form
+                string path = null;
                 if (Peek().Type == HDSLTokenTypes.BookmarkReference)
                 {
                     if (expandBookmarks)
                     {
-                        results.Add(_dh.ApplyBookmarks(Pop().Code));
+                        path = _dh.ApplyBookmarks(Pop().Code);
                     }
                     else
                     {
-                        results.Add(Pop().Literal);
+                        path = Pop().Code;
                     }
                 }
                 else
                 {
-                    results.Add(Pop().Literal);
+                    path = Pop().Literal;
+                }
+
+                // process the value and ensure it is a proper path
+                string result = null;
+                if (BookmarkItem.HasBookmark(path))
+                {
+                    // if there is a bookmark then expand it to properly test
+                    var expanded = _dh.ApplyBookmarks(path);
+                    result = PathHelper.EnsurePath(expanded, forced);
+
+                    // if we are not expanding the bookmarks then
+                    // we have to keep the non-expanded one after ensuring that the test succeeded.
+                    if (!expandBookmarks && !string.IsNullOrWhiteSpace(result))
+                    {
+                        result = path;
+                    }
+                }
+                else
+                {
+                    result = PathHelper.EnsurePath(path, forced);
+                }
+
+                if (!string.IsNullOrWhiteSpace(result))
+                {
+                    results.Add(result);
                 }
 
                 // check if we have at least 2 more tokens remaining, one is a comma and the next is a string or bookmark
@@ -221,7 +261,6 @@ namespace HDDL.HDSL
                 }
             }
 
-            results = PathHelper.EnsurePath(results).ToList();
             if (failOnNone && results.Count == 0)
             {
                 if (first != null)
@@ -611,12 +650,12 @@ namespace HDDL.HDSL
                     // Create exclusion instances for paths that are not already excluded
                     var exclusions = (from p in paths
                                       where
-                                        _dh.GetExclusions().Where(e => e.Region == p).Any() == false
+                                        _dh.GetExclusions().Where(e => e.Path == p).Any() == false
                                       select
                                           new ExclusionItem()
                                           {
                                               Id = Guid.NewGuid(),
-                                              Region = p
+                                              Path = p
                                           }).ToArray();
                     _dh.Insert(exclusions);
                     _dh.WriteExclusions();
@@ -654,7 +693,7 @@ namespace HDDL.HDSL
                     // Retrieve the exclusions in the list that actually exist
                     var exclusions = (from e in _dh.GetExclusions()
                                       where
-                                        paths.Where(p => p.Equals(e.Region, StringComparison.InvariantCultureIgnoreCase)).Any() == true
+                                        paths.Where(p => p.Equals(e.Path, StringComparison.InvariantCultureIgnoreCase)).Any() == true
                                       select e).ToArray();
                     _dh.Delete(exclusions);
                     _dh.WriteExclusions();

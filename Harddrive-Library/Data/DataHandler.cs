@@ -168,9 +168,9 @@ namespace HDDL.Data
 
                             create table if not exists exclusions (
                                 id text not null primary key,
-                                region text not null
+                                path text not null
                                 );
-                            create unique index exclusions_region_index on exclusions(region);",
+                            create unique index exclusions_path_index on exclusions(path);",
                                 sqltCon))
                     {
 
@@ -639,7 +639,7 @@ namespace HDDL.Data
             {
                 if (e.IsDynamic)
                 {
-                    e.Region = ApplyBookmarks(e.Region);
+                    e.Path = ApplyBookmarks(e.Path);
                 }
 
                 results.Add(e);

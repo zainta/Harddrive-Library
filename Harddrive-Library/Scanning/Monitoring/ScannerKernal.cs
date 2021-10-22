@@ -163,7 +163,11 @@ namespace HDDL.Scanning.Monitoring
 
                 try
                 {
-                    var watcher = new NonSpammingFileSystemWatcher(watch.Path, GetMessagingMode());
+                    var watcher = new NonSpammingFileSystemWatcher(
+                        watch.Path, 
+                        GetMessagingMode(), 
+                        _dh.GetProcessedExclusions().Select(e => e.Path));
+
                     watcher.ReportDiskEvent += Watcher_ReportDiskEvent;
                     watcher.MessageRelayed += Watcher_MessageRelayed;
                     _watchers.Add(watcher);

@@ -51,6 +51,7 @@ namespace HDDL.HDSL
         Wards,
         Watches,
         Passive,
+        Force,
 
         // value keywords
         Size,

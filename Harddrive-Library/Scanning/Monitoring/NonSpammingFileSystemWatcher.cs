@@ -2,7 +2,9 @@
 // Licensed under the MIT License, (the "License"); you may not use this file except in compliance with the License. 
 // You may obtain a copy of the License at https://mit-license.org/
 
+using HDDL.IO.Disk;
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace HDDL.Scanning.Monitoring
@@ -24,14 +26,17 @@ namespace HDDL.Scanning.Monitoring
         private DateTime _lastOccurance;
         private string _lastTopic;
         private string _path;
+        private IEnumerable<string> _exclusions;
 
         /// <summary>
         /// Creates a non-spamming file system watcher to monitor the given location
         /// </summary>
         /// <param name="path">The path to monitor</param>
         /// <param name="messenging">The kinds and styles of messages that will be relayed</param>
-        public NonSpammingFileSystemWatcher(string path, MessagingModes messenging) : base(messenging)
+        /// <param name="exclusions">A list of files and directories to ignore modifications to</param>
+        public NonSpammingFileSystemWatcher(string path, MessagingModes messenging, IEnumerable<string> exclusions) : base(messenging)
         {
+            _exclusions = exclusions;
             _path = path;
             _watcher = new FileSystemWatcher();
             if (!string.IsNullOrWhiteSpace(path) && Directory.Exists(path))
@@ -95,15 +100,18 @@ namespace HDDL.Scanning.Monitoring
         /// <param name="e">The details of the event</param>
         protected virtual void Watcher_Deleted(object sender, FileSystemEventArgs e)
         {
-            var lastOccurred = File.GetLastWriteTime(e.FullPath);
-            if (lastOccurred.Subtract(_lastOccurance).TotalMilliseconds > MinOccuranceDifferenceValue ||
-                _lastTopic != e.FullPath)
+            if (!PathHelper.IsWithinPaths(e.FullPath, _exclusions))
             {
-                Inform($"'{e.FullPath}' was deleted.");
-                _lastOccurance = lastOccurred;
-                _lastTopic = e.FullPath;
+                var lastOccurred = File.GetLastWriteTime(e.FullPath);
+                if (lastOccurred.Subtract(_lastOccurance).TotalMilliseconds > MinOccuranceDifferenceValue ||
+                    _lastTopic != e.FullPath)
+                {
+                    Inform($"'{e.FullPath}' was deleted.");
+                    _lastOccurance = lastOccurred;
+                    _lastTopic = e.FullPath;
 
-                ReportDiskEvent?.Invoke(this, FileSystemWatcherEventNatures.Deletion, e);
+                    ReportDiskEvent?.Invoke(this, FileSystemWatcherEventNatures.Deletion, e);
+                }
             }
         }
 
@@ -114,15 +122,18 @@ namespace HDDL.Scanning.Monitoring
         /// <param name="e">The details of the event</param>
         protected virtual void Watcher_Changed(object sender, FileSystemEventArgs e)
         {
-            var lastOccurred = File.GetLastWriteTime(e.FullPath);
-            if (lastOccurred.Subtract(_lastOccurance).TotalMilliseconds > MinOccuranceDifferenceValue ||
-                _lastTopic != e.FullPath)
+            if (!PathHelper.IsWithinPaths(e.FullPath, _exclusions))
             {
-                Inform($"'{e.FullPath}' was altered.");
-                _lastOccurance = lastOccurred;
-                _lastTopic = e.FullPath;
+                var lastOccurred = File.GetLastWriteTime(e.FullPath);
+                if (lastOccurred.Subtract(_lastOccurance).TotalMilliseconds > MinOccuranceDifferenceValue ||
+                    _lastTopic != e.FullPath)
+                {
+                    Inform($"'{e.FullPath}' was altered.");
+                    _lastOccurance = lastOccurred;
+                    _lastTopic = e.FullPath;
 
-                ReportDiskEvent?.Invoke(this, FileSystemWatcherEventNatures.Alteration, e);
+                    ReportDiskEvent?.Invoke(this, FileSystemWatcherEventNatures.Alteration, e);
+                }
             }
         }
 
@@ -133,15 +144,18 @@ namespace HDDL.Scanning.Monitoring
         /// <param name="e">The details of the event</param>
         protected virtual void Watcher_Created(object sender, FileSystemEventArgs e)
         {
-            var lastOccurred = File.GetLastWriteTime(e.FullPath);
-            if (lastOccurred.Subtract(_lastOccurance).TotalMilliseconds > MinOccuranceDifferenceValue ||
-                _lastTopic != e.FullPath)
+            if (!PathHelper.IsWithinPaths(e.FullPath, _exclusions))
             {
-                Inform($"'{e.FullPath}' was created.");
-                _lastOccurance = lastOccurred;
-                _lastTopic = e.FullPath;
+                var lastOccurred = File.GetLastWriteTime(e.FullPath);
+                if (lastOccurred.Subtract(_lastOccurance).TotalMilliseconds > MinOccuranceDifferenceValue ||
+                    _lastTopic != e.FullPath)
+                {
+                    Inform($"'{e.FullPath}' was created.");
+                    _lastOccurance = lastOccurred;
+                    _lastTopic = e.FullPath;
 
-                ReportDiskEvent?.Invoke(this, FileSystemWatcherEventNatures.Creation, e);
+                    ReportDiskEvent?.Invoke(this, FileSystemWatcherEventNatures.Creation, e);
+                }
             }
         }
 

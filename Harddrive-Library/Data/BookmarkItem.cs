@@ -5,6 +5,7 @@
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Data;
 using System.Data.SQLite;
+using System.Text.RegularExpressions;
 
 namespace HDDL.Data
 {
@@ -38,6 +39,16 @@ namespace HDDL.Data
         /// </summary>
         public BookmarkItem() : base()
         {
+        }
+
+        /// <summary>
+        /// Returns a value indicating whether a string has a bookmark pattern in it
+        /// </summary>
+        /// <param name="text">The text to test</param>
+        /// <returns></returns>
+        public static bool HasBookmark(string text)
+        {
+            return Regex.IsMatch(text, "\\[[^\\[\\]]*\\]");
         }
 
         /// <summary>

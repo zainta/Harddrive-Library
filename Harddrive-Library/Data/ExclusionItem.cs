@@ -2,20 +2,22 @@
 // Licensed under the MIT License, (the "License"); you may not use this file except in compliance with the License. 
 // You may obtain a copy of the License at https://mit-license.org/
 
+using HDDL.IO.Disk;
+using System;
 using System.Data;
 using System.Data.SQLite;
 
 namespace HDDL.Data
 {
     /// <summary>
-    /// Represents a path that should be avoiding when scanning hard drives
+    /// Represents an item (file or directory) that should be ignored when scanning hard drives
     /// </summary>
     public class ExclusionItem : HDDLRecordBase
     {
         /// <summary>
-        /// The excluded region's border (starting point)
+        /// The excluded item's location
         /// </summary>
-        public string Region { get; set; }
+        public string Path { get; set; }
 
         /// <summary>
         /// Returns a value indicating whether or not the Exclusion is based on a bookmark
@@ -24,10 +26,9 @@ namespace HDDL.Data
         {
             get
             {
-                return Region.Contains("[") || Region.Contains("]");
+                return BookmarkItem.HasBookmark(Path);
             }
         }
-
 
         /// <summary>
         /// Creates an instance from the current record in the data reader
@@ -35,7 +36,7 @@ namespace HDDL.Data
         /// <param name="row"></param>
         public ExclusionItem(SQLiteDataReader row) : base(row)
         {
-            Region = row.GetString("region");
+            Path = row.GetString("path");
         }
 
         /// <summary>
@@ -46,15 +47,25 @@ namespace HDDL.Data
         }
 
         /// <summary>
+        /// Checks to see if the given path matches the exclusion's target
+        /// </summary>
+        /// <param name="path">The path to test</param>
+        /// <returns></returns>
+        public bool IsExcluded(string path)
+        {
+            return PathHelper.IsWithinPath(path, Path);
+        }
+
+        /// <summary>
         /// Generates and returns a SQLite Insert statement for this record
         /// </summary>
         /// <returns>The line of SQL</returns>
         public override string ToInsertStatement()
         {
             return $@"insert into exclusions 
-                        (id, region) 
+                        (id, path) 
                       values 
-                        ('{Id}', '{DataHelper.Sanitize(Region)}');";
+                        ('{Id}', '{DataHelper.Sanitize(Path)}');";
         }
 
         /// <summary>
@@ -64,13 +75,13 @@ namespace HDDL.Data
         public override string ToUpdateStatement()
         {
             return $@"update exclusions 
-                        set region = '{DataHelper.Sanitize(Region)}'
+                        set path = '{DataHelper.Sanitize(Path)}'
                         where id = '{Id}';";
         }
 
         public override string ToString()
         {
-            return $"[Exclusion: '{Id}' - '{Region}']";
+            return $"[Exclusion: '{Id}' - '{Path}']";
         }
     }
 }

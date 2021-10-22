@@ -84,7 +84,7 @@ HDSL is a simple query language designed for the retrieval of files and director
  * `find [file search pattern - defaults to *.*] [in/within/under [path[, path, path]] - defaults to current] [where clause];`
    * Retrieves the items that match the query and displays them.
    * e.g `find '*.dll' in 'C:\Windows\System32' where size < 1024000;` to search for all dll files in C:\Windows\System32 that are under 1mb in size.
- * `purge [bookmarks | exclusions | path[, path, path] [where clause]];`
+ * `purge [bookmarks | exclusions | wards | watches | path[, path, path] [where clause]];`
    * Removes matching entries from the current database.
    * e.g `purge;` deletes all file tracking records from the database
    * e.g `purge exclusions;` deletes all exclusions, etc.
@@ -100,7 +100,7 @@ HDSL is a simple query language designed for the retrieval of files and director
    * Compares existing hashes to the database to newly generated ones.  If no previous integrity check has been performed, simply stores the values in the database.
    * e.g `scan text 'C:\';` will perform an integrity check on the entire C: drive and output progress to the console as text.
  * `exclude [dynamic] path[, path, path];` 
-   * Adds an exclusion for the given paths
+   * Adds an exclusion for the given items.  Accepts file(s) and/or path(s).
    * The `dynamic` keyword causes any bookmarks in an exclusion to be evaluated when the exclusion is enforced, as opposed to when it is created.
    * e.g `exclude [Win];` will be stored as an exclusion of the specified value of the `[Win]` bookmark, where as `exclude dynamic [win];` will store the bookmark text.  This means that any changes made to [win] will automatically be picked up.
  * `include path[, path, path];`
@@ -110,7 +110,7 @@ HDSL is a simple query language designed for the retrieval of files and director
  * `watch [passive] [path[, path, path] - defaults to current];`
    * Creates a watch for each of the given paths.  
    * A watch performs an initial scan and then passively monitors location for activity, updating the database when any is detected.
-   * The `passive` keyword causes the watch to start in passive mode, causing it to skip the initial scan.
+   * The `passive` keyword causes the watch to start in passive mode and skip the initial scan.
    * e.g `watch 'C:\';` will watch the entire C: drive, automatically updating when changes occur after the initial scan.
  * `ward (time interval) [file pattern] [in/within/under [path[, path, path]] - defaults to current] [where clause];`
    * Performs an immediate integrity check and then successive ones whenever the interval expires.
@@ -119,3 +119,7 @@ HDSL is a simple query language designed for the retrieval of files and director
      * e.g `5:::` means 5 days.
      * e.g `10::` means 10 hours.
      * e.g `1::2:30` means 1 day, 2 minutes, and 30 seconds.
+
+### Special Keywords
+In HDSL, there are some special keywords that can be used universally, but only under specific circumstances.
+ * The `force` keyword can be used prior to any path or bookmark anywhere a list of paths is valid (see syntax above).  When used, it will cause the statement to no longer validate the path's existence.  This allows, for example, explicit exclusion of files that do not yet exist but will in the future.
