@@ -126,12 +126,12 @@ namespace HDDL.Scanning
             {
                 _scanner.Preparing += _scanner_Preparing;
                 _scanner.ScanStarts += _scanner_ScanStarts;
-                _scanner.ScanEnds += _scanner_ScanEnds;
                 _scanner.UnknownErrorOccurred += _scanner_UnknownErrorOccurred;
                 _scanner.FileScanFailed += _scanner_FileScanFailed;
                 _scanner.StartedScanningFile += _scanner_StartedScanningFile;
                 _scanner.FinishedScanningFile += _scanner_FinishedScanningFile;
             }
+            _scanner.ScanEnds += _scanner_ScanEnds;
             Task.Run(() => _scanner.StartScan(1));
 
             while (

@@ -74,9 +74,10 @@ namespace Harddrive_Library_Passive_Scanner
             if (!errorInitializing)
             {
                 using (var sk = new ScannerKernal(
-                    _iniFile[@"HDSL_DB>DatabaseLocation"].Value, 
-                    _iniFile[@"HDSL_Scans>InitialScript"].Value, 
-                    MessagingModes.Errors | MessagingModes.Information))
+                    _iniFile[@"HDSL_Passives>InitialScript"].Value, 
+                    new ScriptLoadingDetails(_iniFile),
+                    MessagingModes.Errors | MessagingModes.Information,
+                    false))
                 {
                     while (!stoppingToken.IsCancellationRequested)
                     {

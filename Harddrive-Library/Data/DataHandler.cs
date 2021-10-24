@@ -422,17 +422,7 @@ namespace HDDL.Data
 
                     if (_watches.Deletions.Count > 0)
                     {
-                        var sql = new StringBuilder("(");
-                        foreach (var delete in _watches.Deletions)
-                        {
-                            if (sql.Length > 1)
-                            {
-                                sql.Append(", ");
-                            }
-                            sql.Append($"'{delete.Id}'");
-                            deletes++;
-                        }
-                        sql.Append(")");
+                        var sql = $"({ string.Join(", ", from delete in _watches.Deletions select $"'{delete.Id}'") })";
 
                         deletes = GetCount($"watches where id in {sql};");
                         ExecuteNonQuery($"DELETE from watches where id in {sql};");
@@ -574,17 +564,7 @@ namespace HDDL.Data
 
                     if (_wards.Deletions.Count > 0)
                     {
-                        var sql = new StringBuilder("(");
-                        foreach (var delete in _wards.Deletions)
-                        {
-                            if (sql.Length > 1)
-                            {
-                                sql.Append(", ");
-                            }
-                            sql.Append($"'{delete.Id}'");
-                            deletes++;
-                        }
-                        sql.Append(")");
+                        var sql = $"({ string.Join(", ", from delete in _wards.Deletions select $"'{delete.Id}'") })";
 
                         deletes = GetCount($"wards where id in {sql};");
                         ExecuteNonQuery($"DELETE from wards where id in {sql};");
@@ -740,17 +720,7 @@ namespace HDDL.Data
 
                     if (_exclusions.Deletions.Count > 0)
                     {
-                        var sql = new StringBuilder("(");
-                        foreach (var delete in _exclusions.Deletions)
-                        {
-                            if (sql.Length > 1)
-                            {
-                                sql.Append(", ");
-                            }
-                            sql.Append($"'{delete.Id}'");
-                            deletes++;
-                        }
-                        sql.Append(")");
+                        var sql = $"({ string.Join(", ", from delete in _exclusions.Deletions select $"'{delete.Id}'") })";
 
                         deletes = GetCount($"exclusions where id in {sql};");
                         ExecuteNonQuery($"DELETE from exclusions where id in {sql};");
@@ -902,17 +872,7 @@ namespace HDDL.Data
 
                     if (_bookmarks.Deletions.Count > 0)
                     {
-                        var sql = new StringBuilder("(");
-                        foreach (var delete in _bookmarks.Deletions)
-                        {
-                            if (sql.Length > 0)
-                            {
-                                sql.Append(", ");
-                            }
-                            sql.Append($"'{delete.Id}'");
-                            deletes++;
-                        }
-                        sql.Append(")");
+                        var sql = $"({ string.Join(", ", from delete in _bookmarks.Deletions select $"'{delete.Id}'") })";
 
                         deletes = GetCount($"bookmarks where id in {sql};");
                         ExecuteNonQuery($"DELETE from bookmarks where id in {sql};");
@@ -1244,17 +1204,7 @@ namespace HDDL.Data
 
                     if (_diskItems.Deletions.Count > 0)
                     {
-                        var sql = new StringBuilder("(");
-                        foreach (var delete in _diskItems.Deletions)
-                        {
-                            if (sql.Length > 0)
-                            {
-                                sql.Append(", ");
-                            }
-                            sql.Append($"'{delete.Id}'");
-                            deletes++;
-                        }
-                        sql.Append(")");
+                        var sql = $"({ string.Join(", ", from delete in _diskItems.Deletions select $"'{delete.Id}'") })";
 
                         deletes = GetCount($"diskitems where id in {sql};");
                         ExecuteNonQuery($"DELETE from diskitems where id in {sql};");

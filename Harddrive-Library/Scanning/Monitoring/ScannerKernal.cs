@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace HDDL.Scanning.Monitoring
 {
@@ -33,55 +34,75 @@ namespace HDDL.Scanning.Monitoring
         private DataHandler _dh;
 
         /// <summary>
+        /// The path to the database the data handler will consume
+        /// </summary>
+        private string _dbPath;
+
+        /// <summary>
+        /// How the kernal deals with side-loading
+        /// </summary>
+        private ScriptLoadingDetails _sideLoadDetails;
+
+        /// <summary>
+        /// Handles watching for scripts (only checks creation) for side-load scripts
+        /// </summary>
+        private NonSpammingFileSystemWatcher _sideLoadWatcher;
+
+        /// <summary>
+        /// Whether the ScannerKernal should narrate its internal processes
+        /// </summary>
+        private bool _narrateProgress;
+
+        /// <summary>
         /// Creates a Scanner Kernal
         /// </summary>
         /// <param name="dbPath">The path to an existing database file</param>
-        /// <param name="freshStartScript">The path to a script, or the actual HDSL code of a script to run if there is no existing database</param>
+        /// <param name="sideLoadDetails">How the kernal should handle side-loading (loading scripts after the initial database setup and during execution)</param>
         /// <param name="messenging">The kinds and styles of messages that will be relayed</param>
-        public ScannerKernal(string dbPath, string freshStartScript, MessagingModes messenging) : base(messenging)
+        /// <param name="narrateProgress">Whether the ScannerKernal should narrate its internal processes</param>
+        public ScannerKernal(
+            string dbPath, 
+            ScriptLoadingDetails sideLoadDetails,
+            MessagingModes messenging,
+            bool narrateProgress) : base(messenging)
         {
-            if (!File.Exists(dbPath))
-            {
-                DataHandler.InitializeDatabase(dbPath);
-                _dh = new DataHandler(dbPath);
-                if (!string.IsNullOrWhiteSpace(freshStartScript))
-                {
-                    if (File.Exists(freshStartScript))
-                    {
-                        HDSLProvider.ExecuteScript(freshStartScript, _dh);
-                    }
-                    else
-                    {
-                        HDSLProvider.ExecuteCode(freshStartScript, _dh);
-                    }
-                }
-            }
-            else
-            {
-                _dh = new DataHandler(dbPath);
-            }
-
-            Initialize();
+            _narrateProgress = narrateProgress;
+            _sideLoadWatcher = null;
+            _dbPath = dbPath;
+            _sideLoadDetails = sideLoadDetails;
         }
 
         /// <summary>
         /// Creates a Scanner Kernal with an existing datahandler
         /// </summary>
         /// <param name="dh"></param>
+        /// <param name="sideLoadDetails">How the kernal should handle side-loading (loading scripts after the initial database setup and during execution)</param>
         /// <param name="messenging">The kinds and styles of messages that will be relayed</param>
-        public ScannerKernal(DataHandler dh, MessagingModes messenging) : base(messenging)
+        public ScannerKernal(DataHandler dh, ScriptLoadingDetails sideLoadDetails, MessagingModes messenging) : base(messenging)
         {
+            _sideLoadWatcher = null;
             _dh = dh;
-            Initialize();
+            _sideLoadDetails = sideLoadDetails;
         }
+
+        #region Control
 
         /// <summary>
         /// Starts the kernal's sub components
         /// </summary>
         public void Start()
         {
+            if (_narrateProgress)
+            {
+                Inform("Starting.");
+            }
             _monitor?.Start();
             _watchers?.ForEach(w => w.Start());
+
+            if (_sideLoadWatcher != null)
+            {
+                _sideLoadWatcher.Start();
+            }
         }
 
         /// <summary>
@@ -89,21 +110,152 @@ namespace HDDL.Scanning.Monitoring
         /// </summary>
         public void Stop()
         {
+            if (_narrateProgress)
+            {
+                Inform("Stopping.");
+            }
+            SilentStop();
+        }
+
+        /// <summary>
+        /// Stops the kernal's sub components
+        /// </summary>
+        private void SilentStop()
+        {
             _monitor?.Stop();
             _watchers?.ForEach(w => w.Stop());
+
+            if (_sideLoadWatcher != null)
+            {
+                _sideLoadWatcher.Stop();
+            }
         }
+
+        /// <summary>
+        /// Purges all monitoring infrastructure for recreation
+        /// </summary>
+        private void Reset()
+        {
+            SilentStop();
+
+            if (_monitor != null)
+            {
+                _monitor.MessageRelayed += _monitor_MessageRelayed;
+                _monitor.Stop();
+                _monitor = null;
+            }
+
+            if (_watchers != null)
+            {
+                var i = 0;
+                while (i < _watchers.Count)
+                {
+                    RemoveWatcher(_watchers[i]);
+                }
+                _watchers = null;
+            }
+
+            if (_sideLoadWatcher != null)
+            {
+                _sideLoadWatcher.ReportDiskEvent -= _sideLoadWatcher_ReportDiskEvent;
+                _sideLoadWatcher.MessageRelayed -= _sideLoadWatcher_MessageRelayed;
+                _sideLoadWatcher.Stop();
+                _sideLoadWatcher = null;
+            }
+        }
+
+        #endregion
 
         #region Utility Methods
 
         /// <summary>
         /// Reads the database and instatiates all of the monitoring systems
         /// </summary>
-        private void Initialize()
+        public void Initialize()
         {
-            _watchers = new List<NonSpammingFileSystemWatcher>();
+            if (!File.Exists(_dbPath))
+            {
+                DataHandler.InitializeDatabase(_dbPath);
+                _dh = new DataHandler(_dbPath);
+                if (!string.IsNullOrWhiteSpace(_sideLoadDetails.InitialLoadSource))
+                {
+                    if (_narrateProgress)
+                    {
+                        Inform($"Executing initial database script: '{_sideLoadDetails.InitialLoadSource}'.");
+                    }
+                    HDSLResult result = null;
+                    if (File.Exists(_sideLoadDetails.InitialLoadSource))
+                    {
+                        result = HDSLProvider.ExecuteScript(_sideLoadDetails.InitialLoadSource, _dh);
+                    }
+                    else
+                    {
+                        result = HDSLProvider.ExecuteCode(_sideLoadDetails.InitialLoadSource, _dh);
+                    }
+                    ThrowErrorException(result, false);
+                }
+            }
+            else
+            {
+                _dh = new DataHandler(_dbPath);
+            }
 
-            HandleWatches();
-            //HandleWards();
+            CallHandles();
+        }
+
+        /// <summary>
+        /// Handles execution of side-load scripts
+        /// </summary>
+        /// <returns>True upon successful execution of all scripts, false otherwise</returns>
+        private bool HandleSideLoad()
+        {
+            // when side loading, we need to make sure everything is completely shutdown
+            Reset();
+
+            var failed = false;
+            foreach (var file in _sideLoadDetails.GetScripts())
+            {
+                if (_narrateProgress)
+                {
+                    Inform($"Side-loading '{file}'.");
+                }
+                var result = HDSLProvider.ExecuteScript(file, _dh);
+                if (ThrowErrorException(result, true))
+                {
+                    // if we successfully run the script then mark the file as consumed
+                    if (_sideLoadDetails.DeleteSideLoadSource)
+                    {
+                        try
+                        {
+                            File.Delete(file);
+                        }
+                        catch (Exception ex)
+                        {
+                            Error($"Failed to delete side-load script '{file}'.", ex);
+                            failed = true;
+                        }
+                    }
+                    else
+                    {
+                        try
+                        {
+                            File.Move(file, $"{file}{_sideLoadDetails.SideLoadScriptCompletionExtension}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Error($"Failed to rename side-load script '{file}' to '{file}{_sideLoadDetails.SideLoadScriptCompletionExtension}'.", ex);
+                            failed = true;
+                        }
+                    }
+                }
+            }
+
+            if (!failed && _sideLoadDetails.MonitorDuringRuntime)
+            {
+                AddSideLoadWatcher();
+            }
+
+            return !failed;
         }
 
         /// <summary>
@@ -111,6 +263,11 @@ namespace HDDL.Scanning.Monitoring
         /// </summary>
         private void HandleWards()
         {
+            if (_narrateProgress)
+            {
+                Inform("Loading passive integrity monitor.");
+            }
+
             _monitor = new IntegrityMonitorSymphony(_dh, GetMessagingMode());
             _monitor.MessageRelayed += _monitor_MessageRelayed;
         }
@@ -120,15 +277,29 @@ namespace HDDL.Scanning.Monitoring
         /// </summary>
         private void HandleWatches()
         {
+            if (_watchers == null)
+            {
+                _watchers = new List<NonSpammingFileSystemWatcher>();
+            }
+
+            if (_narrateProgress)
+            {
+                Inform("Loading watches.");
+            }
+
             // get all watches that do not overlap
             var watches = new List<WatchItem>();
-            foreach (var watch in _dh.GetWatches())
+            foreach (var watch in _dh.GetWatches().OrderBy(w => w.Path))
             {
                 if (watches.Count > 0)
                 {
-                    if (!PathHelper.IsWithinPaths(watch.Path, from w in _dh.GetWatches() select w.Path))
+                    if (!PathHelper.IsWithinPaths(watch.Path, from w in watches select w.Path))
                     {
                         watches.Add(watch);
+                    }
+                    else if (_narrateProgress)
+                    {
+                        Inform($"Watch '{watch.Path}' was superseded and will not be loaded.");
                     }
                 }
                 else
@@ -146,26 +317,52 @@ namespace HDDL.Scanning.Monitoring
             _dh.WriteWatches();
         }
 
+        #endregion
+
+        #region Management Methods
+
+        /// <summary>
+        /// Calls the handler methods
+        /// </summary>
+        private void CallHandles()
+        {
+            HandleSideLoad();
+            HandleWatches();
+            //HandleWards();
+        }
+
         /// <summary>
         /// Adds a FileSystemWatcher for the given watch to the list of watches
         /// </summary>
         /// <param name="watch">The watch to add a watcher for</param>
         private void AddWatch(WatchItem watch)
         {
+            if (_narrateProgress)
+            {
+                Inform($"Loading watcher for '{watch.Path}'.");
+            }
+
             if (Directory.Exists(watch.Path))
             {
                 if (!watch.InPassiveMode)
                 {
-                    HDSLProvider.ExecuteCode($"scan quiet '{watch.Path}';", _dh);
-                    watch.InPassiveMode = true;
-                    _dh.Update(watch);
+                    if (_narrateProgress)
+                    {
+                        Inform($"Performing initial scan for watcher '{watch.Path}'.");
+                    }
+                    var result = HDSLProvider.ExecuteCode($"scan quiet '{watch.Path.Replace("\\", "\\\\")}';", _dh);
+                    if (ThrowErrorException(result, true))
+                    {
+                        watch.InPassiveMode = true;
+                        _dh.Update(watch);
+                    }
                 }
 
                 try
                 {
                     var watcher = new NonSpammingFileSystemWatcher(
-                        watch.Path, 
-                        GetMessagingMode(), 
+                        watch.Path,
+                        GetMessagingMode(),
                         _dh.GetProcessedExclusions().Select(e => e.Path));
 
                     watcher.ReportDiskEvent += Watcher_ReportDiskEvent;
@@ -176,6 +373,97 @@ namespace HDDL.Scanning.Monitoring
                 {
                     Error($"Failed to start watcher process for path '{watch.Path}'.", ex);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Removes the provided file system watcher from the list and properly shuts it down
+        /// </summary>
+        /// <param name="watcher">The watcher to remove</param>
+        private void RemoveWatcher(NonSpammingFileSystemWatcher watcher)
+        {
+            watcher.ReportDiskEvent -= Watcher_ReportDiskEvent;
+            watcher.MessageRelayed -= Watcher_MessageRelayed;
+            watcher.Stop();
+            _watchers.Remove(watcher);
+        }
+
+        /// <summary>
+        /// Adds passive monitoring for the Side Load Source as defined in the details
+        /// </summary>
+        private void AddSideLoadWatcher()
+        {
+            if (PathHelper.EndsInDirSeperator(_sideLoadDetails.SideLoadSource))
+            {
+                // it's a directory
+                _sideLoadWatcher = new NonSpammingFileSystemWatcher(_sideLoadDetails.SideLoadSource, GetMessagingMode());
+                _sideLoadWatcher.ReportDiskEvent += _sideLoadWatcher_ReportDiskEvent;
+                _sideLoadWatcher.MessageRelayed += _sideLoadWatcher_MessageRelayed;
+
+                if (_narrateProgress)
+                {
+                    Inform($"Loaded side-load watcher for directory '{_sideLoadDetails.SideLoadSource}'.");
+                }
+            }
+            else
+            {
+                // it's a file
+                FileInfo fi = new FileInfo(_sideLoadDetails.SideLoadSource);
+
+                _sideLoadWatcher = new NonSpammingFileSystemWatcher(
+                    fi.DirectoryName,
+                    GetMessagingMode(),
+                    filter: fi.Name);
+                _sideLoadWatcher.ReportDiskEvent += _sideLoadWatcher_ReportDiskEvent;
+                _sideLoadWatcher.MessageRelayed += _sideLoadWatcher_MessageRelayed;
+
+                if (_narrateProgress)
+                {
+                    Inform($"Loaded side-load watcher for file '{_sideLoadDetails.SideLoadSource}'.");
+                }
+            }
+        }
+
+        #endregion
+
+        #region Side Loading Watcher Events
+
+        /// <summary>
+        /// Receives disk events relayed from the side-loading watcher
+        /// </summary>
+        /// <param name="origin"></param>
+        /// <param name="message"></param>
+        private void _sideLoadWatcher_ReportDiskEvent(NonSpammingFileSystemWatcher origin, FileSystemWatcherEventNatures nature, FileSystemEventArgs e)
+        {
+            CallHandles();
+            Start();
+        }
+
+        /// <summary>
+        /// Receives messages relayed from the side-loading watcher
+        /// </summary>
+        /// <param name="origin"></param>
+        /// <param name="nature"></param>
+        /// <param name="e"></param>
+        private void _sideLoadWatcher_MessageRelayed(ReporterBase origin, MessageBundle message)
+        {
+            var watcher = origin as NonSpammingFileSystemWatcher;
+            if (watcher != null &&
+                message.Type == MessageTypes.Error)
+            {
+                Forward(message);
+
+                watcher.ReportDiskEvent -= Watcher_ReportDiskEvent;
+                watcher.MessageRelayed -= Watcher_MessageRelayed;
+                _sideLoadWatcher.Stop();
+                _sideLoadWatcher = null;
+
+                AddSideLoadWatcher();
+                Inform($"Successfully recycled the side-load watcher for path '{watcher.GetPath()}'.");
+            }
+            else
+            {
+                Forward(message);
             }
         }
 
@@ -230,10 +518,7 @@ namespace HDDL.Scanning.Monitoring
                 message.Type == MessageTypes.Error)
             {
                 Forward(message);
-
-                watcher.ReportDiskEvent -= Watcher_ReportDiskEvent;
-                watcher.MessageRelayed -= Watcher_MessageRelayed;
-                _watchers.Remove(watcher);
+                RemoveWatcher(watcher);
 
                 var watch = _dh.GetWatches().Where(w => w.Path == watcher.GetPath()).SingleOrDefault();
                 if (watch != null)
@@ -280,15 +565,48 @@ namespace HDDL.Scanning.Monitoring
         #endregion
 
         /// <summary>
+        /// Takes an HDSLResult instance and throws an exception if it contains errors
+        /// </summary>
+        /// <param name="result">The instance to check</param>
+        /// <param name="useEvents">If true, will use the event messages instead of an exception</param>
+        /// <returns>True if no errors, false otherwise</returns>
+        private bool ThrowErrorException(HDSLResult result, bool useEvents)
+        {
+            if (result.Errors.Length > 0)
+            {
+                var sb = new StringBuilder();
+                foreach (var error in result.Errors)
+                {
+                    if (sb.Length > 0)
+                    {
+                        sb.Append(", ");
+                    }
+                    sb.Append(error.ToString());
+                }
+
+                if (useEvents)
+                {
+                    Error(
+                        $"Scanner Kernal failed to execute fresh database initialization script.\n\nErrors: {sb}",
+                        new Exception($"Scanner Kernal failed to execute fresh database initialization script.\n\nErrors: {sb}"));
+                }
+                else
+                {
+                    throw new Exception($"Scanner Kernal failed to execute fresh database initialization script.\n\nErrors: {sb}");
+                }
+
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// Shuts down the Scanner Kernal
         /// </summary>
         public void Dispose()
         {
-            foreach (var watcher in _watchers)
-            {
-                watcher.Stop();
-            }
-
+            Reset();
             _dh.Dispose();
         }
     }

@@ -213,15 +213,15 @@ namespace HDDL.Scanning
             if (_displayMode != EventWrapperDisplayModes.Displayless)
             {
                 _scanner.ScanEventOccurred += Scanner_ScanEventOccurred;
-                _scanner.ScanEnded += Scanner_ScanEnded;
                 _scanner.ScanStarted += Scanner_ScanStarted;
-                _scanner.ScanDatabaseActivityCompleted += Scanner_ScanDatabaseActivityCompleted;
                 _scanner.DeletionsOccurred += Scanner_DeletionsOccurred;
                 _scanner.ScanExplorationBegins += _scanner_ScanExplorationBegins;
                 _scanner.ScanExplorationEnds += _scanner_ScanExplorationEnds;
                 _scanner.NoValidScanPaths += _scanner_NoValidScanPaths;
                 _scanner.ScanDiskExploring += _scanner_ScanDiskExploring;
             }
+            _scanner.ScanDatabaseActivityCompleted += Scanner_ScanDatabaseActivityCompleted;
+            _scanner.ScanEnded += Scanner_ScanEnded;
             _scanner.StartScan();
 
             while (!_done &&

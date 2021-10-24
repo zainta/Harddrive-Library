@@ -339,6 +339,10 @@ namespace HDDL.IO.Disk
                 }
             }
             var threads = roots.Count <= maxThreads ? roots.Count : maxThreads;
+            if (threads == 0)
+            {
+                return new PathSetData();
+            }
 
             // Figure out how many unique targets are getting scanned.
             // This eliminates paths within paths, ensuring we will not get any duplicates

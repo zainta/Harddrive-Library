@@ -254,7 +254,9 @@ namespace HDDL.HDSL
                 // if so, then this is a list
                 if (More(2) &&
                     Peek().Type == HDSLTokenTypes.Comma &&
-                    (Peek(1).Type == HDSLTokenTypes.String || Peek(1).Type == HDSLTokenTypes.BookmarkReference))
+                    (Peek(1).Type == HDSLTokenTypes.String || 
+                    Peek(1).Type == HDSLTokenTypes.BookmarkReference || 
+                    Peek(1).Type == HDSLTokenTypes.Force))
                 {
                     // strip the comma so the loop continues
                     Pop();
