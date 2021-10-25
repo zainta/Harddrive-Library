@@ -170,7 +170,7 @@ namespace HDDL.HDSL.Where
             return (T)result;
         }
 
-        public override string ToString()
+        public string ToSQL()
         {
             var result = string.Empty;
             if (IsSlug)
@@ -219,6 +219,70 @@ namespace HDDL.HDSL.Where
                 {
                     case WhereValueTypes.DateTime:
                         result = $"'{DateTimeDataHelper.ConvertToString((DateTime)_actual)}'";
+                        break;
+                    case WhereValueTypes.String:
+                        result = $"'{_actual}'";
+                        break;
+                    case WhereValueTypes.RealNumber:
+                    case WhereValueTypes.WholeNumber:
+                        result = _actual.ToString();
+                        break;
+
+                }
+            }
+
+            return result;
+        }
+
+        public override string ToString()
+        {
+            var result = string.Empty;
+            if (IsSlug)
+            {
+                switch (Keyword)
+                {
+                    case HDSLTokenTypes.Size:
+                        result = "size";
+                        break;
+                    case HDSLTokenTypes.Written:
+                        result = "written";
+                        break;
+                    case HDSLTokenTypes.Accessed:
+                        result = "accessed";
+                        break;
+                    case HDSLTokenTypes.Created:
+                        result = "created";
+                        break;
+                    case HDSLTokenTypes.Extension:
+                        result = "extension";
+                        break;
+                    case HDSLTokenTypes.LastScan:
+                        result = "last";
+                        break;
+                    case HDSLTokenTypes.FirstScan:
+                        result = "first";
+                        break;
+                    case HDSLTokenTypes.Name:
+                        result = "name";
+                        break;
+                    case HDSLTokenTypes.Now:
+                        result = DateTimeDataHelper.ConvertToString(Now);
+                        break;
+                    case HDSLTokenTypes.AttributeLiteral:
+                        result = _actual.ToString();
+                        break;
+                }
+            }
+            else if (ValueType == WhereValueTypes.AttributeLiteral)
+            {
+                result = _actual.ToString();
+            }
+            else
+            {
+                switch (ValueType)
+                {
+                    case WhereValueTypes.DateTime:
+                        result = $"#{DateTimeDataHelper.ConvertToString((DateTime)_actual)}#";
                         break;
                     case WhereValueTypes.String:
                         result = $"'{_actual}'";

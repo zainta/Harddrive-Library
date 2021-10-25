@@ -197,11 +197,11 @@ namespace HDDL.HDSL.Where
             }
             else if (LeftValue != null && RightValue != null)
             {
-                result = $"{LeftValue} {GetOperatorSign()} {RightValue}";
+                result = $"{LeftValue.ToSQL()} {GetOperatorSign()} {RightValue.ToSQL()}";
             }
             else if (this is Has || this is HasNot)
             {
-                var attributeValue = Convert.ToInt32(Enum.Parse<FileAttributes>(RightValue.ToString()));
+                var attributeValue = Convert.ToInt32(Enum.Parse<FileAttributes>(RightValue.ToSQL()));
                 if (this is Has)
                 {
                     result = $"attributes & {attributeValue} = {attributeValue}";

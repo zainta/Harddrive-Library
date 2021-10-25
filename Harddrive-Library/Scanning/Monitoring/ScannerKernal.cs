@@ -171,7 +171,8 @@ namespace HDDL.Scanning.Monitoring
         /// <summary>
         /// Reads the database and instatiates all of the monitoring systems
         /// </summary>
-        public void Initialize()
+        /// <returns>True if initialization was successful, false otherwise</returns>
+        public bool Initialize()
         {
             if (!File.Exists(_dbPath))
             {
@@ -192,7 +193,7 @@ namespace HDDL.Scanning.Monitoring
                     {
                         result = HDSLProvider.ExecuteCode(_sideLoadDetails.InitialLoadSource, _dh);
                     }
-                    ThrowErrorException(result, false);
+                    if (!ReportResultProblem(result, _sideLoadDetails.InitialLoadSource)) return false;
                 }
             }
             else
@@ -200,7 +201,9 @@ namespace HDDL.Scanning.Monitoring
                 _dh = new DataHandler(_dbPath);
             }
 
-            CallHandles();
+            if (!CallHandles()) return false;
+
+            return true;
         }
 
         /// <summary>
@@ -220,7 +223,7 @@ namespace HDDL.Scanning.Monitoring
                     Inform($"Side-loading '{file}'.");
                 }
                 var result = HDSLProvider.ExecuteScript(file, _dh);
-                if (ThrowErrorException(result, true))
+                if (ReportResultProblem(result, file))
                 {
                     // if we successfully run the script then mark the file as consumed
                     if (_sideLoadDetails.DeleteSideLoadSource)
@@ -261,7 +264,7 @@ namespace HDDL.Scanning.Monitoring
         /// <summary>
         /// Handles generating the wards and their passive monitors
         /// </summary>
-        private void HandleWards()
+        private bool HandleWards()
         {
             if (_narrateProgress)
             {
@@ -270,12 +273,14 @@ namespace HDDL.Scanning.Monitoring
 
             _monitor = new IntegrityMonitorSymphony(_dh, GetMessagingMode());
             _monitor.MessageRelayed += _monitor_MessageRelayed;
+
+            return true;
         }
 
         /// <summary>
         /// Handles generating the watches and their passive monitors
         /// </summary>
-        private void HandleWatches()
+        private bool HandleWatches()
         {
             if (_watchers == null)
             {
@@ -315,6 +320,7 @@ namespace HDDL.Scanning.Monitoring
             }
 
             _dh.WriteWatches();
+            return true;
         }
 
         #endregion
@@ -324,11 +330,13 @@ namespace HDDL.Scanning.Monitoring
         /// <summary>
         /// Calls the handler methods
         /// </summary>
-        private void CallHandles()
+        private bool CallHandles()
         {
-            HandleSideLoad();
-            HandleWatches();
-            //HandleWards();
+            if (!HandleSideLoad()) return false;
+            if (!HandleWatches()) return false;
+            if (!HandleWards()) return false;
+
+            return true;
         }
 
         /// <summary>
@@ -351,7 +359,7 @@ namespace HDDL.Scanning.Monitoring
                         Inform($"Performing initial scan for watcher '{watch.Path}'.");
                     }
                     var result = HDSLProvider.ExecuteCode($"scan quiet '{watch.Path.Replace("\\", "\\\\")}';", _dh);
-                    if (ThrowErrorException(result, true))
+                    if (ReportResultProblem(result, watch.Path))
                     {
                         watch.InPassiveMode = true;
                         _dh.Update(watch);
@@ -568,9 +576,9 @@ namespace HDDL.Scanning.Monitoring
         /// Takes an HDSLResult instance and throws an exception if it contains errors
         /// </summary>
         /// <param name="result">The instance to check</param>
-        /// <param name="useEvents">If true, will use the event messages instead of an exception</param>
+        /// <param name="scriptPath">The script that failed to execute</param>
         /// <returns>True if no errors, false otherwise</returns>
-        private bool ThrowErrorException(HDSLResult result, bool useEvents)
+        private bool ReportResultProblem(HDSLResult result, string scriptPath)
         {
             if (result.Errors.Length > 0)
             {
@@ -584,16 +592,8 @@ namespace HDDL.Scanning.Monitoring
                     sb.Append(error.ToString());
                 }
 
-                if (useEvents)
-                {
-                    Error(
-                        $"Scanner Kernal failed to execute fresh database initialization script.\n\nErrors: {sb}",
-                        new Exception($"Scanner Kernal failed to execute fresh database initialization script.\n\nErrors: {sb}"));
-                }
-                else
-                {
-                    throw new Exception($"Scanner Kernal failed to execute fresh database initialization script.\n\nErrors: {sb}");
-                }
+                Error($"Failed to correctly execute script '{scriptPath}'.\n\nErrors: {sb}",
+                        new Exception($"Failed to correctly execute script '{scriptPath}'.\n\nErrors: {sb}"));
 
                 return false;
             }

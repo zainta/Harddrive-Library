@@ -578,7 +578,7 @@ namespace HDDL.HDSL
                 {
                     token = new HDSLToken(HDSLTokenTypes.Created, keyword.ToString(), row, col, text);
                 }
-                else if (text == "ext")
+                else if (text == "extension")
                 {
                     token = new HDSLToken(HDSLTokenTypes.Extension, keyword.ToString(), row, col, text);
                 }

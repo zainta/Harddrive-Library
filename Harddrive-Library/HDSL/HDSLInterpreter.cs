@@ -552,7 +552,7 @@ namespace HDDL.HDSL
                             var ward = new WardItem()
                             {
                                 Id = Guid.NewGuid(),
-                                HDSL = $"check quiet '{details.Wildcard}' {details.Method.ToString().ToLower()} '{path}' {whereKeyword}{details.FurtherDetails};",
+                                HDSL = $"check quiet '{details.Wildcard}' {details.Method.ToString().ToLower()} '{path.Replace(@"\", @"\\")}' {whereKeyword}{details.FurtherDetails};",
                                 NextScan = DateTime.Now,
                                 Path = path,
                                 Target = null,
@@ -607,11 +607,6 @@ namespace HDDL.HDSL
                         return scan.Result;
                     }
                 }
-                else
-                {
-                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"The integrity check's feeder query returned no results."));
-                }
-
             }
             else
             {

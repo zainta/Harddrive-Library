@@ -151,16 +151,16 @@ namespace HDDL.Scanning.Monitoring
                             var set = result.Results.FirstOrDefault() as IntegrityScanResultSet;
                             if (set == null)
                             {
-                                Inform($"Successfully executed integrity scan '{due.HDSL}'.");
+                                Issue($"Unexpected result set returned. Type '{result.Results.FirstOrDefault().GetType().FullName}' was returned instead of '{typeof(IntegrityScanResultSet).FullName}'."); 
                             }
                             else
                             {
-                                Issue($"Unexpected result set returned. Type '{result.Results.FirstOrDefault().GetType().FullName}' was returned instead of '{typeof(IntegrityScanResultSet).FullName}'.");
+                                Inform($"Successfully executed integrity scan '{due.HDSL}'.");
                             }
                         }
 
                         // update the scan's due date to now + interval.
-                        // This prevents scans from being scanned.
+                        // This prevents scans from being spammed.
                         due.NextScan = DateTime.Now.Add(due.Interval);
                         _dh.Update(due);
                         _dh.WriteWards();

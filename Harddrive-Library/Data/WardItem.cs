@@ -87,7 +87,7 @@ namespace HDDL.Data
         /// <returns>The line of SQL</returns>
         public override string ToUpdateStatement()
         {
-            return $@"update watches 
+            return $@"update wards 
                         set path = '{DataHelper.Sanitize(Path)}',
                             call = '{DataHelper.Sanitize(HDSL)}',
                             scheduledFor = '{DateTimeDataHelper.ConvertToString(NextScan)}',
