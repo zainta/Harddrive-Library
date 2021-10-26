@@ -70,7 +70,7 @@ namespace HDDL.Scanning.Monitoring
         /// Reports an issue that was successfully recovered from
         /// </summary>
         /// <param name="message">A description of the issue</param>
-        protected void Issue(string message)
+        protected void Warn(string message)
         {
             if (_messenging.HasFlag(MessagingModes.Errors))
             {

@@ -39,45 +39,14 @@ namespace Harddrive_Library_Passive_Scanner
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            #region Initialization
-
-            var errorInitializing = false;
-            try
-            {
-                HDSLResult outcome = null;
-                if (!File.Exists(_iniFile[@"HDSL_DB>DatabaseLocation"].Value))
-                {
-                    if (File.Exists(_iniFile[@"HDSL_Scans>InitialScript"].Value))
-                    {
-                        outcome = HDSLProvider.ExecuteScript(_iniFile[@"HDSL_Scans>InitialScript"].Value, _iniFile[@"HDSL_DB>DatabaseLocation"].Value);
-                    }
-                    else
-                    {
-                        outcome = HDSLProvider.ExecuteCode(_iniFile[@"HDSL_Scans>InitialScript"].Value, _iniFile[@"HDSL_DB>DatabaseLocation"].Value);
-                    }
-                }
-
-                if (outcome.Errors.Length > 0)
-                {
-                    _logger.LogError($"The following errors occurred during initial script execution: {string.Join<HDSLLogBase>('\n', outcome.Errors)}");
-                    errorInitializing = true;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"An exception occurred during the initial script.  {ex}");
-                errorInitializing = true;
-            }
-
-            #endregion
-
-            if (!errorInitializing)
-            {
-                using (var sk = new ScannerKernal(
-                    _iniFile[@"HDSL_Passives>InitialScript"].Value, 
+            using (var sk = new ScannerKernal(
+                    _iniFile[@"HDSL_Passives>InitialScript"].Value,
                     new ScriptLoadingDetails(_iniFile),
                     MessagingModes.Errors | MessagingModes.Information,
                     false))
+            {
+                sk.MessageRelayed += Sk_MessageRelayed; ;
+                if (sk.Initialize())
                 {
                     while (!stoppingToken.IsCancellationRequested)
                     {
@@ -87,6 +56,22 @@ namespace Harddrive_Library_Passive_Scanner
                         //await Task.Delay(1000, stoppingToken);
                     }
                 }
+            }
+        }
+
+        private void Sk_MessageRelayed(ReporterBase origin, MessageBundle message)
+        {
+            switch (message.Type)
+            {
+                case MessageTypes.Error:
+                    _logger.LogError(message.Message, message.Error);
+                    break;
+                case MessageTypes.Information:
+                    _logger.LogInformation(message.Message);
+                    break;
+                case MessageTypes.Warning:
+                    _logger.LogWarning(message.Message);
+                    break;
             }
         }
     }

@@ -86,9 +86,12 @@ namespace HDDL.HDSL
                 {
                     continue;
                 }
-                else if(More() && Peek() == '\'' && GetString()) // String (also stores paths)
+                else if((More() && Peek() == '\'') || (More(1) && PeekStr(length:2) == "@'"))
                 {
-                    continue;
+                    if (GetString())
+                    {
+                        continue;
+                    }
                 }
                 else if (More() && Peek() == ',') // Comma
                 {
@@ -367,7 +370,13 @@ namespace HDDL.HDSL
         /// <returns>Whether or not a token was generated (if not, implies an error)</returns>
         bool GetString()
         {
-            var bookmark = GetPairedSet('\'', '\'', '\\');
+            bool cantEscape = (Peek() == '@');
+            if (cantEscape)
+            {
+                Pop();
+            }
+
+            var bookmark = GetPairedSet('\'', '\'', cantEscape ? null : '\\');
             if (bookmark != null)
             {
                 Tokens.Add(new HDSLToken(HDSLTokenTypes.String, bookmark[1], row, col, bookmark[0]));

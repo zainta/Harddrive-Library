@@ -43,3 +43,4 @@ Special Keywords
 
 	In HDSL, there are some special keywords that can be used universally, but only under specific circumstances.
 		The force keyword can be used prior to any path or bookmark anywhere a list of paths is valid (see syntax above).  When used, it will cause the statement to no longer validate the path's existence.  This allows, for example, explicit exclusion of files that do not yet exist but will in the future.
+		The ampersand `@`, when preceding a string, will make that string ignore escape sequences.  

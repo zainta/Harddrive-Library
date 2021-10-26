@@ -54,6 +54,11 @@ namespace HDDL.Scanning.Monitoring
         private bool _narrateProgress;
 
         /// <summary>
+        /// The scanner kernal's activity state
+        /// </summary>
+        public bool Active { get; private set; }
+
+        /// <summary>
         /// Creates a Scanner Kernal
         /// </summary>
         /// <param name="dbPath">The path to an existing database file</param>
@@ -61,7 +66,7 @@ namespace HDDL.Scanning.Monitoring
         /// <param name="messenging">The kinds and styles of messages that will be relayed</param>
         /// <param name="narrateProgress">Whether the ScannerKernal should narrate its internal processes</param>
         public ScannerKernal(
-            string dbPath, 
+            string dbPath,
             ScriptLoadingDetails sideLoadDetails,
             MessagingModes messenging,
             bool narrateProgress) : base(messenging)
@@ -70,6 +75,7 @@ namespace HDDL.Scanning.Monitoring
             _sideLoadWatcher = null;
             _dbPath = dbPath;
             _sideLoadDetails = sideLoadDetails;
+            Active = false;
         }
 
         /// <summary>
@@ -83,6 +89,7 @@ namespace HDDL.Scanning.Monitoring
             _sideLoadWatcher = null;
             _dh = dh;
             _sideLoadDetails = sideLoadDetails;
+            Active = false;
         }
 
         #region Control
@@ -96,13 +103,7 @@ namespace HDDL.Scanning.Monitoring
             {
                 Inform("Starting.");
             }
-            _monitor?.Start();
-            _watchers?.ForEach(w => w.Start());
-
-            if (_sideLoadWatcher != null)
-            {
-                _sideLoadWatcher.Start();
-            }
+            SilentStart();
         }
 
         /// <summary>
@@ -118,6 +119,22 @@ namespace HDDL.Scanning.Monitoring
         }
 
         /// <summary>
+        /// Starts the kernal's sub components
+        /// </summary>
+        private void SilentStart()
+        {
+            _monitor?.Start();
+            _watchers?.ForEach(w => w.Start());
+
+            if (_sideLoadWatcher != null)
+            {
+                _sideLoadWatcher.Start();
+            }
+
+            Active = true;
+        }
+
+        /// <summary>
         /// Stops the kernal's sub components
         /// </summary>
         private void SilentStop()
@@ -129,6 +146,8 @@ namespace HDDL.Scanning.Monitoring
             {
                 _sideLoadWatcher.Stop();
             }
+
+            Active = false;
         }
 
         /// <summary>
@@ -167,6 +186,39 @@ namespace HDDL.Scanning.Monitoring
         #endregion
 
         #region Utility Methods
+
+        /// <summary>
+        /// Causes the ScannerKernal to execute a chunk of code
+        /// </summary>
+        /// <param name="code">The HDSL code to execute</param>
+        /// <returns>The code's outcome</returns>
+        public HDSLResult Execute(string code)
+        {
+            if (_narrateProgress)
+            {
+                Inform("Pausing for side-load...");
+            }
+
+            HDSLResult result = null;
+            try
+            {
+                Reset();
+                result = HDSLProvider.ExecuteCode(code, _dh);
+                CallHandles();
+            }
+            catch (Exception ex)
+            {
+                Error($"An error occurred while performing a code request.", ex);
+            }
+
+            if (_narrateProgress)
+            {
+                Inform("Resuming...");
+            }
+            SilentStart();
+
+            return result;
+        }
 
         /// <summary>
         /// Reads the database and instatiates all of the monitoring systems
@@ -430,6 +482,11 @@ namespace HDDL.Scanning.Monitoring
                     Inform($"Loaded side-load watcher for file '{_sideLoadDetails.SideLoadSource}'.");
                 }
             }
+
+            if (Active)
+            {
+                _monitor.Start();
+            }
         }
 
         #endregion
@@ -443,8 +500,16 @@ namespace HDDL.Scanning.Monitoring
         /// <param name="message"></param>
         private void _sideLoadWatcher_ReportDiskEvent(NonSpammingFileSystemWatcher origin, FileSystemWatcherEventNatures nature, FileSystemEventArgs e)
         {
+            if (_narrateProgress)
+            {
+                Inform("Pausing for side-load...");
+            }
             CallHandles();
-            Start();
+            if (_narrateProgress)
+            {
+                Inform("Resuming...");
+            }
+            SilentStart();
         }
 
         /// <summary>
@@ -467,7 +532,7 @@ namespace HDDL.Scanning.Monitoring
                 _sideLoadWatcher = null;
 
                 AddSideLoadWatcher();
-                Inform($"Successfully recycled the side-load watcher for path '{watcher.GetPath()}'.");
+                Warn($"Successfully recycled the side-load watcher for path '{watcher.GetPath()}'.");
             }
             else
             {
@@ -507,7 +572,7 @@ namespace HDDL.Scanning.Monitoring
                         var scanWrapper = new DiskScanEventWrapper(_dh, new string[] { e.FullPath }, false, EventWrapperDisplayModes.Displayless);
                         if (!scanWrapper.Go())
                         {
-                            Issue($"Failed a scan on '{e.FullPath}'.");
+                            Warn($"Failed a scan on '{e.FullPath}'.");
                         }
                     }
                     break;
@@ -522,7 +587,7 @@ namespace HDDL.Scanning.Monitoring
         private void Watcher_MessageRelayed(ReporterBase origin, MessageBundle message)
         {
             var watcher = origin as NonSpammingFileSystemWatcher;
-            if (watcher != null && 
+            if (watcher != null &&
                 message.Type == MessageTypes.Error)
             {
                 Forward(message);
@@ -532,7 +597,7 @@ namespace HDDL.Scanning.Monitoring
                 if (watch != null)
                 {
                     AddWatch(watch);
-                    Inform($"Successfully recycled watcher for path '{watcher.GetPath()}'.");
+                    Warn($"Successfully recycled watcher for path '{watcher.GetPath()}'.");
                 }
             }
             else
@@ -561,8 +626,12 @@ namespace HDDL.Scanning.Monitoring
                 _monitor = new IntegrityMonitorSymphony(_dh, GetMessagingMode());
                 _monitor.MessageRelayed += _monitor_MessageRelayed;
                 monitor = _monitor;
+                if (Active)
+                {
+                    _monitor.Start();
+                }
 
-                Inform($"Successfully recycled integrity scan queue monitor.");
+                Warn($"Successfully recycled integrity scan queue monitor.");
             }
             else
             {

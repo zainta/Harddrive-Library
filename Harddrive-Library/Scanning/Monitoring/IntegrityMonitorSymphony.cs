@@ -144,14 +144,14 @@ namespace HDDL.Scanning.Monitoring
                                 sb.AppendLine(error.ToString());
                             }
 
-                            Issue(sb.ToString());
+                            Warn(sb.ToString());
                         }
                         else
                         {
                             var set = result.Results.FirstOrDefault() as IntegrityScanResultSet;
                             if (set == null)
                             {
-                                Issue($"Unexpected result set returned. Type '{result.Results.FirstOrDefault().GetType().FullName}' was returned instead of '{typeof(IntegrityScanResultSet).FullName}'."); 
+                                Warn($"Unexpected result set returned. Type '{result.Results.FirstOrDefault().GetType().FullName}' was returned instead of '{typeof(IntegrityScanResultSet).FullName}'."); 
                             }
                             else
                             {
