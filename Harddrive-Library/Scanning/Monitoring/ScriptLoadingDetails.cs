@@ -115,7 +115,8 @@ namespace HDDL.Scanning.Monitoring
             }
 
             var monitor = false;
-            if (!bool.TryParse(iniFile[@"HDSL_Passives>MonitorDuringRuntime"].Value, out monitor))
+            var monitorDuringRuntime = iniFile[@"HDSL_Passives>MonitorDuringRuntime"]?.Value == null ? string.Empty : iniFile[@"HDSL_Passives>MonitorDuringRuntime"]?.Value;
+            if (!bool.TryParse(monitorDuringRuntime, out monitor))
             {
                 throw new ArgumentException($"Ini file value 'HDSL_Passives > MonitorDuringRuntime' must be either 'true' or 'false'.");
             }

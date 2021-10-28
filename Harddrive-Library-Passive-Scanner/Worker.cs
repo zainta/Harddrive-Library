@@ -2,14 +2,10 @@
 // Licensed under the MIT License, (the "License"); you may not use this file except in compliance with the License. 
 // You may obtain a copy of the License at https://mit-license.org/
 
-using HDDL.HDSL;
-using HDDL.HDSL.Logging;
 using HDDL.IO.Settings;
-using HDDL.Scanning;
 using HDDL.Scanning.Monitoring;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using System;
 using System.IO;
 using System.Reflection;
 using System.Threading;
@@ -40,7 +36,7 @@ namespace Harddrive_Library_Passive_Scanner
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             using (var sk = new ScannerKernal(
-                    _iniFile[@"HDSL_Passives>InitialScript"].Value,
+                    _iniFile[@"HDSL_DB>DatabaseLocation"].Value,
                     new ScriptLoadingDetails(_iniFile),
                     MessagingModes.Errors | MessagingModes.Information,
                     false))
@@ -48,13 +44,12 @@ namespace Harddrive_Library_Passive_Scanner
                 sk.MessageRelayed += Sk_MessageRelayed; ;
                 if (sk.Initialize())
                 {
+                    sk.Start();
                     while (!stoppingToken.IsCancellationRequested)
                     {
-
-
-                        //_logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
-                        //await Task.Delay(1000, stoppingToken);
+                        await Task.Delay(1000, stoppingToken);
                     }
+                    sk.Stop();
                 }
             }
         }
