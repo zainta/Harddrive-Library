@@ -165,7 +165,8 @@ namespace HDDL.Scanning.Monitoring
             SourceFolderSearchPattern = sourceFolderSearchPattern;
             DeleteSideLoadSource = deleteSideLoadSource;
 
-            // to passively monitor, the user must provide an existing file or directory path
+            // to passively monitor, the user must provide a file or directory path.
+            // they don't have to exist at the time
             MonitorDuringRuntime = monitorDuringRuntime && !string.IsNullOrWhiteSpace(SideLoadSource) ? true : false;
         }
 
