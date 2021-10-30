@@ -186,6 +186,69 @@ namespace HDDL.HDSL
         }
 
         /// <summary>
+        /// Interprets and returns a single path
+        /// </summary>
+        /// <param name="expandBookmarks">Whether or not to automatically expand bookmarks</param>
+        /// <returns></returns>
+        private string GetPath(bool expandBookmarks = true)
+        {
+            var forced = false;
+            // if the force keyword shows up and the next token is a string or bookmark then continue
+            if (More(1) &&
+                Peek().Type == HDSLTokenTypes.Force &&
+                (Peek(1).Type == HDSLTokenTypes.String || Peek(1).Type == HDSLTokenTypes.BookmarkReference))
+            {
+                Pop();
+                forced = true;
+            }
+
+            // get the value in its proper form
+            string path = null;
+            if (Peek().Type == HDSLTokenTypes.BookmarkReference)
+            {
+                if (expandBookmarks)
+                {
+                    path = _dh.ApplyBookmarks(Pop().Code);
+                }
+                else
+                {
+                    path = Pop().Code;
+                }
+            }
+            else
+            {
+                path = Pop().Literal;
+            }
+
+            // process the value and ensure it is a proper path
+            string result = null;
+            if (BookmarkItem.HasBookmark(path))
+            {
+                // if there is a bookmark then expand it to properly test
+                var expanded = _dh.ApplyBookmarks(path);
+                result = PathHelper.EnsurePath(expanded, forced);
+
+                // if we are not expanding the bookmarks then
+                // we have to keep the non-expanded one after ensuring that the test succeeded.
+                if (!expandBookmarks && !string.IsNullOrWhiteSpace(result))
+                {
+                    result = path;
+                }
+            }
+            else
+            {
+                result = PathHelper.EnsurePath(path, forced);
+            }
+
+            if (!string.IsNullOrWhiteSpace(result))
+            {
+                return result;
+            }
+
+            return null;
+        }
+
+        /// <summary>
         /// Interprets and returns a comma seperated list of strings
         /// </summary>
         /// <param name="failOnNone">Whether or not the method should log an error if no paths are discovered</param>
@@ -203,57 +266,10 @@ namespace HDDL.HDSL
                 // save the first one for error reporting
                 if (first == null) first = Peek();
 
-                var forced = false;
-                // if the force keyword shows up and the next token is a string or bookmark then continue
-                if (More(1) &&
-                    Peek().Type == HDSLTokenTypes.Force &&
-                    (Peek(1).Type == HDSLTokenTypes.String || Peek(1).Type == HDSLTokenTypes.BookmarkReference))
+                var path = GetPath(expandBookmarks);
+                if (!string.IsNullOrWhiteSpace(path))
                 {
-                    Pop();
-                    forced = true;
-                }
-
-                // get the value in its proper form
-                string path = null;
-                if (Peek().Type == HDSLTokenTypes.BookmarkReference)
-                {
-                    if (expandBookmarks)
-                    {
-                        path = _dh.ApplyBookmarks(Pop().Code);
-                    }
-                    else
-                    {
-                        path = Pop().Code;
-                    }
-                }
-                else
-                {
-                    path = Pop().Literal;
-                }
-
-                // process the value and ensure it is a proper path
-                string result = null;
-                if (BookmarkItem.HasBookmark(path))
-                {
-                    // if there is a bookmark then expand it to properly test
-                    var expanded = _dh.ApplyBookmarks(path);
-                    result = PathHelper.EnsurePath(expanded, forced);
-
-                    // if we are not expanding the bookmarks then
-                    // we have to keep the non-expanded one after ensuring that the test succeeded.
-                    if (!expandBookmarks && !string.IsNullOrWhiteSpace(result))
-                    {
-                        result = path;
-                    }
-                }
-                else
-                {
-                    result = PathHelper.EnsurePath(path, forced);
-                }
-
-                if (!string.IsNullOrWhiteSpace(result))
-                {
-                    results.Add(result);
+                    results.Add(path);
                 }
 
                 // check if we have at least 2 more tokens remaining, one is a comma and the next is a string or bookmark
@@ -540,10 +556,9 @@ namespace HDDL.HDSL
         /// Purpose:
         /// Changing where "text" mode of certain statement's send their output
         /// 
-        /// Note that the statement allows multiple paths but will only write to the last one provided
-        /// Also note that not providing a path will result in the behavior of "Reset out;"
+        /// Note that not providing a path will result in the behavior of "Reset out;"
         /// Syntax:
-        /// Set out | standard | error path[, path, path];
+        /// Set out | standard | error path;
         /// </summary>
         private void HandleSetStatement()
         {
@@ -580,8 +595,8 @@ namespace HDDL.HDSL
 
                     if (error || standard)
                     {
-                        var paths = GetPathList(false, true);
-                        if (paths.Count == 0)
+                        var path = GetPath(true);
+                        if (!string.IsNullOrWhiteSpace(path))
                         {
                             if (standard)
                             {
@@ -597,7 +612,7 @@ namespace HDDL.HDSL
                         {
                             try
                             {
-                                var strm = new StreamWriter(File.OpenWrite(paths.Last()));
+                                var strm = new StreamWriter(File.OpenWrite(path));
                                 strm.AutoFlush = true;
 
                                 if (standard)

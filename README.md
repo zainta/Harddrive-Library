@@ -119,8 +119,8 @@ HDSL is a simple query language designed for the retrieval of files and director
      * e.g `5:::` means 5 days.
      * e.g `10::` means 10 hours.
      * e.g `1::2:30` means 1 day, 2 minutes, and 30 seconds.
- * `set out | standard | error path[, path, path];`
-   * Changes the console's output to the last provided path in the list.
+ * `set out | standard | error path;`
+   * Redirects the console's output to the provided path.
    * Using `standard` changes the standard output, `error` the error, and `out` will change both.
    * e.g `set standard @'C:\HDSL\activity.log';` will reroute standard output to the C:\HDSL\Activity.log file.
  * `reset out | standard | error;`
