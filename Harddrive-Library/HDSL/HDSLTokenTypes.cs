@@ -47,11 +47,15 @@ namespace HDDL.HDSL
         Exclusions,
         Ward, // describes a periodic integrity check
         Watch, // describes an initial scan + follow up monitoring
-        Reset, // used to force a watch to be reenacted as if freshly created
         Wards,
         Watches,
         Passive,
         Force,
+        Reset,
+        Set,
+        Out,
+        Error,
+        Standard,
 
         // value keywords
         Size,

@@ -691,6 +691,26 @@ namespace HDDL.HDSL
                 {
                     token = new HDSLToken(HDSLTokenTypes.Force, keyword.ToString(), row, col, text);
                 }
+                else if (text == "set")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Set, keyword.ToString(), row, col, text);
+                }
+                else if (text == "out")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Out, keyword.ToString(), row, col, text);
+                }
+                else if (text == "reset")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Reset, keyword.ToString(), row, col, text);
+                }
+                else if (text == "error")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Error, keyword.ToString(), row, col, text);
+                }
+                else if (text == "standard")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Standard, keyword.ToString(), row, col, text);
+                }
                 else if (IsDiskAttributeName(text))
                 {
                     token = new HDSLToken(HDSLTokenTypes.AttributeLiteral, keyword.ToString(), row, col, GetDiskAttributeName(text));

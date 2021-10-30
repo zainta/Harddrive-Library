@@ -102,6 +102,12 @@ namespace HDDL.HDSL
                         case HDSLTokenTypes.Watch:
                             HandleWatchDefinition();
                             break;
+                        case HDSLTokenTypes.Set:
+                            HandleSetStatement();
+                            break;
+                        case HDSLTokenTypes.Reset:
+                            HandleResetStatement();
+                            break;
                         default:
                             _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Unexpected token '{Peek().Code}'."));
                             done = true;
@@ -190,7 +196,7 @@ namespace HDDL.HDSL
             HDSLToken first = null;
             var results = new List<string>();
             // get the list of paths
-            while (More() && Peek().Type == HDSLTokenTypes.String || 
+            while (More() && Peek().Type == HDSLTokenTypes.String ||
                 Peek().Type == HDSLTokenTypes.BookmarkReference ||
                 Peek().Type == HDSLTokenTypes.Force)
             {
@@ -199,7 +205,7 @@ namespace HDDL.HDSL
 
                 var forced = false;
                 // if the force keyword shows up and the next token is a string or bookmark then continue
-                if (More(1) && 
+                if (More(1) &&
                     Peek().Type == HDSLTokenTypes.Force &&
                     (Peek(1).Type == HDSLTokenTypes.String || Peek(1).Type == HDSLTokenTypes.BookmarkReference))
                 {
@@ -254,8 +260,8 @@ namespace HDDL.HDSL
                 // if so, then this is a list
                 if (More(2) &&
                     Peek().Type == HDSLTokenTypes.Comma &&
-                    (Peek(1).Type == HDSLTokenTypes.String || 
-                    Peek(1).Type == HDSLTokenTypes.BookmarkReference || 
+                    (Peek(1).Type == HDSLTokenTypes.String ||
+                    Peek(1).Type == HDSLTokenTypes.BookmarkReference ||
                     Peek(1).Type == HDSLTokenTypes.Force))
                 {
                     // strip the comma so the loop continues
@@ -457,9 +463,170 @@ namespace HDDL.HDSL
             return ts;
         }
 
+        /// <summary>
+        /// Resets the console standard stream to its default
+        /// </summary>
+        private void ResetStandardOutputToDefault()
+        {
+            var strm = new StreamWriter(Console.OpenStandardOutput());
+            strm.AutoFlush = true;
+            Console.SetOut(strm);
+        }
+
+        /// <summary>
+        /// Resets the console error stream to its default
+        /// </summary>
+        private void ResetStandardErrorToDefault()
+        {
+            var strm = new StreamWriter(Console.OpenStandardError());
+            strm.AutoFlush = true;
+            Console.SetError(strm);
+        }
+
         #endregion
 
         #region Statement Handlers
+
+        /// <summary>
+        /// Resets the output back to the default
+        /// 
+        /// Purpose:
+        /// Resets where either, or both, of the console output streams write to
+        /// 
+        /// Syntax:
+        /// Reset out | standard | error;
+        /// </summary>
+        private void HandleResetStatement()
+        {
+            if (Peek().Type == HDSLTokenTypes.Reset)
+            {
+                Pop();
+                if (More())
+                {
+                    if (Peek().Type == HDSLTokenTypes.Out)
+                    {
+                        Pop();
+
+                        ResetStandardOutputToDefault();
+                        ResetStandardErrorToDefault();
+                    }
+                    else if (Peek().Type == HDSLTokenTypes.Standard)
+                    {
+                        Pop();
+
+                        ResetStandardOutputToDefault();
+                    }
+                    else if (Peek().Type == HDSLTokenTypes.Error)
+                    {
+                        Pop();
+
+                        ResetStandardErrorToDefault();
+                    }
+                    else
+                    {
+                        _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'out', 'standard', or 'error' expected."));
+                    }
+                }
+            }
+            else
+            {
+                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'reset' expected."));
+            }
+        }
+
+        /// <summary>
+        /// Allows the modification of various language and system settings through HDSL
+        /// 
+        /// Purpose:
+        /// Changing where "text" mode of certain statement's send their output
+        /// 
+        /// Note that the statement allows multiple paths but will only write to the last one provided
+        /// Also note that not providing a path will result in the behavior of "Reset out;"
+        /// Syntax:
+        /// Set out | standard | error path[, path, path];
+        /// </summary>
+        private void HandleSetStatement()
+        {
+            if (Peek().Type == HDSLTokenTypes.Set)
+            {
+                Pop();
+
+                if (More())
+                {
+                    bool error = false;
+                    bool standard = false;
+                    switch (Peek().Type)
+                    {
+                        case HDSLTokenTypes.Out:
+                            Pop();
+
+                            error = true;
+                            standard = true;
+                            break;
+                        case HDSLTokenTypes.Error:
+                            Pop();
+
+                            error = true;
+                            break;
+                        case HDSLTokenTypes.Standard:
+                            Pop();
+
+                            standard = true;
+                            break;
+                        default:
+                            _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'out', 'standard', or 'error' expected."));
+                            break;
+                    }
+
+                    if (error || standard)
+                    {
+                        var paths = GetPathList(false, true);
+                        if (paths.Count == 0)
+                        {
+                            if (standard)
+                            {
+                                ResetStandardOutputToDefault();
+                            }
+
+                            if (error)
+                            {
+                                ResetStandardErrorToDefault();
+                            }
+                        }
+                        else
+                        {
+                            try
+                            {
+                                var strm = new StreamWriter(File.OpenWrite(paths.Last()));
+                                strm.AutoFlush = true;
+
+                                if (standard)
+                                {
+                                    Console.SetOut(strm);
+                                }
+
+                                if (error)
+                                {
+                                    Console.SetError(strm);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Error attempting to setup new console stream during 'set out' statement.\n{ex}"));
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'out', 'standard', or 'error' expected."));
+                }
+            }
+            else
+            {
+                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'set' expected."));
+            }
+        }
 
         /// <summary>
         /// Immediately performs a disk scan followed by entering passive mode and watching for changes in the given area, while respecting exclusions
