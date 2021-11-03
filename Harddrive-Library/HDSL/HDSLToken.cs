@@ -42,6 +42,7 @@ namespace HDDL.HDSL
                     case HDSLTokenTypes.AttributeLiteral:
                         Family = HDSLTokenFamilies.AttributeLiterals;
                         break;
+                    case HDSLTokenTypes.HashLogs:
                     case HDSLTokenTypes.Error:
                     case HDSLTokenTypes.Standard:
                     case HDSLTokenTypes.Reset:

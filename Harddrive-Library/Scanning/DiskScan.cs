@@ -4,6 +4,7 @@
 
 using HDDL.Data;
 using HDDL.IO.Disk;
+using HDDL.IO;
 using HDDL.Threading;
 using System;
 using System.Collections.Concurrent;
@@ -331,7 +332,8 @@ namespace HDDL.Scanning
                             LastWritten = item.FInfo.LastWriteTimeUtc,
                             CreationDate = item.FInfo.CreationTimeUtc,
                             Depth = PathHelper.GetDependencyCount(new DiskItemType(item.FInfo.FullName, true)),
-                            Attributes = item.FInfo.Attributes
+                            Attributes = item.FInfo.Attributes,
+                            MachineUNCName = GetUNC(item.FInfo.FullName, item.IsFile)
                         };
                     }
                     else
@@ -351,7 +353,8 @@ namespace HDDL.Scanning
                             LastWritten = item.DInfo.LastWriteTimeUtc,
                             CreationDate = item.DInfo.CreationTimeUtc,
                             Depth = PathHelper.GetDependencyCount(new DiskItemType(item.DInfo.FullName, false)),
-                            Attributes = item.DInfo.Attributes
+                            Attributes = item.DInfo.Attributes,
+                            MachineUNCName = GetUNC(item.DInfo.FullName, item.IsFile)
                         };
                     }
                 }
@@ -405,6 +408,30 @@ namespace HDDL.Scanning
             {
                 ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.UnknownError, record?.Path, record == null ? false : record.IsFile, ex));
             }
+        }
+
+        /// <summary>
+        /// Gets the UNC path, if relevant to the operating system
+        /// </summary>
+        /// <param name="fullPath">The path to convert</param>
+        /// <param name="isFile">Whether or not the target is a file</param>
+        /// <returns>Either the UNC path, or the string "N/A"</returns>
+        private string GetUNC(string fullPath, bool isFile)
+        {
+            var unc = "N/A";
+            if (OS.IsWindows)
+            {
+                try
+                {
+                    unc = MappedDriveResolver.ResolveToRootUNC(fullPath);
+                }
+                catch (Exception ex)
+                {
+                    // any exception should be related to issues surrounding networking and/or the operating system
+                    ScanEventOccurred?.Invoke(this, new ScanEvent(ScanEventType.UnknownError, fullPath, isFile, ex));
+                }
+            }
+            return unc;
         }
 
         /// <summary>

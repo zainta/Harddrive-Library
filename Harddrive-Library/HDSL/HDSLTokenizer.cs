@@ -711,6 +711,10 @@ namespace HDDL.HDSL
                 {
                     token = new HDSLToken(HDSLTokenTypes.Standard, keyword.ToString(), row, col, text);
                 }
+                else if (text == "hashlogs")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.HashLogs, keyword.ToString(), row, col, text);
+                }
                 else if (IsDiskAttributeName(text))
                 {
                     token = new HDSLToken(HDSLTokenTypes.AttributeLiteral, keyword.ToString(), row, col, GetDiskAttributeName(text));

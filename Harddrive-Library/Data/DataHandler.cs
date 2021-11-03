@@ -71,6 +71,11 @@ namespace HDDL.Data
         private RecordActionContainer<WardItem> _wards;
 
         /// <summary>
+        /// Stores pending database actions for DiskItemHashLogItems
+        /// </summary>
+        private RecordActionContainer<DiskItemHashLogItem> _hashLogs;
+
+        /// <summary>
         /// The current database connection
         /// </summary>
         private SQLiteConnection _connection;
@@ -87,6 +92,7 @@ namespace HDDL.Data
             _exclusions = new RecordActionContainer<ExclusionItem>();
             _watches = new RecordActionContainer<WatchItem>();
             _wards = new RecordActionContainer<WardItem>();
+            _hashLogs = new RecordActionContainer<DiskItemHashLogItem>();
             _bookmarkCache = null;
             _exclusionCache = null;
             _watchCache = null;
@@ -138,7 +144,8 @@ namespace HDDL.Data
                                 created text not null,
                                 hash text,
                                 lastHashed text,
-                                attributes integer
+                                attributes integer,
+                                unc text not null
                                 );
                              create unique index diskitems_path_index on diskitems(path);
                              create index diskitems_itemName_index on diskitems(itemName);
@@ -170,7 +177,15 @@ namespace HDDL.Data
                                 id text not null primary key,
                                 path text not null
                                 );
-                            create unique index exclusions_path_index on exclusions(path);",
+                            create unique index exclusions_path_index on exclusions(path);
+
+                            create table if not exists hashlog (
+                                id text not null primary key,
+                                path text not null,
+                                occurred text not null,
+                                oldhash text,
+                                newhash text,
+                                unc text not null);",
                                 sqltCon))
                     {
 
@@ -251,6 +266,104 @@ namespace HDDL.Data
             {
                 return (long)command.ExecuteScalar();
             }
+        }
+
+        #endregion
+
+        #region DiskItemHashLog Related
+
+        /// <summary>
+        /// Deletes all DiskitemHashLogs from the database
+        /// </summary>
+        public long ClearDiskItemHashLogs()
+        {
+            var count = GetCount("hashlog");
+            ExecuteNonQuery("delete from hashlog");
+            return count;
+        }
+
+        /// <summary>
+        /// Queues the records for transactionary insertion
+        /// </summary>
+        /// <param name="items">The records to be added</param>
+        /// <returns></returns>
+        public void Insert(params DiskItemHashLogItem[] items)
+        {
+            foreach (var item in items)
+            {
+                _hashLogs.Inserts.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Queues the records for the transactionary update
+        /// </summary>
+        /// <param name="items">The records to be updated</param>
+        public void Update(params DiskItemHashLogItem[] items)
+        {
+            foreach (var item in items)
+            {
+                _hashLogs.Updates.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Queues the records for the transactionary deletion
+        /// </summary>
+        /// <param name="items"></param>
+        public void Delete(params DiskItemHashLogItem[] items)
+        {
+            foreach (var item in items)
+            {
+                _hashLogs.Deletions.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Performs a transactionary database execution of all pending inserts, updates, and deletes
+        /// </summary>
+        /// <returns>A tuple in the format total [inserts, updates, deletes]</returns>
+        public Tuple<long, long, long> WriteDiskItemHashLogs()
+        {
+            long inserts = 0, updates = 0, deletes = 0;
+            if (_hashLogs.HasWork)
+            {
+                using (var transaction = EnsureConnection().BeginTransaction())
+                {
+                    if (_hashLogs.Inserts.Count > 0)
+                    {
+                        foreach (var insert in _hashLogs.Inserts)
+                        {
+                            ExecuteNonQuery(insert.ToInsertStatement());
+                            inserts++;
+                        }
+                        _hashLogs.Inserts.Clear();
+                    }
+
+                    if (_hashLogs.Updates.Count > 0)
+                    {
+                        foreach (var update in _hashLogs.Updates)
+                        {
+                            ExecuteNonQuery(update.ToUpdateStatement());
+                            updates++;
+                        }
+                        _hashLogs.Updates.Clear();
+                    }
+
+                    if (_hashLogs.Deletions.Count > 0)
+                    {
+                        var sql = $"({ string.Join(", ", from delete in _hashLogs.Deletions select $"'{delete.Id}'") })";
+
+                        deletes = GetCount($"hashlog where id in {sql};");
+                        ExecuteNonQuery($"DELETE from hashlog where id in {sql};");
+                        _hashLogs.Deletions.Clear();
+                    }
+
+                    transaction.Commit();
+                }
+            }
+
+            return new Tuple<long, long, long>(inserts, updates, deletes);
         }
 
         #endregion

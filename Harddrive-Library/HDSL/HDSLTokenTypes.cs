@@ -56,6 +56,7 @@ namespace HDDL.HDSL
         Out,
         Error,
         Standard,
+        HashLogs,
 
         // value keywords
         Size,

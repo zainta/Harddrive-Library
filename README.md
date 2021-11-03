@@ -84,7 +84,7 @@ HDSL is a simple query language designed for the retrieval of files and director
  * `find [file search pattern - defaults to *.*] [in/within/under [path[, path, path]] - defaults to current] [where clause];`
    * Retrieves the items that match the query and displays them.
    * e.g `find '*.dll' in 'C:\Windows\System32' where size < 1024000;` to search for all dll files in C:\Windows\System32 that are under 1mb in size.
- * `purge [bookmarks | exclusions | wards | watches | path[, path, path] [where clause]];`
+ * `purge [bookmarks | exclusions | watches | wards | hashlogs] | [path[, path, path] [where clause]];`
    * Removes matching entries from the current database.
    * e.g `purge;` deletes all file tracking records from the database
    * e.g `purge exclusions;` deletes all exclusions, etc.
@@ -95,7 +95,7 @@ HDSL is a simple query language designed for the retrieval of files and director
  * `scan [spinner|progress|text|quiet - defaults to text] [path[, path, path]];`
    * Performs a disk item scan with the requested display mode on the provided paths.  
    * e.g `scan text 'C:\';` will scan the entire C: drive and output progress to the console as text.
- * `check [spinner|progress|text|quiet - defaults to text] [file pattern] [in/within/under [path[, path, path]] - defaults to current] [where clause];`
+ * `check [spinner|progress|text|quiet - defaults to text] [file pattern] [in/within/under] [path[, path, path] - defaults to current] [where clause];`
    * Performs a `find` query and then executes an integrity scan on the results of the query.
    * Compares existing hashes to the database to newly generated ones.  If no previous integrity check has been performed, simply stores the values in the database.
    * e.g `scan text 'C:\';` will perform an integrity check on the entire C: drive and output progress to the console as text.

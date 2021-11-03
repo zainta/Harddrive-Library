@@ -3,7 +3,6 @@
 // You may obtain a copy of the License at https://mit-license.org/
 
 using System;
-using System.ComponentModel.DataAnnotations.Schema;
 using System.Data;
 using System.Data.SQLite;
 using System.IO;
@@ -25,11 +24,6 @@ namespace HDDL.Data
         /// The containing directory instance
         /// </summary>
         public DiskItem Parent { get; set; }
-
-        /// <summary>
-        /// The items contained within a directory instance
-        /// </summary>
-        public DiskItem[] Children { get; set; }
 
         /// <summary>
         /// When the item was first scanned
@@ -102,6 +96,11 @@ namespace HDDL.Data
         public FileAttributes Attributes { get; set; }
 
         /// <summary>
+        /// The UNC name of the machine where the disk item resides
+        /// </summary>
+        public string MachineUNCName { get; set; }
+
+        /// <summary>
         /// Creates an instance from the current record in the data reader
         /// </summary>
         /// <param name="row"></param>
@@ -122,6 +121,7 @@ namespace HDDL.Data
             FileHash = row.GetString("hash");
             HashTimestamp = DateTimeDataHelper.ConvertToDateTime(row.GetString("lastHashed"));
             Attributes = row["attributes"] is DBNull ? 0 : (FileAttributes)Enum.ToObject(typeof(FileAttributes), row.GetInt32("attributes"));
+            MachineUNCName = row.GetString("unc");
         }
 
         /// <summary>
@@ -139,7 +139,7 @@ namespace HDDL.Data
         public override string ToInsertStatement()
         {
             return $@"insert into diskitems 
-                        (id, parentId, firstScanned, lastScanned, path, itemName, isFile, extension, size, lastWritten, lastAccessed, created, depth, hash, lastHashed, attributes) 
+                        (id, parentId, firstScanned, lastScanned, path, itemName, isFile, extension, size, lastWritten, lastAccessed, created, depth, hash, lastHashed, attributes, unc) 
                       values 
                         ('{Id}', 
                          '{ParentId}', 
@@ -156,7 +156,8 @@ namespace HDDL.Data
                          {Depth},
                          '{FileHash}',
                          '{DateTimeDataHelper.ConvertToString(HashTimestamp)}',
-                         {Convert.ToInt32(Attributes)});";
+                         {Convert.ToInt32(Attributes)},
+                         '{DataHelper.Sanitize(MachineUNCName)}');";
         }
 
         /// <summary>
@@ -178,7 +179,8 @@ namespace HDDL.Data
                         lastAccessed = '{DateTimeDataHelper.ConvertToString(LastAccessed)}', 
                         created = '{DateTimeDataHelper.ConvertToString(CreationDate)}', 
                         depth = {Depth},
-                        attributes = {Convert.ToInt32(Attributes)}
+                        attributes = {Convert.ToInt32(Attributes)},
+                        unc = '{DataHelper.Sanitize(MachineUNCName)}'
                       where 
                         path = '{DataHelper.Sanitize(Path)}';";
         }
@@ -207,6 +209,26 @@ namespace HDDL.Data
             {
                 return Path;
             }
+        }
+
+        /// <summary>
+        /// Generates and returns a new hash entry for a hash update
+        /// </summary>
+        /// <param name="newHash">The new hash</param>
+        /// <returns></returns>
+        public DiskItemHashLogItem GetHashLogEntry(string newHash)
+        {
+            return new DiskItemHashLogItem()
+            {
+                Id = Guid.NewGuid(),
+                ParentId = Id,
+                Path = Path,
+                Occurred = DateTime.UtcNow,
+                OldFileHash = FileHash,
+                NewFileHash = newHash,
+                MachineUNCName = MachineUNCName
+            };
+
         }
 
         /// <summary>

@@ -216,6 +216,13 @@ namespace HDDL.Scanning
 
                         _all.Add(di);
                         di.HashTimestamp = _scanMarker;
+
+                        // We only want a transition record when the file's hash changes.
+                        if (di.FileHash != hashStr)
+                        {
+                            var log = di.GetHashLogEntry(hashStr);
+                            _dh.Insert(log);
+                        }
                         di.FileHash = hashStr;
 
                         FinishedScanningFile?.Invoke(this, di.Path, di.SizeInBytes, di.SizeInBytes);

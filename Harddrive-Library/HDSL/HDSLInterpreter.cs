@@ -598,18 +598,6 @@ namespace HDDL.HDSL
                         var path = GetPath(true);
                         if (!string.IsNullOrWhiteSpace(path))
                         {
-                            if (standard)
-                            {
-                                ResetStandardOutputToDefault();
-                            }
-
-                            if (error)
-                            {
-                                ResetStandardErrorToDefault();
-                            }
-                        }
-                        else
-                        {
                             try
                             {
                                 var strm = new StreamWriter(File.OpenWrite(path));
@@ -628,6 +616,18 @@ namespace HDDL.HDSL
                             catch (Exception ex)
                             {
                                 _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Error attempting to setup new console stream during 'set out' statement.\n{ex}"));
+                            }
+                        }
+                        else
+                        {
+                            if (standard)
+                            {
+                                ResetStandardOutputToDefault();
+                            }
+
+                            if (error)
+                            {
+                                ResetStandardErrorToDefault();
                             }
                         }
                     }
@@ -781,9 +781,11 @@ namespace HDDL.HDSL
                 var displayMode = GetDisplayMode();
                 var findResult = HandleFindStatement();
 
-                if (findResult.Items.Length > 0)
+                // don't integrity scan directories.
+                var files = findResult.Items.Where(di => di.IsFile).ToList();
+                if (files.Count > 0)
                 {
-                    var scan = new Scanning.IntegrityScanEventWrapper(_dh, findResult.Items, true, displayMode);
+                    var scan = new Scanning.IntegrityScanEventWrapper(_dh, files, true, displayMode);
                     if (scan.Go())
                     {
                         return scan.Result;
@@ -1026,7 +1028,7 @@ namespace HDDL.HDSL
         /// A purge statement removes entries from the database (it does not delete actual files)
         /// 
         /// Syntax:
-        /// purge [bookmarks | exclusions | watches | wards | path[, path, path] [where clause]];
+        /// purge [bookmarks | exclusions | watches | wards | hashlogs] | [path[, path, path] [where clause]];
         /// </summary>
         private void HandlePurgeStatement()
         {
@@ -1056,6 +1058,11 @@ namespace HDDL.HDSL
                     {
                         Pop();
                         _dh.ClearWards();
+                    }
+                    else if (Peek().Type == HDSLTokenTypes.HashLogs)
+                    {
+                        Pop();
+                        _dh.ClearDiskItemHashLogs();
                     }
                     else
                     {
