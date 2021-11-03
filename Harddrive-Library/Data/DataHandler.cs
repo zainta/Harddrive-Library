@@ -16,7 +16,7 @@ namespace HDDL.Data
     /// <summary>
     /// Provides data encapsulation to allow modification of systems without complete overhauls
     /// </summary>
-    public class DataHandler : IDisposable
+    public class DataHandler : IDataHandler, IDisposable
     {
         public const int InfiniteDepth = -1;
 

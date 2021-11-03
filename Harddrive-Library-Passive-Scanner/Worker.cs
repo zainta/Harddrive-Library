@@ -4,6 +4,7 @@
 
 using HDDL.IO.Settings;
 using HDDL.Scanning.Monitoring;
+using HDDL.Web;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.IO;
@@ -35,6 +36,9 @@ namespace Harddrive_Library_Passive_Scanner
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            var hdslW = new HDSLWeb(_iniFile);
+            hdslW.Run();
+
             using (var sk = new ScannerKernal(
                     _iniFile[@"HDSL_DB>DatabaseLocation"].Value,
                     new ScriptLoadingDetails(_iniFile),
