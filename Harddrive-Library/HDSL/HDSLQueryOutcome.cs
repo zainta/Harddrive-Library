@@ -9,6 +9,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using HDDL.Extensions;
 
 namespace HDDL.HDSL
 {
@@ -511,7 +512,7 @@ namespace HDDL.HDSL
         private string GetAttributeAbbreviation(FileAttributes attributes, AttributeDisplayMethods mode = AttributeDisplayMethods.Simple)
         {
             var results = new StringBuilder();
-            var vals = Enum.GetValues<FileAttributes>();
+            var vals = FileAttributes.Normal.Enumerate<FileAttributes>();
             foreach (var v in vals)
             {
                 if (attributes.HasFlag(v))
@@ -532,7 +533,7 @@ namespace HDDL.HDSL
         private void Append(StringBuilder sb, FileAttributes attribute, AttributeDisplayMethods mode)
         {
             if (mode == AttributeDisplayMethods.ThreeCharacterExtended ||
-                                mode == AttributeDisplayMethods.ThreeCharacterSimple)
+                (mode == AttributeDisplayMethods.ThreeCharacterSimple && !HasExtendedAttribute(attribute)))
             {
                 if (sb.Length > 0)
                 {
@@ -540,12 +541,93 @@ namespace HDDL.HDSL
                 }
                 sb.Append(GetAbbreviation(attribute));
             }
-            else if (mode == AttributeDisplayMethods.Extended)
+            else if (mode == AttributeDisplayMethods.Extended ||
+                (mode == AttributeDisplayMethods.Simple && !HasExtendedAttribute(attribute)))
             {
                 sb.Append(GetLetter(attribute));
             }
         }
 
+        /// <summary>
+        /// Returns a value indicating whether or not the provided value has any attributes that are considered extended
+        /// </summary>
+        /// <param name="attribute">The value to test</param>
+        /// <returns></returns>
+        private bool HasExtendedAttribute(FileAttributes attribute)
+        {
+            var result = false;
+            if (attribute.HasFlag(FileAttributes.ReadOnly))
+            {
+                result = false;
+            }
+            if (attribute.HasFlag(FileAttributes.Hidden))
+            {
+                result = result || false;
+            }
+            if (attribute.HasFlag(FileAttributes.System))
+            {
+                result = result || false;
+            }
+            if (attribute.HasFlag(FileAttributes.Archive))
+            {
+                result = result || false;
+            }
+            if (attribute.HasFlag(FileAttributes.Directory))
+            {
+                result = result || false;
+            }
+            if (attribute.HasFlag(FileAttributes.Normal))
+            {
+                result = result || false;
+            }
+            if (attribute.HasFlag(FileAttributes.Device))
+            {
+                result = true;
+            }
+            if (attribute.HasFlag(FileAttributes.Temporary))
+            {
+                result = true;
+            }
+            if (attribute.HasFlag(FileAttributes.SparseFile))
+            {
+                result = true;
+            }
+            if (attribute.HasFlag(FileAttributes.ReparsePoint))
+            {
+                result = true;
+            }
+            if (attribute.HasFlag(FileAttributes.Compressed))
+            {
+                result = true;
+            }
+            if (attribute.HasFlag(FileAttributes.Offline))
+            {
+                result = true;
+            }
+            if (attribute.HasFlag(FileAttributes.NotContentIndexed))
+            {
+                result = true;
+            }
+            if (attribute.HasFlag(FileAttributes.Encrypted))
+            {
+                result = true;
+            }
+            if (attribute.HasFlag(FileAttributes.IntegrityStream))
+            {
+                result = true;
+            }
+            if (attribute.HasFlag(FileAttributes.NoScrubData))
+            {
+                result = true;
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Returns the single character abbreviation representing the given attribute
+        /// </summary>
+        /// <param name="attribute">The attribute to convert</param>
+        /// <returns></returns>
         private char GetLetter(FileAttributes attribute)
         {
             var result = ' ';

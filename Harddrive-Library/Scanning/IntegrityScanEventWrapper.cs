@@ -132,7 +132,7 @@ namespace HDDL.Scanning
                 _scanner.FinishedScanningFile += _scanner_FinishedScanningFile;
             }
             _scanner.ScanEnds += _scanner_ScanEnds;
-            Task.Run(() => _scanner.StartScan(1));
+            Task.Run(() => _scanner.StartScan(4));
 
             while (
                 !_done &&
@@ -165,7 +165,7 @@ namespace HDDL.Scanning
             //switch (_displayMode)
             //{
             //    case EventWrapperDisplayModes.Text:
-            //        Console.WriteLine($"Scanning '{target}'...");
+            //        Console.WriteLine($"Finished scanning '{target}' -- Success.");
             //        break;
             //}
         }
@@ -175,7 +175,7 @@ namespace HDDL.Scanning
             switch (_displayMode)
             {
                 case EventWrapperDisplayModes.Text:
-                    Console.WriteLine($"Finished scanning '{target}' -- Success.");
+                    Console.WriteLine($"Scanning '{target}' ...");
                     break;
             }
         }

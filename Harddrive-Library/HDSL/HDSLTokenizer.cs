@@ -8,6 +8,8 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Linq;
+using HDDL.Extensions;
+using System.IO;
 
 namespace HDDL.HDSL
 {
@@ -323,7 +325,7 @@ namespace HDDL.HDSL
         /// <returns></returns>
         private bool IsDiskAttributeName(string text)
         {
-            var attributes = Enum.GetValues<System.IO.FileAttributes>();
+            var attributes = FileAttributes.Normal.Enumerate<FileAttributes>();
             if (attributes.Select(a => a.ToString()).Where(a => a.Equals(text, StringComparison.InvariantCultureIgnoreCase)).Any())
             {
                 return true;
@@ -339,7 +341,7 @@ namespace HDDL.HDSL
         /// <returns></returns>
         private string GetDiskAttributeName(string text)
         {
-            var attributes = Enum.GetValues<System.IO.FileAttributes>();
+            var attributes = FileAttributes.Normal.Enumerate<FileAttributes>();
             var selection = attributes.Select(a => a.ToString()).Where(a => a.Equals(text, StringComparison.InvariantCultureIgnoreCase)).SingleOrDefault()?.ToString();
 
             return selection;
@@ -376,7 +378,10 @@ namespace HDDL.HDSL
                 Pop();
             }
 
-            var bookmark = GetPairedSet('\'', '\'', cantEscape ? null : '\\');
+            char? escape = '\\';
+            if (cantEscape) escape = null;
+
+            var bookmark = GetPairedSet('\'', '\'', escape);
             if (bookmark != null)
             {
                 Tokens.Add(new HDSLToken(HDSLTokenTypes.String, bookmark[1], row, col, bookmark[0]));

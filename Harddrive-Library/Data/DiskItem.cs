@@ -21,11 +21,6 @@ namespace HDDL.Data
         public Guid? ParentId { get; set; }
 
         /// <summary>
-        /// The containing directory instance
-        /// </summary>
-        public DiskItem Parent { get; set; }
-
-        /// <summary>
         /// When the item was first scanned
         /// </summary>
         public DateTime FirstScanned { get; set; }
@@ -106,7 +101,15 @@ namespace HDDL.Data
         /// <param name="row"></param>
         public DiskItem(SQLiteDataReader row) : base(row)
         {
-            ParentId = String.IsNullOrWhiteSpace(row.GetString("parentId")) ? null : row.GetGuid("parentId");
+            if (!string.IsNullOrWhiteSpace(row.GetString("parentId")))
+            {
+                ParentId = row.GetGuid("parentId");
+            }
+            else
+            {
+                ParentId = null;
+            }
+
             FirstScanned = DateTimeDataHelper.ConvertToDateTime(row.GetString("firstScanned"));
             LastScanned = DateTimeDataHelper.ConvertToDateTime(row.GetString("lastScanned"));
             Path = row.GetString("path");

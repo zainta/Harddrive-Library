@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Worker">
 
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
     <UserSecretsId>dotnet-Harddrive_Library_Passive_Scanner-42855777-EF81-402F-9E28-A22E77979261</UserSecretsId>
     <RootNamespace>HDLPS</RootNamespace>
     <AssemblyName>HDLSService</AssemblyName>
