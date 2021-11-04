@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
     <RootNamespace>HDDL</RootNamespace>
     <AssemblyName>HDDL</AssemblyName>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
@@ -15,7 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Owin" Version="3.1.20" />
+    <PackageReference Include="Microsoft.AspNetCore.Owin" Version="5.0.11" />
     <PackageReference Include="System.Data.SQLite" Version="1.0.115" />
     <PackageReference Include="System.Management" Version="5.0.0" />
   </ItemGroup>

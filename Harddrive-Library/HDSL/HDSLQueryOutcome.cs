@@ -9,7 +9,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using HDDL.Extensions;
 
 namespace HDDL.HDSL
 {
@@ -512,7 +511,7 @@ namespace HDDL.HDSL
         private string GetAttributeAbbreviation(FileAttributes attributes, AttributeDisplayMethods mode = AttributeDisplayMethods.Simple)
         {
             var results = new StringBuilder();
-            var vals = FileAttributes.Normal.Enumerate<FileAttributes>();
+            var vals = Enum.GetValues<FileAttributes>();
             foreach (var v in vals)
             {
                 if (attributes.HasFlag(v))
