@@ -2,10 +2,8 @@
 // Licensed under the MIT License, (the "License"); you may not use this file except in compliance with the License. 
 // You may obtain a copy of the License at https://mit-license.org/
 
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using HDDL.IO.Settings;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace HDDL.Web
@@ -33,16 +31,29 @@ namespace HDDL.Web
         /// </summary>
         public void Run()
         {
-            _host = new WebHostBuilder()
-                .UseKestrel()
-                .UseStartup<HDSLWebStarter>()
-                .ConfigureLogging(logging =>
+            bool transmit = false;
+            bool.TryParse(_settings[@"HDSL_Web>Listen"]?.Value, out transmit);
+
+            if (transmit)
+            {
+                var broadcastAddress = _settings[@"HDSL_Web>Broadcast"].Value;
+                if (string.IsNullOrWhiteSpace(broadcastAddress))
                 {
-                    logging.ClearProviders();
-                    logging.AddConsole();
-                })
-                .Build();
-            _host.Start();
+                    broadcastAddress = "http://localhost:5000";
+                }
+
+                _host = new WebHostBuilder()
+                    .UseKestrel()
+                    .UseStartup<HDSLWebStarter>()
+                    .ConfigureLogging(logging =>
+                    {
+                        logging.ClearProviders();
+                        logging.AddConsole();
+                    })
+                    .UseUrls(broadcastAddress)
+                    .Build();
+                _host.Start();
+            }
         }
     }
 }

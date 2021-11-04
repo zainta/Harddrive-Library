@@ -31,7 +31,10 @@ namespace Harddrive_Library_Passive_Scanner
                     new IniValue("InitialScript", defaultValue: ""),
                     new IniValue("SideloadScript", defaultValue: ""),
                     new IniValue("DeleteSideloadScriptAfterConsumption", defaultValue: "False"),
-                    new IniValue("ConsumedSideloadScriptExtension", defaultValue: ".done")));
+                    new IniValue("ConsumedSideloadScriptExtension", defaultValue: ".done")),
+                new IniSubsection("HDSL_Web", null,
+                    new IniValue("Listen", defaultValue: "False"),
+                    new IniValue("Broadcast", defaultValue: "http://localhost:5000")));
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)

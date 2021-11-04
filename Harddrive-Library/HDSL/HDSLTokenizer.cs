@@ -47,6 +47,11 @@ namespace HDDL.HDSL
         public List<HDSLLogBase> Outcome { get; private set; }
 
         /// <summary>
+        /// A list of tokens that cannot be generated
+        /// </summary>
+        public string[] Blacklist { get; private set; }
+
+        /// <summary>
         /// Create a tokenizer for use
         /// </summary>
         /// <param name="ignoreWhitespace">Whether or not to generate whitespace tokens</param>
@@ -60,10 +65,13 @@ namespace HDDL.HDSL
         /// <summary>
         /// Tokenizes the given code and stores the result in the Tokens class property
         /// </summary>
-        /// <param name="code">THe code to tokenize</param>
+        /// <param name="code">The code to tokenize</param>
+        /// <param name="blacklistedTokens">A set of tokens that cannot be generated and will result in an error if encountered</param>
         /// <returns>A result output log detailing any errors encountered</returns>
-        public HDSLLogBase[] Tokenize(string code)
+        public HDSLLogBase[] Tokenize(string code, params string[] blacklistedTokens)
         {
+            Blacklist = blacklistedTokens;
+
             Outcome.Clear();
             buffer = new ListStack<char>(code);
             col = Minimum_Column;
@@ -97,12 +105,12 @@ namespace HDDL.HDSL
                 }
                 else if (More() && Peek() == ',') // Comma
                 {
-                    Tokens.Add(new HDSLToken(HDSLTokenTypes.Comma, Pop(), row, col, ","));
+                    Add(new HDSLToken(HDSLTokenTypes.Comma, Pop(), row, col, ","));
                     continue;
                 }
                 else if (More() && Peek() == ':') // Colon
                 {
-                    Tokens.Add(new HDSLToken(HDSLTokenTypes.Colon, Pop(), row, col, ":"));
+                    Add(new HDSLToken(HDSLTokenTypes.Colon, Pop(), row, col, ":"));
                     continue;
                 }
                 else if (More() && char.IsDigit(Peek()) && GetNumbers()) // Whole and real numbers
@@ -131,8 +139,8 @@ namespace HDDL.HDSL
                 }
             }
 
-            Tokens.Add(new HDSLToken(HDSLTokenTypes.EndOfLine, ';', col, row, ";"));
-            Tokens.Add(new HDSLToken(HDSLTokenTypes.EndOfFile, string.Empty, col, row, string.Empty));
+            Add(new HDSLToken(HDSLTokenTypes.EndOfLine, ';', col, row, ";"));
+            Add(new HDSLToken(HDSLTokenTypes.EndOfFile, string.Empty, col, row, string.Empty));
 
             return Outcome.ToArray();
         }
@@ -347,6 +355,29 @@ namespace HDDL.HDSL
             return selection;
         }
 
+        /// <summary>
+        /// Adds the given token to the list if it is not in the forbidden set, adds an error message if it is
+        /// </summary>
+        /// <param name="token">The token to add</param>
+        /// <returns>The unmodified token</returns>
+        private HDSLToken Add(HDSLToken token)
+        {
+            if ((from b in Blacklist 
+                 where 
+                    token.Type.ToString().StartsWith(b, StringComparison.InvariantCultureIgnoreCase) ||
+                    b.Equals(token.Literal, StringComparison.InvariantCultureIgnoreCase)
+                 select b).Any())
+            {
+                Outcome.Add(new HDSLLogBase(token.Column, token.Row, $"Token '{token.Literal}' is disallowed."));
+            }
+            else
+            {
+                Tokens.Add(token);
+            }
+
+            return token;
+        }
+
         #endregion
 
         #region Datatypes
@@ -360,7 +391,7 @@ namespace HDDL.HDSL
             var bookmark = GetPairedSet('[', ']', '\\');
             if (bookmark != null)
             {
-                Tokens.Add(new HDSLToken(HDSLTokenTypes.BookmarkReference, bookmark[1], row, col, bookmark[0]));
+                Add(new HDSLToken(HDSLTokenTypes.BookmarkReference, bookmark[1], row, col, bookmark[0]));
                 return true;
             }
             return false;
@@ -384,7 +415,7 @@ namespace HDDL.HDSL
             var bookmark = GetPairedSet('\'', '\'', escape);
             if (bookmark != null)
             {
-                Tokens.Add(new HDSLToken(HDSLTokenTypes.String, bookmark[1], row, col, bookmark[0]));
+                Add(new HDSLToken(HDSLTokenTypes.String, bookmark[1], row, col, bookmark[0]));
                 return true;
             }
             return false;
@@ -444,7 +475,7 @@ namespace HDDL.HDSL
                 }
             }
 
-            Tokens.Add(new HDSLToken(decimaled ? HDSLTokenTypes.RealNumber : HDSLTokenTypes.WholeNumber, number.ToString(), row, col, number.ToString()));
+            Add(new HDSLToken(decimaled ? HDSLTokenTypes.RealNumber : HDSLTokenTypes.WholeNumber, number.ToString(), row, col, number.ToString()));
             return true;
         }
 
@@ -457,7 +488,7 @@ namespace HDDL.HDSL
             var bookmark = GetPairedSet('#', '#');
             if (bookmark != null)
             {
-                Tokens.Add(new HDSLToken(HDSLTokenTypes.DateTime, bookmark[1], row, col, bookmark[0]));
+                Add(new HDSLToken(HDSLTokenTypes.DateTime, bookmark[1], row, col, bookmark[0]));
                 return true;
             }
             return false;
@@ -484,7 +515,7 @@ namespace HDDL.HDSL
             {
                 if (!ignoreWhitespace)
                 {
-                    Tokens.Add(new HDSLToken(HDSLTokenTypes.Whitespace, ws.ToString(), row, col, ws.ToString()));
+                    Add(new HDSLToken(HDSLTokenTypes.Whitespace, ws.ToString(), row, col, ws.ToString()));
                 }
                 return true;
             }
@@ -517,7 +548,7 @@ namespace HDDL.HDSL
                     sb.Append(Pop());
                 }
 
-                Tokens.Add(new HDSLToken(HDSLTokenTypes.Comment, sb.ToString(), row, col, sb.ToString()));
+                Add(new HDSLToken(HDSLTokenTypes.Comment, sb.ToString(), row, col, sb.ToString()));
             }
             else
             {
@@ -736,7 +767,7 @@ namespace HDDL.HDSL
                 return false;
             }
 
-            Tokens.Add(token);
+            Add(token);
             return true;
         }
 
@@ -794,7 +825,7 @@ namespace HDDL.HDSL
 
             if (token != null)
             {
-                Tokens.Add(token);
+                Add(token);
             }
             return token != null;
         }
@@ -807,7 +838,7 @@ namespace HDDL.HDSL
         {
             if (Peek() == ';')
             {
-                Tokens.Add(new HDSLToken(HDSLTokenTypes.EndOfLine, Pop(), row, col, ";"));
+                Add(new HDSLToken(HDSLTokenTypes.EndOfLine, Pop(), row, col, ";"));
                 return true;
             }
 

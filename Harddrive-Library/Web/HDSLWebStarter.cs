@@ -27,10 +27,12 @@ namespace HDDL.Web
             var fi = new FileInfo(Assembly.GetExecutingAssembly().Location);
             var ini = IniFileManager.Explore($"{fi.Directory.FullName}\\db location.ini", true, false, false,
                 new IniSubsection("HDSL_DB", null,
-                    new IniValue("DatabaseLocation", defaultValue: "file database.db")));
+                    new IniValue("DatabaseLocation", defaultValue: "file database.db"),
+                    new IniValue("DisallowedHDSLStatements", defaultValue: "")));
 
             services.AddControllers();
             services.Add(new ServiceDescriptor(typeof(IDataHandler), new DataHandler(ini[@"HDSL_DB>DatabaseLocation"].Value)));
+            services.Add(new ServiceDescriptor(typeof(IInitializationManager), ini));
         }
 
         /// <summary>

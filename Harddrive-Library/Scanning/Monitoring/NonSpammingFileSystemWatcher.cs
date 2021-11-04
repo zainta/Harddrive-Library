@@ -128,17 +128,24 @@ namespace HDDL.Scanning.Monitoring
         {
             if (!PathHelper.IsWithinPaths(e.FullPath, _exclusions))
             {
-                var lastOccurred = File.GetLastWriteTime(e.FullPath);
-                if (lastOccurred.Subtract(_lastOccurance).TotalMilliseconds >= MinOccuranceDifferenceValue ||
-                    _lastTopic != e.FullPath ||
-                    _lastAlteration != e.ChangeType)
+                try
                 {
-                    Inform($"'{e.FullPath}' was deleted.");
-                    _lastOccurance = lastOccurred;
-                    _lastTopic = e.FullPath;
-                    _lastAlteration = e.ChangeType;
+                    var lastOccurred = File.GetLastWriteTime(e.FullPath);
+                    if (lastOccurred.Subtract(_lastOccurance).TotalMilliseconds >= MinOccuranceDifferenceValue ||
+                        _lastTopic != e.FullPath ||
+                        _lastAlteration != e.ChangeType)
+                    {
+                        Inform($"'{e.FullPath}' was deleted.");
+                        _lastOccurance = lastOccurred;
+                        _lastTopic = e.FullPath;
+                        _lastAlteration = e.ChangeType;
 
-                    ReportDiskEvent?.Invoke(this, FileSystemWatcherEventNatures.Deletion, e);
+                        ReportDiskEvent?.Invoke(this, FileSystemWatcherEventNatures.Deletion, e);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Error(ex.Message, ex);
                 }
             }
         }
@@ -152,17 +159,24 @@ namespace HDDL.Scanning.Monitoring
         {
             if (!PathHelper.IsWithinPaths(e.FullPath, _exclusions))
             {
-                var lastOccurred = File.GetLastWriteTime(e.FullPath);
-                if (lastOccurred.Subtract(_lastOccurance).TotalMilliseconds >= MinOccuranceDifferenceValue ||
-                    _lastTopic != e.FullPath ||
-                    _lastAlteration != e.ChangeType)
+                try
                 {
-                    Inform($"'{e.FullPath}' was altered.");
-                    _lastOccurance = lastOccurred;
-                    _lastTopic = e.FullPath;
-                    _lastAlteration = e.ChangeType;
+                    var lastOccurred = File.GetLastWriteTime(e.FullPath);
+                    if (lastOccurred.Subtract(_lastOccurance).TotalMilliseconds >= MinOccuranceDifferenceValue ||
+                        _lastTopic != e.FullPath ||
+                        _lastAlteration != e.ChangeType)
+                    {
+                        Inform($"'{e.FullPath}' was altered.");
+                        _lastOccurance = lastOccurred;
+                        _lastTopic = e.FullPath;
+                        _lastAlteration = e.ChangeType;
 
-                    ReportDiskEvent?.Invoke(this, FileSystemWatcherEventNatures.Alteration, e);
+                        ReportDiskEvent?.Invoke(this, FileSystemWatcherEventNatures.Alteration, e);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Error(ex.Message, ex);
                 }
             }
         }
@@ -176,17 +190,24 @@ namespace HDDL.Scanning.Monitoring
         {
             if (!PathHelper.IsWithinPaths(e.FullPath, _exclusions))
             {
-                var lastOccurred = File.GetLastWriteTime(e.FullPath);
-                if (lastOccurred.Subtract(_lastOccurance).TotalMilliseconds >= MinOccuranceDifferenceValue ||
-                    _lastTopic != e.FullPath ||
-                    _lastAlteration != e.ChangeType)
+                try
                 {
-                    Inform($"'{e.FullPath}' was created.");
-                    _lastOccurance = lastOccurred;
-                    _lastTopic = e.FullPath;
-                    _lastAlteration = e.ChangeType;
+                    var lastOccurred = File.GetLastWriteTime(e.FullPath);
+                    if (lastOccurred.Subtract(_lastOccurance).TotalMilliseconds >= MinOccuranceDifferenceValue ||
+                        _lastTopic != e.FullPath ||
+                        _lastAlteration != e.ChangeType)
+                    {
+                        Inform($"'{e.FullPath}' was created.");
+                        _lastOccurance = lastOccurred;
+                        _lastTopic = e.FullPath;
+                        _lastAlteration = e.ChangeType;
 
-                    ReportDiskEvent?.Invoke(this, FileSystemWatcherEventNatures.Creation, e);
+                        ReportDiskEvent?.Invoke(this, FileSystemWatcherEventNatures.Creation, e);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Error(ex.Message, ex);
                 }
             }
         }
