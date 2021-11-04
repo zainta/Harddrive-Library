@@ -27,7 +27,7 @@ namespace HDDL.Web
                 from item in 
                     (_ini[@"HDSL_Web>DisallowedHDSLStatements"] == null ? string.Empty : _ini[@"HDSL_Web>DisallowedHDSLStatements"].Value).Split(",")
                 where
-                    item != string.Empty
+                    !string.IsNullOrWhiteSpace(item)
                 select item.Trim())
                 .ToArray();
         }
