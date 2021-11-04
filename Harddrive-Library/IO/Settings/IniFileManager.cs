@@ -13,7 +13,7 @@ namespace HDDL.IO.Settings
     /// <summary>
     /// A simple ini file reader / writer
     /// </summary>
-    public class IniFileManager : IInitializationManager
+    public class IniFileManager : IInitializationFileManager
     {
         internal const char File_Content_Designation = ':';
         internal const char SubSection_Content_Designation = '>';

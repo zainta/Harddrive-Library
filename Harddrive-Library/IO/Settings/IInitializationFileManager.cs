@@ -9,7 +9,7 @@ namespace HDDL.IO.Settings
     /// <summary>
     /// Describes an ini file manager implementation
     /// </summary>
-    public interface IInitializationManager
+    public interface IInitializationFileManager
     {
         /// <summary>
         /// Whether or not to use the full path or the name of the file as its key

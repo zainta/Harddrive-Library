@@ -15,10 +15,10 @@ namespace HDDL.Web
     public class HDSLWebController : Controller
     {
         private IDataHandler _dh;
-        private IInitializationManager _ini;
+        private IInitializationFileManager _ini;
         private string[] _blacklist;
 
-        public HDSLWebController(IDataHandler dh, IInitializationManager ini)
+        public HDSLWebController(IDataHandler dh, IInitializationFileManager ini)
         {
             _dh = dh;
             _ini = ini;

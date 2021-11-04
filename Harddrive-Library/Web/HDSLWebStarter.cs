@@ -32,7 +32,7 @@ namespace HDDL.Web
 
             services.AddControllers();
             services.Add(new ServiceDescriptor(typeof(IDataHandler), new DataHandler(ini[@"HDSL_DB>DatabaseLocation"].Value)));
-            services.Add(new ServiceDescriptor(typeof(IInitializationManager), ini));
+            services.Add(new ServiceDescriptor(typeof(IInitializationFileManager), ini));
         }
 
         /// <summary>
