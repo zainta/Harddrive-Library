@@ -1,4 +1,4 @@
-// Copyright (c) Zain Al-Ahmary.  All rights reserved.
+﻿// Copyright (c) Zain Al-Ahmary.  All rights reserved.
 // Licensed under the MIT License, (the "License"); you may not use this file except in compliance with the License. 
 // You may obtain a copy of the License at https://mit-license.org/
 
@@ -12,18 +12,21 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Harddrive_Library_Passive_Scanner
+namespace HDDL.Services
 {
-    public class Worker : BackgroundService
+    public class HDSLWorker : BackgroundService
     {
-        private readonly ILogger<Worker> _logger;
+        private readonly ILogger<HDSLWorker> _logger;
         private readonly IniFileManager _iniFile;
 
-        public Worker(ILogger<Worker> logger)
+        public HDSLWorker(ILogger<HDSLWorker> logger)
         {
             _logger = logger;
 
             var fi = new FileInfo(Assembly.GetExecutingAssembly().Location);
+            var exists = File.Exists($"{fi.Directory.FullName}\\db location.ini") ? "found" : "not found";
+            _logger.LogInformation($"'{fi.Directory.FullName}\\db location.ini' {exists}");
+
             _iniFile = IniFileManager.Explore($"{fi.Directory.FullName}\\db location.ini", true, false, false,
                 new IniSubsection("HDSL_DB", null,
                     new IniValue("DatabaseLocation", defaultValue: "file database.db")),
@@ -31,7 +34,8 @@ namespace Harddrive_Library_Passive_Scanner
                     new IniValue("InitialScript", defaultValue: ""),
                     new IniValue("SideloadScript", defaultValue: ""),
                     new IniValue("DeleteSideloadScriptAfterConsumption", defaultValue: "False"),
-                    new IniValue("ConsumedSideloadScriptExtension", defaultValue: ".done")),
+                    new IniValue("ConsumedSideloadScriptExtension", defaultValue: ".done"),
+                    new IniValue("MonitorDuringRuntime", defaultValue: "False")),
                 new IniSubsection("HDSL_Web", null,
                     new IniValue("Listen", defaultValue: "False"),
                     new IniValue("Broadcast", defaultValue: "http://localhost:5000")));

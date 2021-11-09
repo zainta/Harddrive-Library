@@ -1,0 +1,14 @@
+{
+  "profiles": {
+    "Harddrive_Library_Container_Windows": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development"
+      },
+      "dotnetRunMessages": "true"
+    },
+    "Docker": {
+      "commandName": "Docker"
+    }
+  }
+}

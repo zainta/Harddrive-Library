@@ -5,10 +5,8 @@
 using HDDL.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.EventLog;
 
-namespace Harddrive_Library_Passive_Scanner
+namespace Harddrive_Library_Container_Windows
 {
     public class Program
     {
@@ -19,16 +17,9 @@ namespace Harddrive_Library_Passive_Scanner
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
-                .ConfigureLogging(
-                  options => options.AddFilter<EventLogLoggerProvider>(level => level >= LogLevel.Information))
                 .ConfigureServices((hostContext, services) =>
                 {
-                    services.AddHostedService<HDSLWorker>()
-                      .Configure<EventLogSettings>(config =>
-                      {
-                          config.LogName = "Harddrive-Library Service";
-                          config.SourceName = "Harddrive-Library Passive Scanner";
-                      });
-                }).UseWindowsService();
+                    services.AddHostedService<HDSLWorker>();
+                });
     }
 }

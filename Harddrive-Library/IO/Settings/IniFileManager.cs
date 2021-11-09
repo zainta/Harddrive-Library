@@ -182,6 +182,7 @@ namespace HDDL.IO.Settings
             {
                 throw new InvalidOperationException("Must use file designator when querying store with multiple loaded files.");
             }
+            if (catalogue.Count == 0) return null;
 
             IniItemBase result = null;
 
@@ -267,10 +268,10 @@ namespace HDDL.IO.Settings
         /// <param name="schema">The expected minimal structure of the ini file.  Missing items will use their default values</param>
         public void Fill(string iniFilePath, bool additive, bool throwMismatchExceptions, params IniItemBase[] schema)
         {
-            if (File.Exists(iniFilePath))
+            var fi = new FileInfo(iniFilePath);
+            var key = (UseFullPathAsKey ? fi.FullName : fi.Name);
+            if (fi.Exists)
             {
-                var fi = new FileInfo(iniFilePath);
-                var key = (UseFullPathAsKey ? fi.FullName : fi.Name);
                 var items = ReadFile(iniFilePath);
 
                 // rather than take the read file as our result,
@@ -334,6 +335,10 @@ namespace HDDL.IO.Settings
                         Set(key, schemaDict[Fill_Temp_Schema_Dict_Key]);
                     }
                 }
+            }
+            else
+            {
+                Set(key, schema.ToList());
             }
         }
 
