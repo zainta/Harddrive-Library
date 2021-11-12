@@ -395,8 +395,10 @@ namespace HDDL.Scanning.Monitoring
         /// Adds a FileSystemWatcher for the given watch to the list of watches
         /// </summary>
         /// <param name="watch">The watch to add a watcher for</param>
-        private void AddWatch(WatchItem watch)
+        /// <returns>The watcher instance made for the given item</returns>
+        private NonSpammingFileSystemWatcher AddWatch(WatchItem watch)
         {
+            NonSpammingFileSystemWatcher watcherResult = null;
             if (_narrateProgress)
             {
                 Inform($"Loading watcher for '{watch.Path}'.");
@@ -420,20 +422,22 @@ namespace HDDL.Scanning.Monitoring
 
                 try
                 {
-                    var watcher = new NonSpammingFileSystemWatcher(
+                    watcherResult = new NonSpammingFileSystemWatcher(
                         watch.Path,
                         GetMessagingMode(),
                         _dh.GetProcessedExclusions().Select(e => e.Path));
 
-                    watcher.ReportDiskEvent += Watcher_ReportDiskEvent;
-                    watcher.MessageRelayed += Watcher_MessageRelayed;
-                    _watchers.Add(watcher);
+                    watcherResult.ReportDiskEvent += Watcher_ReportDiskEvent;
+                    watcherResult.MessageRelayed += Watcher_MessageRelayed;
+                    _watchers.Add(watcherResult);
                 }
                 catch (Exception ex)
                 {
                     Error($"Failed to start watcher process for path '{watch.Path}'.", ex);
                 }
             }
+
+            return watcherResult;
         }
 
         /// <summary>
@@ -596,7 +600,11 @@ namespace HDDL.Scanning.Monitoring
                 var watch = _dh.GetWatches().Where(w => w.Path == watcher.GetPath()).SingleOrDefault();
                 if (watch != null)
                 {
-                    AddWatch(watch);
+                    var newWatcher = AddWatch(watch);
+                    if (Active && newWatcher != null)
+                    {
+                        newWatcher.Start();
+                    }
                     Warn($"Successfully recycled watcher for path '{watcher.GetPath()}'.");
                 }
             }
