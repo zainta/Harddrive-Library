@@ -68,6 +68,10 @@ namespace HDDL.HDSL
         FirstScan,
         Name,
 
+        // column headers
+        ColumnHeaderSet,
+        Columns,
+
         // attribute keywords
         AttributeLiteral,
 

@@ -26,15 +26,18 @@ namespace HDDL.HDSL
         public static HDSLResult ExecuteCode(string code, string dbPath, params string[] blacklistedTokens)
         {
             HDSLResult result;
-            var t = new HDSLTokenizer(true);
-            var logs = t.Tokenize(code, blacklistedTokens);
-            if (logs.Length == 0)
+            using (var dh = DataHandler.Get(dbPath))
             {
-                result = Execute(t.Tokens, dbPath);
-            }
-            else
-            {
-                result = new HDSLResult(logs);
+                var t = new HDSLTokenizer(true, dh);
+                var logs = t.Tokenize(code, blacklistedTokens);
+                if (logs.Length == 0)
+                {
+                    result = Execute(t.Tokens, dh);
+                }
+                else
+                {
+                    result = new HDSLResult(logs);
+                }
             }
 
             return result;
@@ -50,7 +53,7 @@ namespace HDDL.HDSL
         public static HDSLResult ExecuteCode(string code, DataHandler dh, params string[] blacklistedTokens)
         {
             HDSLResult result;
-            var t = new HDSLTokenizer(true);
+            var t = new HDSLTokenizer(true, dh);
             var logs = t.Tokenize(code, blacklistedTokens);
             if (logs.Length == 0)
             {
@@ -132,22 +135,6 @@ namespace HDDL.HDSL
             }
 
             return result;
-        }
-
-        /// <summary>
-        /// Uses an HDSLInterpreter to execute the provided tokens, returns the results and populates the out variable
-        /// </summary>
-        /// <param name="tokens">A set of HDSLTokens generated from a script</param>
-        /// <param name="dbPath">The path to the indexed files database</param>
-        /// <returns>An HDSLResult containing either errors or the results of the query</returns>
-        private static HDSLResult Execute(ListStack<HDSLToken> tokens, string dbPath)
-        {
-            if (!File.Exists(dbPath))
-            {
-                DataHandler.InitializeDatabase(dbPath);
-            }
-
-            return Execute(tokens, new DataHandler(dbPath));
         }
 
         /// <summary>

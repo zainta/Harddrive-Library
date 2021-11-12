@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Linq;
 using System.IO;
+using HDDL.Data;
 
 namespace HDDL.HDSL
 {
@@ -19,6 +20,7 @@ namespace HDDL.HDSL
     {
         private const int Minimum_Column = 1;
         private const int Minimum_Row = 1;
+        public const char ColumnHeaderSetSeparatorCharacter = '-';
 
         /// <summary>
         /// The currently targeted HDSL code
@@ -51,14 +53,21 @@ namespace HDDL.HDSL
         public string[] Blacklist { get; private set; }
 
         /// <summary>
+        /// Used for column header tokens
+        /// </summary>
+        private DataHandler _dh;
+
+        /// <summary>
         /// Create a tokenizer for use
         /// </summary>
         /// <param name="ignoreWhitespace">Whether or not to generate whitespace tokens</param>
-        public HDSLTokenizer(bool ignoreWhitespace)
+        /// <param name="dh">The datahandler to use</param>
+        public HDSLTokenizer(bool ignoreWhitespace, DataHandler dh)
         {
             this.ignoreWhitespace = ignoreWhitespace;
             Tokens = new ListStack<HDSLToken>();
             Outcome = new List<HDSLLogBase>();
+            _dh = dh;
         }
 
         /// <summary>
@@ -95,7 +104,7 @@ namespace HDDL.HDSL
                 {
                     continue;
                 }
-                else if((More() && Peek() == '\'') || (More(1) && PeekStr(length:2) == "@'"))
+                else if ((More() && Peek() == '\'') || (More(1) && PeekStr(length: 2) == "@'"))
                 {
                     if (GetString())
                     {
@@ -116,15 +125,19 @@ namespace HDDL.HDSL
                 {
                     continue;
                 }
-                else if (More() && char.IsLetter(Peek()) && GetKeywords())
-                {
-                    continue;
-                }
                 else if (More() && GetOperators())
                 {
                     continue;
                 }
-                else if (More() && Peek() == ';'  && GetEoL())
+                else if (More() && Peek() == ';' && GetEoL())
+                {
+                    continue;
+                }
+                else if (More() && char.IsLetter(Peek()) && GetColumnHeaderSetDefinition())
+                {
+                    continue;
+                }
+                else if (More() && char.IsLetter(Peek()) && GetKeywords())
                 {
                     continue;
                 }
@@ -279,8 +292,8 @@ namespace HDDL.HDSL
                         Peek() == escape.Value) // found the escape character
                     {
                         // check to see if the character after the escape is the ending character
-                        if (More(1) && Peek(1) == end) 
-                        { 
+                        if (More(1) && Peek(1) == end)
+                        {
                             // yes
                             literal.Append(Peek());
                             encoded.Append(Pop());
@@ -296,7 +309,7 @@ namespace HDDL.HDSL
                             encoded.Append(Pop());
                         }
                         else
-                        { 
+                        {
                             // no
                             literal.Append(Peek());
                             literal.Append(Peek(1));
@@ -342,6 +355,47 @@ namespace HDDL.HDSL
         }
 
         /// <summary>
+        /// Detects column code strings and returns them as a tokens
+        /// </summary>
+        /// <param name="text">The text to test</param>
+        /// <returns></returns>
+        private bool IsColumnHeaderSet(string text)
+        {
+            // loop through, removing chunks of the string that match column aliases until nothing is left.
+            // if anything is left then this is not a column string
+            var remains = text;
+            while (remains.Length > 0)
+            {
+                var match = (from mapping in _dh.GetColumnNameMappings()
+                             where
+                                remains.StartsWith(mapping.Alias, StringComparison.InvariantCultureIgnoreCase)
+                             select mapping).SingleOrDefault();
+                if (match != null)
+                {
+                    // found it
+                    remains = remains.Remove(0, match.Alias.Length);
+
+                    if (remains.StartsWith(ColumnHeaderSetSeparatorCharacter))
+                    {
+                        remains = remains.Remove(0, 1);
+                    }
+                }
+                else
+                {
+                    // unknown term
+                    break;
+                }
+            }
+
+            if (remains.Length == 0)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Gets the properly cased version of the provided file / directory attribute
         /// </summary>
         /// <param name="text">the name of an attribute, in any case</param>
@@ -361,8 +415,8 @@ namespace HDDL.HDSL
         /// <returns>The unmodified token</returns>
         private HDSLToken Add(HDSLToken token)
         {
-            if ((from b in Blacklist 
-                 where 
+            if ((from b in Blacklist
+                 where
                     token.Type.ToString().StartsWith(b, StringComparison.InvariantCultureIgnoreCase) ||
                     b.Equals(token.Literal, StringComparison.InvariantCultureIgnoreCase)
                  select b).Any())
@@ -518,7 +572,7 @@ namespace HDDL.HDSL
                 }
                 return true;
             }
-            
+
             return false;
         }
 
@@ -750,6 +804,10 @@ namespace HDDL.HDSL
                 {
                     token = new HDSLToken(HDSLTokenTypes.HashLogs, keyword.ToString(), row, col, text);
                 }
+                else if (text == "columns")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Columns, keyword.ToString(), row, col, text);
+                }
                 else if (IsDiskAttributeName(text))
                 {
                     token = new HDSLToken(HDSLTokenTypes.AttributeLiteral, keyword.ToString(), row, col, GetDiskAttributeName(text));
@@ -839,6 +897,52 @@ namespace HDDL.HDSL
             {
                 Add(new HDSLToken(HDSLTokenTypes.EndOfLine, Pop(), row, col, ";"));
                 return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Gathers and returns a set of column definition tokens for a columns clause
+        /// 
+        /// A "column set definition" is a series of case-insensitive column aliases seperated by dashes.
+        /// e.g id-fdate-sdate-path
+        /// </summary>
+        /// <returns>Whether or not a token was generated (if not, implies an error)</returns>
+        private bool GetColumnHeaderSetDefinition()
+        {
+            if (!Tokens.Empty && Tokens.ToList().Last().Type == HDSLTokenTypes.Columns)
+            {
+                var keyword = new StringBuilder();
+                while (More() &&
+                    (char.IsLetter(Peek()) || Peek() == ColumnHeaderSetSeparatorCharacter))
+                {
+                    keyword.Append(Pop());
+                }
+
+                HDSLToken token = null;
+                if (keyword.Length > 1)
+                {
+                    var text = keyword.ToString().ToLower();
+                    if (IsColumnHeaderSet(text))
+                    {
+                        token = new HDSLToken(HDSLTokenTypes.ColumnHeaderSet, keyword.ToString(), row, col, text);
+                    }
+                    else
+                    {
+                        // put everything back
+                        foreach (var ch in keyword.ToString())
+                        {
+                            buffer.Push(ch);
+                        }
+                    }
+                }
+
+                if (token != null)
+                {
+                    Add(token);
+                    return true;
+                }
             }
 
             return false;

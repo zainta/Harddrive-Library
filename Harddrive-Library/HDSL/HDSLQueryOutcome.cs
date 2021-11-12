@@ -114,6 +114,11 @@ namespace HDDL.HDSL
         }
 
         /// <summary>
+        /// The columns to return
+        /// </summary>
+        public ColumnHeaderSet Columns { get; set; }
+
+        /// <summary>
         /// Creates a HDSLQueryOutcome
         /// </summary>
         public HDSLQueryOutcome()
@@ -121,6 +126,7 @@ namespace HDDL.HDSL
             Parent = null;
             DefaultColumnData = Default_ColumnData;
             DefaultPagingData = Default_PagingData;
+            Columns = null;
         }
 
         #region Table Structuring

@@ -332,11 +332,14 @@ namespace HDDL.HDSL
         /// Gathers the information required for a Find query and returns it
         /// 
         /// Syntax
-        /// [file pattern] [in/within/under [path[, path, path]] - defaults to current] [where clause];
+        /// [columns columnheaderset] [file pattern] [in/within/under [path[, path, path]] - defaults to current] [where clause];
         /// </summary>
         /// <returns></returns>
         private FindQueryDetails GetFindDetails()
         {
+            // the column header set is optional
+            var columnHeaderSet = GetColumnHeaderSet();
+
             // the wildcard expression defaults to "*.*".  Defining it explicitly is optional
             var wildcardExpression = "*.*";
             if (More() && Peek().Type == HDSLTokenTypes.String)
@@ -403,7 +406,8 @@ namespace HDDL.HDSL
                 Method = op,
                 Paths = targetPaths,
                 Wildcard = wildcardExpression,
-                ResultsEmpty = false
+                ResultsEmpty = false,
+                Columns = columnHeaderSet
             };
         }
 
@@ -497,6 +501,33 @@ namespace HDDL.HDSL
             var strm = new StreamWriter(Console.OpenStandardError());
             strm.AutoFlush = true;
             Console.SetError(strm);
+        }
+
+        /// <summary>
+        /// Takes a column header set definition and converts it into a Column Header Set
+        /// </summary>
+        /// <returns></returns>
+        private ColumnHeaderSet GetColumnHeaderSet()
+        {
+            if (Peek().Type == HDSLTokenTypes.Columns)
+            {
+                Pop();
+
+                ColumnHeaderSet result = null;
+                if (Peek().Type == HDSLTokenTypes.ColumnHeaderSet)
+                {
+                    var aliases = Pop().Literal.Split(HDSLTokenizer.ColumnHeaderSetSeparatorCharacter);
+                    var columns =
+                        (from mapping in _dh.GetColumnNameMappings()
+                         where aliases.Where(a => a.Equals(mapping.Alias, StringComparison.InvariantCultureIgnoreCase)).Any()
+                         select mapping.Name).ToArray();
+                    result = new ColumnHeaderSet(columns);
+                }
+
+                return result;
+            }
+
+            return null;
         }
 
         #endregion
@@ -1140,7 +1171,10 @@ namespace HDDL.HDSL
                 }
 
                 // Done
-                return new FindQueryResultSet(results);
+                return new FindQueryResultSet(results)
+                        {
+                            Columns = details.Columns
+                        };
             }
 
             return new FindQueryResultSet(new DiskItem[] { });

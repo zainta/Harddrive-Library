@@ -46,6 +46,11 @@ namespace HDDL.Data
         private List<WardItem> _wardCache;
 
         /// <summary>
+        /// The column name mapping cache
+        /// </summary>
+        private List<ColumnNameMappingItem> _columnNameMappingCache;
+
+        /// <summary>
         /// Stores pending database actions for DiskItems
         /// </summary>
         private RecordActionContainer<DiskItem> _diskItems;
@@ -76,6 +81,11 @@ namespace HDDL.Data
         private RecordActionContainer<DiskItemHashLogItem> _hashLogs;
 
         /// <summary>
+        /// Stores the pending database actions for the ColumnNameMappingItems
+        /// </summary>
+        private RecordActionContainer<ColumnNameMappingItem> _columnNameMappings;
+
+        /// <summary>
         /// The current database connection
         /// </summary>
         private SQLiteConnection _connection;
@@ -93,15 +103,34 @@ namespace HDDL.Data
             _watches = new RecordActionContainer<WatchItem>();
             _wards = new RecordActionContainer<WardItem>();
             _hashLogs = new RecordActionContainer<DiskItemHashLogItem>();
+            _columnNameMappings = new RecordActionContainer<ColumnNameMappingItem>();
             _bookmarkCache = null;
             _exclusionCache = null;
             _watchCache = null;
             _wardCache = null;
+            _columnNameMappingCache = null;
         }
 
         ~DataHandler()
         {
             Dispose();
+        }
+
+        /// <summary>
+        /// Safely obtains a DataHandler
+        /// 
+        /// Will throw exception if database file is in use
+        /// </summary>
+        /// <param name="dbPath">The path to look at</param>
+        /// <returns></returns>
+        public static DataHandler Get(string dbPath)
+        {
+            if (!File.Exists(dbPath))
+            {
+                InitializeDatabase(dbPath);
+            }
+
+            return new DataHandler(dbPath);
         }
 
         #region Database Utility
@@ -185,7 +214,17 @@ namespace HDDL.Data
                                 occurred text not null,
                                 oldhash text,
                                 newhash text,
-                                unc text not null);",
+                                unc text not null
+                                );
+
+                            create table if not exists columnnamemappings (
+                                id text not null primary key,
+                                name text not null,
+                                alias text not null,
+                                isActive integer not null
+                                );
+                             create unique index columnnamemappings_name_index on columnnamemappings(name);
+                             create unique index columnnamemappings_alias_index on columnnamemappings(alias);",
                                 sqltCon))
                     {
 
@@ -194,6 +233,11 @@ namespace HDDL.Data
 
                         command.ExecuteNonQuery();
                     }
+                }
+
+                using (var dh = new DataHandler(connectionString))
+                {
+                    dh.ResetColumnNameMappingTable();
                 }
             }
         }
@@ -266,6 +310,309 @@ namespace HDDL.Data
             {
                 return (long)command.ExecuteScalar();
             }
+        }
+
+        #endregion
+
+        #region Column Name Mappings
+
+        /// <summary>
+        /// Performs the initial write for default mappings
+        /// </summary>
+        /// <returns>A tuple in the format total [inserts, updates, deletes]</returns>
+        public Tuple<long, long, long> ResetColumnNameMappingTable()
+        {
+            var deletions = ClearColumnNameMappings();
+
+            // Create an alias record for each property of the diskitem class
+
+            // Id
+            Insert(new ColumnNameMappingItem()
+            {
+                Id = Guid.NewGuid(),
+                Name = "id",
+                Alias = "id",
+                IsActive = true
+            });
+
+            // ParentId
+            Insert(new ColumnNameMappingItem()
+            {
+                Id = Guid.NewGuid(),
+                Name = "ParentId",
+                Alias = "pid",
+                IsActive = true
+            });
+
+            // first scanned
+            Insert(new ColumnNameMappingItem()
+            {
+                Id = Guid.NewGuid(),
+                Name = "FirstScanned",
+                Alias = "fdate",
+                IsActive = true
+            });
+
+            // last scanned
+            Insert(new ColumnNameMappingItem()
+            {
+                Id = Guid.NewGuid(),
+                Name = "LastScanned",
+                Alias = "sdate",
+                IsActive = true
+            });
+
+            // path
+            Insert(new ColumnNameMappingItem()
+            {
+                Id = Guid.NewGuid(),
+                Name = "Path",
+                Alias = "path",
+                IsActive = true
+            });
+
+            // item name
+            Insert(new ColumnNameMappingItem()
+            {
+                Id = Guid.NewGuid(),
+                Name = "ItemName",
+                Alias = "name",
+                IsActive = true
+            });
+
+            // is file
+            Insert(new ColumnNameMappingItem()
+            {
+                Id = Guid.NewGuid(),
+                Name = "IsFile",
+                Alias = "file",
+                IsActive = true
+            });
+
+            // extension
+            Insert(new ColumnNameMappingItem()
+            {
+                Id = Guid.NewGuid(),
+                Name = "Extension",
+                Alias = "ext",
+                IsActive = true
+            });
+
+            // size in bytes
+            Insert(new ColumnNameMappingItem()
+            {
+                Id = Guid.NewGuid(),
+                Name = "SizeInBytes",
+                Alias = "size",
+                IsActive = true
+            });
+
+            // last written
+            Insert(new ColumnNameMappingItem()
+            {
+                Id = Guid.NewGuid(),
+                Name = "LastWritten",
+                Alias = "wdate",
+                IsActive = true
+            });
+
+            // last accessed
+            Insert(new ColumnNameMappingItem()
+            {
+                Id = Guid.NewGuid(),
+                Name = "LastAccessed",
+                Alias = "adate",
+                IsActive = true
+            });
+
+            // creation date
+            Insert(new ColumnNameMappingItem()
+            {
+                Id = Guid.NewGuid(),
+                Name = "CreationDate",
+                Alias = "cdate",
+                IsActive = true
+            });
+
+            // depth
+            Insert(new ColumnNameMappingItem()
+            {
+                Id = Guid.NewGuid(),
+                Name = "Depth",
+                Alias = "depth",
+                IsActive = true
+            });
+
+            // file hash
+            Insert(new ColumnNameMappingItem()
+            {
+                Id = Guid.NewGuid(),
+                Name = "FileHash",
+                Alias = "hash",
+                IsActive = true
+            });
+
+            // hash timestamp
+            Insert(new ColumnNameMappingItem()
+            {
+                Id = Guid.NewGuid(),
+                Name = "HashTimestamp",
+                Alias = "hashtime",
+                IsActive = true
+            });
+
+            // attributes
+            Insert(new ColumnNameMappingItem()
+            {
+                Id = Guid.NewGuid(),
+                Name = "Attributes",
+                Alias = "attr",
+                IsActive = true
+            });
+
+            // machine unc name
+            Insert(new ColumnNameMappingItem()
+            {
+                Id = Guid.NewGuid(),
+                Name = "MachineUNCName",
+                Alias = "unc",
+                IsActive = true
+            });
+
+            var result = WriteColumnNameMappings();
+            return new Tuple<long, long, long>(result.Item1, result.Item2, result.Item3 + deletions);
+        }
+
+        /// <summary>
+        /// Retrieves and returns the ColumnNameMappings
+        /// </summary>
+        /// <returns></returns>
+        public List<ColumnNameMappingItem> GetColumnNameMappings()
+        {
+            if (_columnNameMappingCache == null ||
+                (_columnNameMappingCache != null && _columnNameMappingCache.Count == 0))
+            {
+                _columnNameMappingCache = new List<ColumnNameMappingItem>();
+
+                var mappings = ExecuteReader(@"select * from columnnamemappings");
+                while (mappings.Read())
+                {
+                    _columnNameMappingCache.Add(new ColumnNameMappingItem(mappings));
+                }
+            }
+
+            return _columnNameMappingCache;
+        }
+
+        /// <summary>
+        /// Clears any cached bookmarks, forcing them to be reloaded for the next GetBookmarks() call
+        /// </summary>
+        public void ClearColumnNameMappingCache()
+        {
+            if (_columnNameMappingCache == null) return;
+            _columnNameMappingCache.Clear();
+            _columnNameMappingCache = null;
+        }
+
+        /// <summary>
+        /// Deletes all ColumnNameMappings from the database
+        /// </summary>
+        public long ClearColumnNameMappings()
+        {
+            ClearColumnNameMappingCache();
+
+            var count = GetCount("columnnamemappings");
+            ExecuteNonQuery("delete from columnnamemappings");
+            return count;
+        }
+
+        /// <summary>
+        /// Queues the records for transactionary insertion
+        /// </summary>
+        /// <param name="items">The records to be added</param>
+        /// <returns></returns>
+        public void Insert(params ColumnNameMappingItem[] items)
+        {
+            foreach (var item in items)
+            {
+                _columnNameMappings.Inserts.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Queues the records for the transactionary update
+        /// </summary>
+        /// <param name="items">The records to be updated</param>
+        public void Update(params ColumnNameMappingItem[] items)
+        {
+            foreach (var item in items)
+            {
+                _columnNameMappings.Updates.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Queues the records for the transactionary deletion
+        /// </summary>
+        /// <param name="items"></param>
+        public void Delete(params ColumnNameMappingItem[] items)
+        {
+            foreach (var item in items)
+            {
+                _columnNameMappings.Deletions.Add(item);
+            }
+        }
+
+        /// <summary>
+        /// Performs a transactionary database execution of all pending inserts, updates, and deletes
+        /// </summary>
+        /// <returns>A tuple in the format total [inserts, updates, deletes]</returns>
+        public Tuple<long, long, long> WriteColumnNameMappings()
+        {
+            long inserts = 0, updates = 0, deletes = 0;
+            if (_columnNameMappings.HasWork)
+            {
+                using (var transaction = EnsureConnection().BeginTransaction())
+                {
+                    if (_columnNameMappings.Inserts.Count > 0)
+                    {
+                        foreach (var insert in _columnNameMappings.Inserts)
+                        {
+                            ExecuteNonQuery(insert.ToInsertStatement());
+                            inserts++;
+                        }
+                        _columnNameMappings.Inserts.Clear();
+                    }
+
+                    if (_columnNameMappings.Updates.Count > 0)
+                    {
+                        foreach (var update in _columnNameMappings.Updates)
+                        {
+                            ExecuteNonQuery(update.ToUpdateStatement());
+                            updates++;
+                        }
+                        _columnNameMappings.Updates.Clear();
+                    }
+
+                    if (_columnNameMappings.Deletions.Count > 0)
+                    {
+                        var sql = $"({ string.Join(", ", from delete in _columnNameMappings.Deletions select $"'{delete.Id}'") })";
+
+                        deletes = GetCount($"columnnamemappings where id in {sql};");
+                        ExecuteNonQuery($"DELETE from columnnamemappings where id in {sql};");
+                        _columnNameMappings.Deletions.Clear();
+                    }
+
+                    transaction.Commit();
+                }
+            }
+
+            if (inserts > 0 || updates > 0 || deletes > 0)
+            {
+                ClearColumnNameMappingCache();
+            }
+
+            return new Tuple<long, long, long>(inserts, updates, deletes);
         }
 
         #endregion

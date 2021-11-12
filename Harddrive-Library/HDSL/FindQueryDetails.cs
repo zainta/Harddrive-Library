@@ -36,5 +36,10 @@ namespace HDDL.HDSL
         /// The query starting point method
         /// </summary>
         public FindQueryDepths Method { get; set; }
+
+        /// <summary>
+        /// The columns to return
+        /// </summary>
+        public ColumnHeaderSet Columns { get; set; }
     }
 }
