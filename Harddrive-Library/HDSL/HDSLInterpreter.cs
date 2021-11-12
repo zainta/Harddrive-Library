@@ -801,7 +801,7 @@ namespace HDDL.HDSL
         /// Allows scripts to run integrity scan
         /// 
         /// Syntax:
-        /// check [spinner|progress|text|quiet - defaults to text] [file pattern] [in/within/under [path[, path, path]] - defaults to current] [where clause];
+        /// check [spinner|progress|text|quiet - defaults to text] [columns columnheaderset] [file pattern] [in/within/under [path[, path, path]] - defaults to current] [where clause];
         /// </summary>
         private HDSLQueryOutcome HandleIntegrityCheck()
         {
