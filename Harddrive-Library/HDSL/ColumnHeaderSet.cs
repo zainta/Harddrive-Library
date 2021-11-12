@@ -1,9 +1,11 @@
-﻿using HDDL.Data;
+﻿// Copyright (c) Zain Al-Ahmary.  All rights reserved.
+// Licensed under the MIT License, (the "License"); you may not use this file except in compliance with the License. 
+// You may obtain a copy of the License at https://mit-license.org/
+
+using HDDL.Data;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Reflection;
 
 namespace HDDL.HDSL
@@ -25,6 +27,15 @@ namespace HDDL.HDSL
         public ColumnHeaderSet(IEnumerable<string> columnNames)
         {
             Columns = new List<string>(columnNames);
+        }
+
+        /// <summary>
+        /// Creates a default column header set
+        /// </summary>
+        /// <param name="mappings">The defined mappings</param>
+        public ColumnHeaderSet(IEnumerable<ColumnNameMappingItem> mappings)
+        {
+            Columns = new List<string>(from m in mappings where m.IsDefault select m.Name);
         }
 
         /// <summary>

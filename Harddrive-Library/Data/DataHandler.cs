@@ -221,7 +221,9 @@ namespace HDDL.Data
                                 id text not null primary key,
                                 name text not null,
                                 alias text not null,
-                                isActive integer not null
+                                isActive integer not null,
+                                type text not null,
+                                isDefault integer not null
                                 );
                              create unique index columnnamemappings_name_index on columnnamemappings(name);
                              create unique index columnnamemappings_alias_index on columnnamemappings(alias);",
@@ -332,7 +334,9 @@ namespace HDDL.Data
                 Id = Guid.NewGuid(),
                 Name = "id",
                 Alias = "id",
-                IsActive = true
+                IsActive = true,
+                HostType = typeof(DiskItem).FullName,
+                IsDefault = false
             });
 
             // ParentId
@@ -341,7 +345,9 @@ namespace HDDL.Data
                 Id = Guid.NewGuid(),
                 Name = "ParentId",
                 Alias = "pid",
-                IsActive = true
+                IsActive = true,
+                HostType = typeof(DiskItem).FullName,
+                IsDefault = false
             });
 
             // first scanned
@@ -350,7 +356,9 @@ namespace HDDL.Data
                 Id = Guid.NewGuid(),
                 Name = "FirstScanned",
                 Alias = "fdate",
-                IsActive = true
+                IsActive = true,
+                HostType = typeof(DiskItem).FullName,
+                IsDefault = true
             });
 
             // last scanned
@@ -359,7 +367,9 @@ namespace HDDL.Data
                 Id = Guid.NewGuid(),
                 Name = "LastScanned",
                 Alias = "sdate",
-                IsActive = true
+                IsActive = true,
+                HostType = typeof(DiskItem).FullName,
+                IsDefault = true
             });
 
             // path
@@ -368,7 +378,9 @@ namespace HDDL.Data
                 Id = Guid.NewGuid(),
                 Name = "Path",
                 Alias = "path",
-                IsActive = true
+                IsActive = true,
+                HostType = typeof(DiskItem).FullName,
+                IsDefault = true
             });
 
             // item name
@@ -377,7 +389,9 @@ namespace HDDL.Data
                 Id = Guid.NewGuid(),
                 Name = "ItemName",
                 Alias = "name",
-                IsActive = true
+                IsActive = true,
+                HostType = typeof(DiskItem).FullName,
+                IsDefault = false
             });
 
             // is file
@@ -386,7 +400,9 @@ namespace HDDL.Data
                 Id = Guid.NewGuid(),
                 Name = "IsFile",
                 Alias = "file",
-                IsActive = true
+                IsActive = true,
+                HostType = typeof(DiskItem).FullName,
+                IsDefault = true
             });
 
             // extension
@@ -395,7 +411,9 @@ namespace HDDL.Data
                 Id = Guid.NewGuid(),
                 Name = "Extension",
                 Alias = "ext",
-                IsActive = true
+                IsActive = true,
+                HostType = typeof(DiskItem).FullName,
+                IsDefault = false
             });
 
             // size in bytes
@@ -404,7 +422,9 @@ namespace HDDL.Data
                 Id = Guid.NewGuid(),
                 Name = "SizeInBytes",
                 Alias = "size",
-                IsActive = true
+                IsActive = true,
+                HostType = typeof(DiskItem).FullName,
+                IsDefault = true
             });
 
             // last written
@@ -413,7 +433,9 @@ namespace HDDL.Data
                 Id = Guid.NewGuid(),
                 Name = "LastWritten",
                 Alias = "wdate",
-                IsActive = true
+                IsActive = true,
+                HostType = typeof(DiskItem).FullName,
+                IsDefault = true
             });
 
             // last accessed
@@ -422,7 +444,9 @@ namespace HDDL.Data
                 Id = Guid.NewGuid(),
                 Name = "LastAccessed",
                 Alias = "adate",
-                IsActive = true
+                IsActive = true,
+                HostType = typeof(DiskItem).FullName,
+                IsDefault = true
             });
 
             // creation date
@@ -431,7 +455,9 @@ namespace HDDL.Data
                 Id = Guid.NewGuid(),
                 Name = "CreationDate",
                 Alias = "cdate",
-                IsActive = true
+                IsActive = true,
+                HostType = typeof(DiskItem).FullName,
+                IsDefault = true
             });
 
             // depth
@@ -440,7 +466,9 @@ namespace HDDL.Data
                 Id = Guid.NewGuid(),
                 Name = "Depth",
                 Alias = "depth",
-                IsActive = true
+                IsActive = true,
+                HostType = typeof(DiskItem).FullName,
+                IsDefault = false
             });
 
             // file hash
@@ -449,7 +477,9 @@ namespace HDDL.Data
                 Id = Guid.NewGuid(),
                 Name = "FileHash",
                 Alias = "hash",
-                IsActive = true
+                IsActive = true,
+                HostType = typeof(DiskItem).FullName,
+                IsDefault = false
             });
 
             // hash timestamp
@@ -458,7 +488,9 @@ namespace HDDL.Data
                 Id = Guid.NewGuid(),
                 Name = "HashTimestamp",
                 Alias = "hashtime",
-                IsActive = true
+                IsActive = true,
+                HostType = typeof(DiskItem).FullName,
+                IsDefault = true
             });
 
             // attributes
@@ -467,7 +499,9 @@ namespace HDDL.Data
                 Id = Guid.NewGuid(),
                 Name = "Attributes",
                 Alias = "attr",
-                IsActive = true
+                IsActive = true,
+                HostType = typeof(DiskItem).FullName,
+                IsDefault = false
             });
 
             // machine unc name
@@ -476,7 +510,9 @@ namespace HDDL.Data
                 Id = Guid.NewGuid(),
                 Name = "MachineUNCName",
                 Alias = "unc",
-                IsActive = true
+                IsActive = true,
+                HostType = typeof(DiskItem).FullName,
+                IsDefault = false
             });
 
             var result = WriteColumnNameMappings();

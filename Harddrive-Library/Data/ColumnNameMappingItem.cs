@@ -2,9 +2,12 @@
 // Licensed under the MIT License, (the "License"); you may not use this file except in compliance with the License. 
 // You may obtain a copy of the License at https://mit-license.org/
 
+using System;
 using System.Data;
 using System.Data.SQLite;
 using System.Text;
+using System.Reflection;
+using System.Linq;
 
 namespace HDDL.Data
 {
@@ -13,10 +16,22 @@ namespace HDDL.Data
     /// </summary>
     public class ColumnNameMappingItem : HDDLRecordBase
     {
+        private string _name;
         /// <summary>
         /// The original column's name
         /// </summary>
-        internal string Name { get; set; }
+        internal string Name 
+        { 
+            get
+            {
+                return _name;
+            }
+            set
+            {
+                _name = value;
+                GetDataType();
+            }
+        }
 
         /// <summary>
         /// The new alias for the original name
@@ -28,6 +43,33 @@ namespace HDDL.Data
         /// </summary>
         public bool IsActive { get; set; }
 
+        private string _hostType;
+        /// <summary>
+        /// A type reference for the class this column is pulled from
+        /// </summary>
+        public string HostType 
+        { 
+            get
+            {
+                return _hostType;
+            }
+            set
+            {
+                _hostType = value;
+                GetDataType();
+            }
+        }
+
+        /// <summary>
+        /// The column's datatype
+        /// </summary>
+        public Type DataType { get; private set; }
+
+        /// <summary>
+        /// Whether or not the column is returned by default
+        /// </summary>
+        public bool IsDefault { get; set; }
+
         /// <summary>
         /// Creates an instance from the current record in the data reader
         /// </summary>
@@ -35,9 +77,11 @@ namespace HDDL.Data
         /// <param name="di"></param>
         public ColumnNameMappingItem(SQLiteDataReader row) : base(row)
         {
+            HostType = row.GetString("type");
             Name = row.GetString("name");
             Alias = row.GetString("alias");
             IsActive = row.GetBoolean("isActive");
+            IsDefault = row.GetBoolean("isDefault");
         }
 
         /// <summary>
@@ -48,15 +92,32 @@ namespace HDDL.Data
         }
 
         /// <summary>
+        /// Populates the DataType field with the type of the referenced property
+        /// </summary>
+        private void GetDataType()
+        {
+            if (DataType == null)
+            {
+                if (!string.IsNullOrWhiteSpace(_name) && !string.IsNullOrWhiteSpace(HostType))
+                {
+                    var props = Type.GetType(HostType).GetProperties();
+                    DataType = (from p in props
+                                where p.Name == _name
+                                select p.PropertyType).SingleOrDefault();
+                }
+            }
+        }
+
+        /// <summary>
         /// Generates and returns a SQLite Insert statement for this record
         /// </summary>
         /// <returns>The line of SQL</returns>
         public override string ToInsertStatement()
         {
             return $@"insert into columnnamemappings 
-                        (id, name, alias, isActive) 
+                        (id, name, alias, isActive, type, isDefault) 
                       values 
-                        ('{Id}', '{DataHelper.Sanitize(Name)}', '{DataHelper.Sanitize(Alias)}', {IsActive});";
+                        ('{Id}', '{DataHelper.Sanitize(Name)}', '{DataHelper.Sanitize(Alias)}', {IsActive}, '{HostType}', {IsDefault});";
         }
 
         /// <summary>
@@ -68,14 +129,17 @@ namespace HDDL.Data
             return $@"update columnnamemappings 
                         set name = '{DataHelper.Sanitize(Name)}',
                             alias = '{DataHelper.Sanitize(Alias)}',
-                            isActive = {IsActive}
+                            isActive = {IsActive},
+                            type = '{HostType}',
+                            isDefault = {IsDefault}
                         where id = '{Id}';";
         }
 
         public override string ToString()
         {
             var state = IsActive ? "on" : "off";
-            return $"[Map ({state}) ({Id}): '{Name}' to '{Alias}']";
+            var isDefault = IsDefault ? "def" : "opt";
+            return $"[Map ({state}, {isDefault}) ({Id}): {HostType}.'{Name}' to '{Alias}']";
         }
     }
 }

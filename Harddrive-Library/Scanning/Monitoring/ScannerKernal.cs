@@ -684,7 +684,10 @@ namespace HDDL.Scanning.Monitoring
         public void Dispose()
         {
             Reset();
-            _dh.Dispose();
+            if (_dh != null)
+            {
+                _dh.Dispose();
+            }
         }
     }
 }

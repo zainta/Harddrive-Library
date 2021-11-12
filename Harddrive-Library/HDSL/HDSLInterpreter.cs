@@ -527,7 +527,7 @@ namespace HDDL.HDSL
                 return result;
             }
 
-            return null;
+            return new ColumnHeaderSet(_dh.GetColumnNameMappings());
         }
 
         #endregion
