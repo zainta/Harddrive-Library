@@ -339,6 +339,13 @@ namespace HDDL.HDSL
         {
             // the column header set is optional
             var columnHeaderSet = GetColumnHeaderSet();
+            if (_errors.Count > 0)
+            {
+                return new FindQueryDetails()
+                {
+                    ResultsEmpty = true
+                };
+            }
 
             // the wildcard expression defaults to "*.*".  Defining it explicitly is optional
             var wildcardExpression = "*.*";
@@ -509,22 +516,24 @@ namespace HDDL.HDSL
         /// <returns></returns>
         private ColumnHeaderSet GetColumnHeaderSet()
         {
-            if (Peek().Type == HDSLTokenTypes.Columns)
+            if (More() && Peek().Type == HDSLTokenTypes.Columns)
             {
                 Pop();
 
-                ColumnHeaderSet result = null;
-                if (Peek().Type == HDSLTokenTypes.ColumnHeaderSet)
+                if (More() && Peek().Type == HDSLTokenTypes.ColumnHeaderSet)
                 {
                     var aliases = Pop().Literal.Split(HDSLTokenizer.ColumnHeaderSetSeparatorCharacter);
                     var columns =
                         (from mapping in _dh.GetColumnNameMappings()
                          where aliases.Where(a => a.Equals(mapping.Alias, StringComparison.InvariantCultureIgnoreCase)).Any()
                          select mapping.Name).ToArray();
-                    result = new ColumnHeaderSet(columns);
+                    return new ColumnHeaderSet(columns);
                 }
-
-                return result;
+                else
+                {
+                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, "Column header set expected."));
+                    return new ColumnHeaderSet(_dh.GetColumnNameMappings());
+                }
             }
 
             return new ColumnHeaderSet(_dh.GetColumnNameMappings());
