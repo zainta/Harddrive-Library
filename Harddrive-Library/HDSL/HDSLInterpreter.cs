@@ -539,9 +539,10 @@ namespace HDDL.HDSL
         /// 
         /// Purpose:
         /// Resets where either, or both, of the console output streams write to
+        /// Also handles resetting the column header set back to default
         /// 
         /// Syntax:
-        /// Reset out | standard | error;
+        /// Reset out | standard | error | columnheaderset;
         /// </summary>
         private void HandleResetStatement()
         {
@@ -568,6 +569,12 @@ namespace HDDL.HDSL
                         Pop();
 
                         ResetStandardErrorToDefault();
+                    }
+                    else if (Peek().Type == HDSLTokenTypes.ColumnHeaderSet)
+                    {
+                        Pop();
+
+                        _dh.ResetColumnNameMappingTable();
                     }
                     else
                     {
