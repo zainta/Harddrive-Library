@@ -7,6 +7,7 @@ using HDDL.Scanning.Monitoring;
 using HDDL.Web;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using System;
 using System.IO;
 using System.Reflection;
 using System.Threading;
@@ -70,13 +71,13 @@ namespace HDDL.Services
             switch (message.Type)
             {
                 case MessageTypes.Error:
-                    _logger.LogError(message.Message, message.Error);
+                    _logger.LogError($"{DateTime.Now} - {message.Message}", message.Error);
                     break;
                 case MessageTypes.Information:
-                    _logger.LogInformation(message.Message);
+                    _logger.LogInformation($"{DateTime.Now} - {message.Message}");
                     break;
                 case MessageTypes.Warning:
-                    _logger.LogWarning(message.Message);
+                    _logger.LogWarning($"{DateTime.Now} - {message.Message}");
                     break;
             }
         }
