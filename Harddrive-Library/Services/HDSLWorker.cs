@@ -50,7 +50,7 @@ namespace HDDL.Services
             using (var sk = new ScannerKernal(
                     _iniFile[@"HDSL_DB>DatabaseLocation"].Value,
                     new ScriptLoadingDetails(_iniFile),
-                    MessagingModes.Errors | MessagingModes.Information,
+                    MessagingModes.Error | MessagingModes.Warning | MessagingModes.Information | MessagingModes.VerboseInformation,
                     false))
             {
                 sk.MessageRelayed += Sk_MessageRelayed; ;
@@ -71,13 +71,14 @@ namespace HDDL.Services
             switch (message.Type)
             {
                 case MessageTypes.Error:
-                    _logger.LogError($"{DateTime.Now} - {message.Message}", message.Error);
+                    _logger.LogError($"{message}", message.Error);
                     break;
+                case MessageTypes.VerboseInformation:
                 case MessageTypes.Information:
-                    _logger.LogInformation($"{DateTime.Now} - {message.Message}");
+                    _logger.LogInformation($"{message}");
                     break;
                 case MessageTypes.Warning:
-                    _logger.LogWarning($"{DateTime.Now} - {message.Message}");
+                    _logger.LogWarning($"{message}");
                     break;
             }
         }

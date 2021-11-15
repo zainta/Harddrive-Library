@@ -528,7 +528,7 @@ namespace HDDL.Scanning.Monitoring
             if (watcher != null &&
                 message.Type == MessageTypes.Error)
             {
-                Forward(message);
+                Relay(message);
 
                 watcher.ReportDiskEvent -= Watcher_ReportDiskEvent;
                 watcher.MessageRelayed -= Watcher_MessageRelayed;
@@ -540,7 +540,7 @@ namespace HDDL.Scanning.Monitoring
             }
             else
             {
-                Forward(message);
+                Relay(message);
             }
         }
 
@@ -594,7 +594,7 @@ namespace HDDL.Scanning.Monitoring
             if (watcher != null &&
                 message.Type == MessageTypes.Error)
             {
-                Forward(message);
+                Relay(message);
                 RemoveWatcher(watcher);
 
                 var watch = _dh.GetWatches().Where(w => w.Path == watcher.GetPath()).SingleOrDefault();
@@ -610,7 +610,7 @@ namespace HDDL.Scanning.Monitoring
             }
             else
             {
-                Forward(message);
+                Relay(message);
             }
         }
 
@@ -625,7 +625,7 @@ namespace HDDL.Scanning.Monitoring
             if (monitor != null &&
                 message.Type == MessageTypes.Error)
             {
-                Forward(message);
+                Relay(message);
 
                 // unbind from old monitor
                 monitor.MessageRelayed -= _monitor_MessageRelayed;
@@ -638,12 +638,11 @@ namespace HDDL.Scanning.Monitoring
                 {
                     _monitor.Start();
                 }
-
                 Warn($"Successfully recycled integrity scan queue monitor.");
             }
             else
             {
-                Forward(message);
+                Relay(message);
             }
         }
 

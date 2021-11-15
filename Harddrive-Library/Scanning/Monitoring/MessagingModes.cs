@@ -12,7 +12,9 @@ namespace HDDL.Scanning.Monitoring
     [Flags]
     public enum MessagingModes
     {
-        Errors = 1,
-        Information = 2
+        Error = 1,
+        Warning = 2,
+        Information = 4,
+        VerboseInformation = 8
     }
 }

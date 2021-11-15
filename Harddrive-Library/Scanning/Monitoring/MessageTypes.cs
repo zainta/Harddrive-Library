@@ -14,6 +14,10 @@ namespace HDDL.Scanning.Monitoring
         /// </summary>
         Information,
         /// <summary>
+        /// A message that relays informational details that might be excessive
+        /// </summary>
+        VerboseInformation,
+        /// <summary>
         /// An error with no parmanent consequences
         /// </summary>
         Warning,

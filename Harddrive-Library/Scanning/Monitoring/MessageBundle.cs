@@ -12,6 +12,11 @@ namespace HDDL.Scanning.Monitoring
     public class MessageBundle
     {
         /// <summary>
+        /// When the message occurred
+        /// </summary>
+        public DateTime Occurred { get; set; }
+
+        /// <summary>
         /// The ReporterBase the message came from
         /// </summary>
         public ReporterBase Origin { get; set; }
@@ -39,6 +44,7 @@ namespace HDDL.Scanning.Monitoring
         /// <param name="type">The type of message - defaults to information</param>
         public MessageBundle(ReporterBase source, string message, MessageTypes type = MessageTypes.Information)
         {
+            Occurred = DateTime.Now;
             Origin = source;
             Message = message;
             Error = null;
@@ -51,12 +57,14 @@ namespace HDDL.Scanning.Monitoring
         /// <param name="source">The ReporterBase instance who created the message bundle</param>
         /// <param name="message">The message</param>
         /// <param name="ex">The exception</param>
-        public MessageBundle(ReporterBase source, string message, Exception ex)
+        /// <param name="type">The type of message - defaults to information</param>
+        public MessageBundle(ReporterBase source, string message, Exception ex, MessageTypes type = MessageTypes.Error)
         {
+            Occurred = DateTime.Now;
             Origin = source;
             Message = message;
             Error = ex;
-            Type = MessageTypes.Error;
+            Type = type;
         }
 
         /// <summary>
@@ -69,13 +77,30 @@ namespace HDDL.Scanning.Monitoring
             switch (Type)
             {
                 case MessageTypes.Error:
-                    result = $"Error: {Message}\nException: {Error}";
-                    break;
-                case MessageTypes.Information:
-                    result = $"Info: {Message}";
+                    if (Error == null)
+                    {
+                        result = $"({Occurred}) - Error: {Message}";
+                    }
+                    else
+                    {
+                        result = $"({Occurred}) - Error: {Message}\nException: {Error}";
+                    }
                     break;
                 case MessageTypes.Warning:
-                    result = $"Warning: {Message}";
+                    if (Error == null)
+                    {
+                        result = $"({Occurred}) - Warn: {Message}";
+                    }
+                    else
+                    {
+                        result = $"({Occurred}) - Warn: {Message}\nException: {Error}";
+                    }
+                    break;
+                case MessageTypes.Information:
+                    result = $"({Occurred}) - Info: {Message}";
+                    break;
+                case MessageTypes.VerboseInformation:
+                    result = $"({Occurred}) - Verbose: {Message}";
                     break;
             }
 
