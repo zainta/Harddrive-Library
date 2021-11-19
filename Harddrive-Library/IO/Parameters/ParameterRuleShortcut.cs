@@ -91,10 +91,11 @@ namespace HDDL.IO.Parameters
                     var rangeStart = $"{shortcut}{PairedNotation}".Length;
                     var rangeEnd = !more ? args[i].Length - rangeStart - 1 : args[i].Length - rangeStart;
                     content.Append(args[i].Substring(rangeStart, rangeEnd));
-                    i++;
 
                     if (more)
                     {
+                        i++;
+
                         // now find the rest of the paired run
                         while (more && (i < args.Length))
                         {
