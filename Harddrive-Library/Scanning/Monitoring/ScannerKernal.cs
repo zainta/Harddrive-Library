@@ -4,6 +4,7 @@
 
 using HDDL.Data;
 using HDDL.HDSL;
+using HDDL.HDSL.Results;
 using HDDL.IO.Disk;
 using System;
 using System.Collections.Generic;
@@ -192,14 +193,14 @@ namespace HDDL.Scanning.Monitoring
         /// </summary>
         /// <param name="code">The HDSL code to execute</param>
         /// <returns>The code's outcome</returns>
-        public HDSLResult Execute(string code)
+        public HDSLOutcomeSet Execute(string code)
         {
             if (_narrateProgress)
             {
                 Inform("Pausing for side-load...");
             }
 
-            HDSLResult result = null;
+            HDSLOutcomeSet result = null;
             try
             {
                 Reset();
@@ -236,7 +237,7 @@ namespace HDDL.Scanning.Monitoring
                     {
                         Inform($"Executing initial database script: '{_sideLoadDetails.InitialLoadSource}'.");
                     }
-                    HDSLResult result = null;
+                    HDSLOutcomeSet result = null;
                     if (File.Exists(_sideLoadDetails.InitialLoadSource))
                     {
                         result = HDSLProvider.ExecuteScript(_sideLoadDetails.InitialLoadSource, _dh);
@@ -573,7 +574,7 @@ namespace HDDL.Scanning.Monitoring
                 case FileSystemWatcherEventNatures.Creation:
                 case FileSystemWatcherEventNatures.Alteration:
                     {
-                        var scanWrapper = new DiskScanEventWrapper(_dh, new string[] { e.FullPath }, false, EventWrapperDisplayModes.Displayless);
+                        var scanWrapper = new DiskScanEventWrapper(_dh, new string[] { e.FullPath }, false, EventWrapperDisplayModes.Displayless, new ColumnHeaderSet(_dh, typeof(DiskItem)));
                         if (!scanWrapper.Go())
                         {
                             Warn($"Failed a scan on '{e.FullPath}'.");
@@ -654,7 +655,7 @@ namespace HDDL.Scanning.Monitoring
         /// <param name="result">The instance to check</param>
         /// <param name="scriptPath">The script that failed to execute</param>
         /// <returns>True if no errors, false otherwise</returns>
-        private bool ReportResultProblem(HDSLResult result, string scriptPath)
+        private bool ReportResultProblem(HDSLOutcomeSet result, string scriptPath)
         {
             if (result.Errors.Length > 0)
             {

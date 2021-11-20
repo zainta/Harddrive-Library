@@ -42,8 +42,11 @@ namespace HDDL.HDSL
                     case HDSLTokenTypes.AttributeLiteral:
                         Family = HDSLTokenFamilies.AttributeLiterals;
                         break;
+                    case HDSLTokenTypes.FileSystem:
+                    case HDSLTokenTypes.ColumnMappings:
+                    case HDSLTokenTypes.GroupBy:
+                    case HDSLTokenTypes.OrderBy:
                     case HDSLTokenTypes.Columns:
-                    case HDSLTokenTypes.ColumnHeaderSet:
                     case HDSLTokenTypes.HashLogs:
                     case HDSLTokenTypes.Error:
                     case HDSLTokenTypes.Standard:
@@ -68,8 +71,6 @@ namespace HDDL.HDSL
                     case HDSLTokenTypes.In:
                     case HDSLTokenTypes.Under:
                     case HDSLTokenTypes.Within:
-                    case HDSLTokenTypes.By:
-                    case HDSLTokenTypes.Sort:
                     case HDSLTokenTypes.Scan:
                     case HDSLTokenTypes.Check:
                     case HDSLTokenTypes.Find:
@@ -79,15 +80,8 @@ namespace HDDL.HDSL
                     case HDSLTokenTypes.Where:
                         Family = HDSLTokenFamilies.LanguageKeywords;
                         break;
-                    case HDSLTokenTypes.Written:
-                    case HDSLTokenTypes.Accessed:
-                    case HDSLTokenTypes.Created:
-                    case HDSLTokenTypes.Extension:
-                    case HDSLTokenTypes.LastScan:
-                    case HDSLTokenTypes.FirstScan:
-                    case HDSLTokenTypes.Name:
+                    case HDSLTokenTypes.ColumnName:
                     case HDSLTokenTypes.Now:
-                    case HDSLTokenTypes.Size:
                         Family = HDSLTokenFamilies.ValueKeywords;
                         break;
                     case HDSLTokenTypes.And:

@@ -5,6 +5,7 @@
 using HDDL.Collections;
 using HDDL.Data;
 using HDDL.HDSL.Logging;
+using HDDL.HDSL.Results;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -23,9 +24,9 @@ namespace HDDL.HDSL
         /// <param name="dbPath">The file index database to use</param>
         /// <param name="blacklistedTokens">A set of tokens that cannot be generated and will result in an error if encountered</param>
         /// <returns>An HDSLResult containing either errors or the results of the query</returns>
-        public static HDSLResult ExecuteCode(string code, string dbPath, params string[] blacklistedTokens)
+        public static HDSLOutcomeSet ExecuteCode(string code, string dbPath, params string[] blacklistedTokens)
         {
-            HDSLResult result;
+            HDSLOutcomeSet result;
             using (var dh = DataHandler.Get(dbPath))
             {
                 var t = new HDSLTokenizer(true, dh);
@@ -36,7 +37,7 @@ namespace HDDL.HDSL
                 }
                 else
                 {
-                    result = new HDSLResult(logs);
+                    result = new HDSLOutcomeSet(logs);
                 }
             }
 
@@ -50,9 +51,9 @@ namespace HDDL.HDSL
         /// <param name="dh">The datahandler to use</param>
         /// <param name="blacklistedTokens">A set of tokens that cannot be generated and will result in an error if encountered</param>
         /// <returns>An HDSLResult containing either errors or the results of the query</returns>
-        public static HDSLResult ExecuteCode(string code, DataHandler dh, params string[] blacklistedTokens)
+        public static HDSLOutcomeSet ExecuteCode(string code, DataHandler dh, params string[] blacklistedTokens)
         {
-            HDSLResult result;
+            HDSLOutcomeSet result;
             var t = new HDSLTokenizer(true, dh);
             var logs = t.Tokenize(code, blacklistedTokens);
             if (logs.Length == 0)
@@ -61,7 +62,7 @@ namespace HDDL.HDSL
             }
             else
             {
-                result = new HDSLResult(logs);
+                result = new HDSLOutcomeSet(logs);
             }
 
             return result;
@@ -74,10 +75,10 @@ namespace HDDL.HDSL
         /// <param name="dbPath">The file index database to use</param>
         /// <param name="blacklistedTokens">A set of tokens that cannot be generated and will result in an error if encountered</param>
         /// <returns>An HDSLResult containing either errors or the results of the query</returns>
-        public static HDSLResult ExecuteScript(string path, string dbPath, params string[] blacklistedTokens)
+        public static HDSLOutcomeSet ExecuteScript(string path, string dbPath, params string[] blacklistedTokens)
         {
             string code = null;
-            HDSLResult result = null;
+            HDSLOutcomeSet result = null;
             try
             {
                 if (File.Exists(path))
@@ -86,12 +87,12 @@ namespace HDDL.HDSL
                 }
                 else
                 {
-                    result = new HDSLResult(new HDSLLogBase[] { new HDSLLogBase(-1, -1, $"Script file not found. '{path}'") });
+                    result = new HDSLOutcomeSet(new HDSLLogBase[] { new HDSLLogBase(-1, -1, $"Script file not found. '{path}'") });
                 }
             }
             catch (Exception ex)
             {
-                result = new HDSLResult(new HDSLLogBase[] { new HDSLLogBase(-1, -1, $"Unable to load script file '{path}': {ex}") });
+                result = new HDSLOutcomeSet(new HDSLLogBase[] { new HDSLLogBase(-1, -1, $"Unable to load script file '{path}': {ex}") });
             }
 
             if (result == null)
@@ -109,10 +110,10 @@ namespace HDDL.HDSL
         /// <param name="dh">The datahandler to use</param>
         /// <param name="blacklistedTokens">A set of tokens that cannot be generated and will result in an error if encountered</param>
         /// <returns>An HDSLResult containing either errors or the results of the query</returns>
-        public static HDSLResult ExecuteScript(string path, DataHandler dh, params string[] blacklistedTokens)
+        public static HDSLOutcomeSet ExecuteScript(string path, DataHandler dh, params string[] blacklistedTokens)
         {
             string code = null;
-            HDSLResult result = null;
+            HDSLOutcomeSet result = null;
             try
             {
                 if (File.Exists(path))
@@ -121,12 +122,12 @@ namespace HDDL.HDSL
                 }
                 else
                 {
-                    result = new HDSLResult(new HDSLLogBase[] { new HDSLLogBase(-1, -1, $"Script file not found. '{path}'") });
+                    result = new HDSLOutcomeSet(new HDSLLogBase[] { new HDSLLogBase(-1, -1, $"Script file not found. '{path}'") });
                 }
             }
             catch (Exception ex)
             {
-                result = new HDSLResult(new HDSLLogBase[] { new HDSLLogBase(-1, -1, $"Unable to load script file '{path}': {ex}") });
+                result = new HDSLOutcomeSet(new HDSLLogBase[] { new HDSLLogBase(-1, -1, $"Unable to load script file '{path}': {ex}") });
             }
 
             if (result == null)
@@ -143,9 +144,9 @@ namespace HDDL.HDSL
         /// <param name="tokens">A set of HDSLTokens generated from a script</param>
         /// <param name="dh">The datahandler to use</param>
         /// <returns>An HDSLResult containing either errors or the results of the query</returns>
-        private static HDSLResult Execute(ListStack<HDSLToken> tokens, DataHandler dh)
+        private static HDSLOutcomeSet Execute(ListStack<HDSLToken> tokens, DataHandler dh)
         {
-            HDSLResult result;
+            HDSLOutcomeSet result;
             var interpreter = new HDSLInterpreter(tokens, dh);
             result = interpreter.Interpret(false);
 

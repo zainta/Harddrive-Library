@@ -15,9 +15,10 @@ namespace HDDL.HDSL.Where
         /// Creates an And operator
         /// </summary>
         /// <param name="right">The operator who's result will be used as the right</param>
-        public Has(HDSLToken right)
+        /// <param name="cc">The clause's execution context</param>
+        public Has(HDSLToken right, ClauseContext cc)
         {
-            RightValue = new WhereValue(right);
+            RightValue = new WhereValue(right, cc);
         }
 
         /// <summary>

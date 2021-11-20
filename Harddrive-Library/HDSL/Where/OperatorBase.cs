@@ -7,6 +7,7 @@ using HDDL.Data;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 
 namespace HDDL.HDSL.Where
 {
@@ -48,9 +49,12 @@ namespace HDDL.HDSL.Where
         /// <summary>
         /// Converts a listStack of tokens into an Operator structure for evaluation
         /// </summary>
-        /// <param name="tokens"></param>
-        /// <returns></returns>
-        public static OperatorBase ConvertClause(ListStack<HDSLToken> tokens)
+        /// <param name="tokens">The tokens to convert</param>
+        /// <param name="dh">The data handler to use for mapping resolution</param>
+        /// <param name="cc">The current statement context</param>
+        /// <param name="currentStatement">The currently execution statement</param>
+        /// <returns>The converted token structure's root node</returns>
+        public static OperatorBase ConvertClause(ListStack<HDSLToken> tokens, ClauseContext cc, StringBuilder currentStatement)
         {
             ListStack<HDSLToken> queue = new ListStack<HDSLToken>();
 
@@ -72,7 +76,8 @@ namespace HDDL.HDSL.Where
                 {
                     queue.Push(tokens.Peek());
                 }
-                tokens.Pop();
+                var pop = tokens.Pop();
+                HDSLInterpreter.AppendStatementPiece(currentStatement, pop);
             }
 
             // recursively go through the queue building the operator instances
@@ -83,7 +88,7 @@ namespace HDDL.HDSL.Where
                 OperatorBase result = null;
                 if (tq.Count > 1 && tq.Peek(1).Family == HDSLTokenFamilies.RelativeOperators)
                 {
-                    var topic = Get(tq);
+                    var topic = Get(tq, cc);
                     if (tq.Count > 1 && tq.Peek(1).Family == HDSLTokenFamilies.RelativeOperators)
                     {
                         throw new InvalidOperationException("Logical expression expected between relative expressions.");
@@ -103,10 +108,10 @@ namespace HDDL.HDSL.Where
                     switch (tq.Pop().Type)
                     {
                         case HDSLTokenTypes.Has:
-                            result = new Has(val);
+                            result = new Has(val, cc);
                             break;
                         case HDSLTokenTypes.HasNot:
-                            result = new HasNot(val);
+                            result = new HasNot(val, cc);
                             break;
                     }
 
@@ -139,8 +144,9 @@ namespace HDDL.HDSL.Where
         /// Extracts the most immediately available operator base and returns it
         /// </summary>
         /// <param name="tokens">The tokens to extract from</param>
+        /// <param name="dh">The data handler to use for mapping resolution</param>
         /// <returns>The operator base</returns>
-        private static OperatorBase Get(ListStack<HDSLToken> tokens)
+        private static OperatorBase Get(ListStack<HDSLToken> tokens, ClauseContext cc)
         {
             OperatorBase result = null;
             if (tokens.Count > 2 && tokens.Peek(1).Family == HDSLTokenFamilies.RelativeOperators)
@@ -152,22 +158,22 @@ namespace HDDL.HDSL.Where
                 switch (opratr.Type)
                 {
                     case HDSLTokenTypes.Equal:
-                        result = new Equals(left, right);
+                        result = new Equals(left, right, cc);
                         break;
                     case HDSLTokenTypes.NotEqual:
-                        result = new NotEqual(left, right);
+                        result = new NotEqual(left, right, cc);
                         break;
                     case HDSLTokenTypes.GreaterThan:
-                        result = new GreaterThan(left, right);
+                        result = new GreaterThan(left, right, cc);
                         break;
                     case HDSLTokenTypes.GreaterOrEqual:
-                        result = new GreaterOrEqual(left, right);
+                        result = new GreaterOrEqual(left, right, cc);
                         break;
                     case HDSLTokenTypes.LessThan:
-                        result = new LessThan(left, right);
+                        result = new LessThan(left, right, cc);
                         break;
                     case HDSLTokenTypes.LessOrEqual:
-                        result = new LessOrEqual(left, right);
+                        result = new LessOrEqual(left, right, cc);
                         break;
                 }
             }

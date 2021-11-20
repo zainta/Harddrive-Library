@@ -4,7 +4,10 @@
 
 using HDDL.Data;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
+using System.Linq;
 
 namespace HDDL.HDSL.Where
 {
@@ -39,11 +42,18 @@ namespace HDDL.HDSL.Where
         private object _actual;
 
         /// <summary>
+        /// The clause's execution context
+        /// </summary>
+        private ClauseContext _cc;
+
+        /// <summary>
         /// Creates a value from the token
         /// </summary>
         /// <param name="token">The token to convert into the value</param>
-        public WhereValue(HDSLToken token)
+        /// <param name="cc">The clause's execution context</param>
+        public WhereValue(HDSLToken token, ClauseContext cc)
         {
+            _cc = cc;
             IsSlug = false;
             Keyword = null;
             if (token.Family == HDSLTokenFamilies.DataTypes)
@@ -53,6 +63,10 @@ namespace HDDL.HDSL.Where
                     case HDSLTokenTypes.String:
                         ValueType = WhereValueTypes.String;
                         _actual = token.Literal;
+                        break;
+                    case HDSLTokenTypes.BookmarkReference:
+                        ValueType = WhereValueTypes.String;
+                        _actual = cc.Data.ApplyBookmarks(token.Code);
                         break;
                     case HDSLTokenTypes.WholeNumber:
                         ValueType = WhereValueTypes.WholeNumber;
@@ -74,29 +88,32 @@ namespace HDDL.HDSL.Where
                 Keyword = token.Type;
                 switch (token.Type)
                 {
-                    case HDSLTokenTypes.Size:
-                        ValueType = WhereValueTypes.WholeNumber;
-                        break;
-                    case HDSLTokenTypes.Written:
-                        ValueType = WhereValueTypes.DateTime;
-                        break;
-                    case HDSLTokenTypes.Accessed:
-                        ValueType = WhereValueTypes.DateTime;
-                        break;
-                    case HDSLTokenTypes.Created:
-                        ValueType = WhereValueTypes.DateTime;
-                        break;
-                    case HDSLTokenTypes.Extension:
-                        ValueType = WhereValueTypes.String;
-                        break;
-                    case HDSLTokenTypes.LastScan:
-                        ValueType = WhereValueTypes.DateTime;
-                        break;
-                    case HDSLTokenTypes.FirstScan:
-                        ValueType = WhereValueTypes.DateTime;
-                        break;
-                    case HDSLTokenTypes.Name:
-                        ValueType = WhereValueTypes.String;
+                    case HDSLTokenTypes.ColumnName:
+                        var mappingType = _cc.Data.GetColumnType(token.Code, _cc.QueriedType);
+                        if (mappingType != null)
+                        {
+                            _actual = token.Code;
+                            if (mappingType == typeof(string))
+                            {
+                                ValueType = WhereValueTypes.String;
+                            }
+                            else if (mappingType == typeof(long))
+                            {
+                                ValueType = WhereValueTypes.WholeNumber;
+                            }
+                            else if (mappingType == typeof(double))
+                            {
+                                ValueType = WhereValueTypes.RealNumber;
+                            }
+                            else if (mappingType == typeof(DateTime))
+                            {
+                                ValueType = WhereValueTypes.DateTime;
+                            }
+                            else
+                            {
+                                throw new ArgumentException($"Unknown column type discovered '{mappingType.FullName}'.");
+                            }
+                        }
                         break;
                     case HDSLTokenTypes.Now:
                         ValueType = WhereValueTypes.DateTime;
@@ -130,29 +147,19 @@ namespace HDDL.HDSL.Where
             {
                 switch (Keyword)
                 {
-                    case HDSLTokenTypes.Size:
-                        result = item.SizeInBytes;
-                        break;
-                    case HDSLTokenTypes.Written:
-                        result = item.LastWritten;
-                        break;
-                    case HDSLTokenTypes.Accessed:
-                        result = item.LastAccessed;
-                        break;
-                    case HDSLTokenTypes.Created:
-                        result = item.CreationDate;
-                        break;
-                    case HDSLTokenTypes.Extension:
-                        result = item.Extension;
-                        break;
-                    case HDSLTokenTypes.LastScan:
-                        result = item.LastScanned;
-                        break;
-                    case HDSLTokenTypes.FirstScan:
-                        result = item.FirstScanned;
-                        break;
-                    case HDSLTokenTypes.Name:
-                        result = item.ItemName;
+                    case HDSLTokenTypes.ColumnName:
+                        var prop = item.GetType().GetProperties()
+                            .Where(p => p.Name.Equals((string)_actual, StringComparison.InvariantCultureIgnoreCase))
+                            .SingleOrDefault();
+
+                        if (prop != null)
+                        {
+                            result = prop.GetValue(item);
+                        }
+                        else
+                        {
+                            throw new ArgumentException($"Column '{_actual}' not found on type '{item.GetType().FullName}'.");
+                        }
                         break;
                     case HDSLTokenTypes.Now:
                         result = Now;
@@ -177,29 +184,8 @@ namespace HDDL.HDSL.Where
             {
                 switch (Keyword)
                 {
-                    case HDSLTokenTypes.Size:
-                        result = "size";
-                        break;
-                    case HDSLTokenTypes.Written:
-                        result = "lastWritten";
-                        break;
-                    case HDSLTokenTypes.Accessed:
-                        result = "lastAccessed";
-                        break;
-                    case HDSLTokenTypes.Created:
-                        result = "created";
-                        break;
-                    case HDSLTokenTypes.Extension:
-                        result = "extension";
-                        break;
-                    case HDSLTokenTypes.LastScan:
-                        result = "lastScanned";
-                        break;
-                    case HDSLTokenTypes.FirstScan:
-                        result = "firstScanned";
-                        break;
-                    case HDSLTokenTypes.Name:
-                        result = "itemName";
+                    case HDSLTokenTypes.ColumnName:
+                        result = (string)_actual;
                         break;
                     case HDSLTokenTypes.Now:
                         result = DateTimeDataHelper.ConvertToString(Now);
@@ -241,29 +227,8 @@ namespace HDDL.HDSL.Where
             {
                 switch (Keyword)
                 {
-                    case HDSLTokenTypes.Size:
-                        result = "size";
-                        break;
-                    case HDSLTokenTypes.Written:
-                        result = "written";
-                        break;
-                    case HDSLTokenTypes.Accessed:
-                        result = "accessed";
-                        break;
-                    case HDSLTokenTypes.Created:
-                        result = "created";
-                        break;
-                    case HDSLTokenTypes.Extension:
-                        result = "extension";
-                        break;
-                    case HDSLTokenTypes.LastScan:
-                        result = "last";
-                        break;
-                    case HDSLTokenTypes.FirstScan:
-                        result = "first";
-                        break;
-                    case HDSLTokenTypes.Name:
-                        result = "name";
+                    case HDSLTokenTypes.ColumnName:
+                        result = (string)_actual;
                         break;
                     case HDSLTokenTypes.Now:
                         result = DateTimeDataHelper.ConvertToString(Now);

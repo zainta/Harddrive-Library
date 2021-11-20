@@ -4,6 +4,7 @@
 
 using HDDL.Data;
 using HDDL.HDSL;
+using HDDL.HDSL.Results;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,7 +19,7 @@ namespace HDDL.Scanning.Monitoring
     class IntegrityMonitorSymphony : ReporterBase
     {
         public delegate void IntegrityScanStartsDelegate(IntegrityMonitorSymphony originator, WardItem integrityCheck);
-        public delegate void IntegrityScanEndsDelegate(IntegrityMonitorSymphony originator, WardItem integrityCheck, HDSLResult result);
+        public delegate void IntegrityScanEndsDelegate(IntegrityMonitorSymphony originator, WardItem integrityCheck, HDSLOutcome result);
         public delegate void IntegrityScanStateChanged(IntegrityMonitorSymphony originator, IntegrityMonitorSymphonyStates newState, IntegrityMonitorSymphonyStates oldState);
 
         /// <summary>
@@ -148,10 +149,10 @@ namespace HDDL.Scanning.Monitoring
                         }
                         else
                         {
-                            var set = result.Results.FirstOrDefault() as IntegrityScanResultSet;
+                            var set = result.Results.FirstOrDefault();
                             if (set == null)
                             {
-                                Warn($"Unexpected result set returned. Type '{result.Results.FirstOrDefault().GetType().FullName}' was returned instead of '{typeof(IntegrityScanResultSet).FullName}'."); 
+                                Warn($"Unexpected result set returned. Type '{result.Results.FirstOrDefault().GetType().FullName}' was returned instead of '{typeof(HDSLOutcomeSet).FullName}'."); 
                             }
                             else
                             {
@@ -164,7 +165,7 @@ namespace HDDL.Scanning.Monitoring
                         due.NextScan = DateTime.Now.Add(due.Interval);
                         _dh.Update(due);
                         _dh.WriteWards();
-                        ScanEnded?.Invoke(this, due, result);
+                        ScanEnded?.Invoke(this, due, result.Results.FirstOrDefault());
                     }
 
                     // wait 10 seconds before checking for another integrity check's need

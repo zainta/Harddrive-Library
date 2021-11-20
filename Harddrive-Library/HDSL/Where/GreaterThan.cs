@@ -17,10 +17,11 @@ namespace HDDL.HDSL.Where
         /// </summary>
         /// <param name="left">The value used as the left</param>
         /// <param name="right">The value used as the right</param>
-        public GreaterThan(HDSLToken left, HDSLToken right)
+        /// <param name="cc">The clause's execution context</param>
+        public GreaterThan(HDSLToken left, HDSLToken right, ClauseContext cc)
         {
-            LeftValue = new WhereValue(left);
-            RightValue = new WhereValue(right);
+            LeftValue = new WhereValue(left, cc);
+            RightValue = new WhereValue(right, cc);
         }
 
         /// <summary>

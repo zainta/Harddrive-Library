@@ -6,6 +6,7 @@ using System;
 using System.Linq;
 using HDDL.Data;
 using HDDL.HDSL;
+using HDDL.HDSL.Results;
 using HDDL.IO.Settings;
 using Microsoft.AspNetCore.Mvc;
 
@@ -44,35 +45,7 @@ namespace HDDL.Web
         [HttpGet("{code}")]
         public IActionResult Get(string code)
         {
-            IActionResult actionOutcome = null;
-
-            try
-            {
-                var result = HDSLProvider.ExecuteCode(code, _dh as DataHandler, _blacklist);
-                if (result.Errors.Length == 0 && result.Results.Count() == 1)
-                {
-                    var resultSet = result.Results.First() as FindQueryResultSet;
-                    if (resultSet != null)
-                    {
-                        actionOutcome = Ok(resultSet.Items);
-                    }
-                }
-                else if (result.Errors.Length == 0 && result.Results.Count() > 1)
-                {
-                    // just here for the time being
-                    actionOutcome = Ok("Multiple result sets were returned.  Please query for a single result set at a time.");
-                }
-                else if (result.Errors.Length > 0)
-                {
-                    // for now, dump the error listing at them
-                    actionOutcome = Ok(string.Join(", ", result.Errors.Select(log => log.ToString())));
-                }
-            }
-            catch (Exception ex)
-            {
-                actionOutcome = BadRequest("Failed to execute request.");
-            }
-
+            IActionResult actionOutcome = Ok(HDSLProvider.ExecuteCode(code, _dh as DataHandler, _blacklist));
             return actionOutcome;
         }
     }

@@ -41,5 +41,10 @@ namespace HDDL.HDSL
         /// The columns to return
         /// </summary>
         public ColumnHeaderSet Columns { get; set; }
+
+        /// <summary>
+        /// The type that's being queried
+        /// </summary>
+        public Type TableContext { get; set; }
     }
 }

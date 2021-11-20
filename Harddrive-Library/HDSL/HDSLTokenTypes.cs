@@ -23,7 +23,6 @@ namespace HDDL.HDSL
 
         // Keywords
 
-        Now,
         In,
         Find,
         Asc,
@@ -31,8 +30,6 @@ namespace HDDL.HDSL
         Purge,
         Within,
         Where,
-        Sort,
-        By,
         Under,
         Scan,
         Check,
@@ -57,19 +54,16 @@ namespace HDDL.HDSL
         Error,
         Standard,
         HashLogs,
+        GroupBy,
+        OrderBy,
+        ColumnMappings,
+        FileSystem,
 
         // value keywords
-        Size,
-        Written,
-        Accessed,
-        Created,
-        Extension,
-        LastScan,
-        FirstScan,
-        Name,
+        Now,
+        ColumnName,
 
         // column headers
-        ColumnHeaderSet,
         Columns,
 
         // attribute keywords

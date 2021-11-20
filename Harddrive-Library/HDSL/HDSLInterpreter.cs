@@ -5,12 +5,15 @@
 using HDDL.Collections;
 using HDDL.Data;
 using HDDL.HDSL.Logging;
+using HDDL.HDSL.Results;
 using HDDL.HDSL.Where;
 using HDDL.IO.Disk;
+using HDDL.Scanning.Results;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace HDDL.HDSL
 {
@@ -35,6 +38,11 @@ namespace HDDL.HDSL
         private List<HDSLLogBase> _errors;
 
         /// <summary>
+        /// The currently in progress statement
+        /// </summary>
+        private StringBuilder _currentStatement;
+
+        /// <summary>
         /// Creates an interpreter using the provided tokenizer's tokens and the provided file database
         /// </summary>
         /// <param name="tokenizer">The tokenizer whose tokens should be consumed</param>
@@ -51,10 +59,11 @@ namespace HDDL.HDSL
         /// </summary>
         /// <param name="closeDb">Whether or not to close the database upon completion</param>
         /// <returns>The results of the interpretation</returns>
-        public HDSLResult Interpret(bool closeDb)
+        public HDSLOutcomeSet Interpret(bool closeDb)
         {
-            HDSLResult result = null;
-            var results = new List<HDSLQueryOutcome>();
+            HDSLOutcomeSet badOutcome = null;
+            var successOutcome = new HDSLOutcomeSet();
+            _currentStatement = new StringBuilder();
 
             try
             {
@@ -62,6 +71,8 @@ namespace HDDL.HDSL
 
                 while (!_tokens.Empty && _errors.Count == 0 && !done)
                 {
+                    _currentStatement.Clear();
+
                     switch (Peek().Type)
                     {
                         case HDSLTokenTypes.MultiLineComment:
@@ -75,10 +86,16 @@ namespace HDDL.HDSL
                             HandlePurgeStatement();
                             break;
                         case HDSLTokenTypes.Find:
-                            results.Add(HandleFindStatement());
+                            {
+                                var intermediate = HandleFindStatement();
+                                if (intermediate != null)
+                                {
+                                    successOutcome.Add(AddStatement(intermediate.AsOutcome()));
+                                }
+                            }
                             break;
                         case HDSLTokenTypes.Scan:
-                            results.Add(HandleScanStatement());
+                            successOutcome.Add(HandleScanStatement());
                             break;
                         case HDSLTokenTypes.EndOfFile:
                             Pop();
@@ -94,7 +111,7 @@ namespace HDDL.HDSL
                             HandleExcludeStatement();
                             break;
                         case HDSLTokenTypes.Check:
-                            results.Add(HandleIntegrityCheck());
+                            successOutcome.Add(HandleIntegrityCheck());
                             break;
                         case HDSLTokenTypes.Ward:
                             HandleWardDefinition();
@@ -117,20 +134,22 @@ namespace HDDL.HDSL
             }
             catch (Exception ex)
             {
-                result = new HDSLResult(new HDSLLogBase[] { new HDSLLogBase(-1, -1, $"Exception thrown: {ex}") });
+                badOutcome = new HDSLOutcomeSet(new HDSLLogBase[] { new HDSLLogBase(-1, -1, $"Exception thrown: {ex}") });
             }
 
             if (_errors.Count > 0)
             {
-                result = new HDSLResult(_errors);
+                badOutcome = new HDSLOutcomeSet(_errors);
+            }
+
+            if (_errors.Count > 0)
+            {
+                return badOutcome;
             }
             else
             {
-                result = new HDSLResult(results);
-                results.ForEach(r => r.Parent = result);
+                return successOutcome;
             }
-
-            return result;
         }
 
         #region Utility Methods
@@ -182,7 +201,68 @@ namespace HDDL.HDSL
         /// <exception cref="IndexOutOfRangeException" />
         private HDSLToken Pop()
         {
-            return _tokens.Pop();
+            var pop = _tokens.Pop();
+            AppendStatementPiece(_currentStatement, pop);
+            return pop;
+        }
+
+        /// <summary>
+        /// Correct adds a token to the string builder
+        /// </summary>
+        /// <param name="statement">The statement to append to</param>
+        /// <param name="token">The token to append</param>
+        /// <returns></returns>
+        public static StringBuilder AppendStatementPiece(StringBuilder statement, HDSLToken token)
+        {
+            if (token.Type == HDSLTokenTypes.String)
+            {
+                if (token.Code.Contains('\\'))
+                {
+                    statement.Append(statement.Length == 0 ? $"@{token.Code}" : $" @{token.Code}");
+                }
+                else
+                {
+                    statement.Append(statement.Length == 0 ? token.Code : $" {token.Code}");
+                }
+            }
+            else
+            {
+                statement.Append(statement.Length == 0 ? token.Code : $" {token.Code}");
+            }
+
+            return statement;
+        }
+
+        /// <summary>
+        /// Attempts to convert a bookmark into its actual value
+        /// </summary>
+        /// <param name="bookmark">The text to convert</param>
+        /// <returns>The result of the conversion</returns>
+        private string ApplyBookmarks(HDSLToken bookmark)
+        {
+            var result = _dh.ApplyBookmarks(bookmark.Code);
+            if (bookmark.Code == result)
+            {
+                _errors.Add(new HDSLLogBase(bookmark.Column, bookmark.Row, $"Unknown bookmark '{bookmark.Code}'."));
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Attempts to convert a bookmark into its actual value
+        /// </summary>
+        /// <param name="bookmark">The text to convert</param>
+        /// <returns>The result of the conversion</returns>
+        private string ApplyBookmarks(string bookmark)
+        {
+            var result = _dh.ApplyBookmarks(bookmark);
+            if (bookmark == result)
+            {
+                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Unknown bookmark '{bookmark}'."));
+            }
+
+            return result;
         }
 
         /// <summary>
@@ -208,7 +288,7 @@ namespace HDDL.HDSL
             {
                 if (expandBookmarks)
                 {
-                    path = _dh.ApplyBookmarks(Pop().Code);
+                    path = ApplyBookmarks(Pop());
                 }
                 else
                 {
@@ -225,7 +305,7 @@ namespace HDDL.HDSL
             if (BookmarkItem.HasBookmark(path))
             {
                 // if there is a bookmark then expand it to properly test
-                var expanded = _dh.ApplyBookmarks(path);
+                var expanded = ApplyBookmarks(path);
                 result = PathHelper.EnsurePath(expanded, forced);
 
                 // if we are not expanding the bookmarks then
@@ -332,13 +412,41 @@ namespace HDDL.HDSL
         /// Gathers the information required for a Find query and returns it
         /// 
         /// Syntax
-        /// [columns columnheaderset] [file pattern] [in/within/under [path[, path, path]] - defaults to current] [where clause];
+        /// [filesystem | wards | watches | hashlogs] [columns columnref[, columnref]] [file pattern] [in/within/under [path[, path, path]] - defaults to current] [where clause];
         /// </summary>
+        /// <param name="forcedTypeContext">Preassigns the type context, skipping that step</param>
         /// <returns></returns>
-        private FindQueryDetails GetFindDetails()
+        private FindQueryDetails GetFindDetails(Type? forcedTypeContext = null)
         {
+            Type typeContext = typeof(DiskItem);
+            if (forcedTypeContext == null)
+            {
+                if (Peek().Type == HDSLTokenTypes.FileSystem ||
+                    Peek().Type == HDSLTokenTypes.Wards ||
+                    Peek().Type == HDSLTokenTypes.Watches ||
+                    Peek().Type == HDSLTokenTypes.HashLogs)
+                {
+                    switch (Pop().Type)
+                    {
+                        case HDSLTokenTypes.Wards:
+                            typeContext = typeof(WardItem);
+                            break;
+                        case HDSLTokenTypes.Watches:
+                            typeContext = typeof(WatchItem);
+                            break;
+                        case HDSLTokenTypes.HashLogs:
+                            typeContext = typeof(DiskItemHashLogItem);
+                            break;
+                    }
+                }
+            }
+            else
+            {
+                typeContext = forcedTypeContext;
+            }
+
             // the column header set is optional
-            var columnHeaderSet = GetColumnHeaderSet();
+            var columnHeaderSet = GetColumnHeaderSet(typeContext);
             if (_errors.Count > 0)
             {
                 return new FindQueryDetails()
@@ -400,7 +508,7 @@ namespace HDDL.HDSL
             if (More() && Peek().Type == HDSLTokenTypes.Where)
             {
                 var savePoint = Peek();
-                queryDetail = OperatorBase.ConvertClause(_tokens);
+                queryDetail = OperatorBase.ConvertClause(_tokens, new ClauseContext(_dh, typeContext), _currentStatement);
                 if (queryDetail == null)
                 {
                     _errors.Add(new HDSLLogBase(savePoint.Column, savePoint.Row, $"Bad where clause."));
@@ -414,7 +522,8 @@ namespace HDDL.HDSL
                 Paths = targetPaths,
                 Wildcard = wildcardExpression,
                 ResultsEmpty = false,
-                Columns = columnHeaderSet
+                Columns = columnHeaderSet,
+                TableContext = typeContext
             };
         }
 
@@ -511,32 +620,88 @@ namespace HDDL.HDSL
         }
 
         /// <summary>
-        /// Takes a column header set definition and converts it into a Column Header Set
+        /// Converts a list of column names into a ColumnHeaderSet instance
         /// </summary>
+        /// <param name="forType">The type of the header set is for (should be derived from HDDLRecordBase)</param>
         /// <returns></returns>
-        private ColumnHeaderSet GetColumnHeaderSet()
+        private ColumnHeaderSet GetColumnHeaderSet(Type forType)
         {
-            if (More() && Peek().Type == HDSLTokenTypes.Columns)
+            if (Peek().Type == HDSLTokenTypes.Columns ||
+                Peek().Type == HDSLTokenTypes.OrderBy ||
+                Peek().Type == HDSLTokenTypes.GroupBy)
             {
                 Pop();
 
-                if (More() && Peek().Type == HDSLTokenTypes.ColumnHeaderSet)
+                var tokens = new List<HDSLToken>();
+                while (More() && Peek().Type == HDSLTokenTypes.ColumnName)
                 {
-                    var aliases = Pop().Literal.Split(HDSLTokenizer.ColumnHeaderSetSeparatorCharacter);
+                    tokens.Add(Pop());
+                    if (Peek().Type == HDSLTokenTypes.Comma)
+                    {
+                        Pop();
+                    }
+                }
+
+                if (tokens.Count > 0)
+                {
                     var columns =
-                        (from mapping in _dh.GetColumnNameMappings()
-                         where aliases.Where(a => a.Equals(mapping.Alias, StringComparison.InvariantCultureIgnoreCase)).Any()
-                         select mapping.Name).ToArray();
-                    return new ColumnHeaderSet(columns);
+                        (from mapping in _dh.GetColumnNameMappings(forType)
+                         where tokens.Where(a =>
+                            a.Code.Equals(mapping.Alias, StringComparison.InvariantCultureIgnoreCase) ||
+                            a.Code.Equals(mapping.Name, StringComparison.InvariantCultureIgnoreCase)).Any()
+                         select mapping).ToArray();
+                    if (columns.Length == tokens.Count)
+                    {
+                        return new ColumnHeaderSet(columns, forType);
+                    }
+                    else
+                    {
+                        // get the names of the missing columns and report them in an error
+                        var missings =
+                            (from t in tokens
+                             where columns.Where(c =>
+                                c.Name.Equals(t.Code, StringComparison.InvariantCultureIgnoreCase) ||
+                                c.Name.Equals(t.Code, StringComparison.InvariantCultureIgnoreCase)).Any() == false
+                             select t).ToArray();
+
+                        var columnsEnding = missings.Length > 1 ? "s" : string.Empty;
+                        _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Type '{forType.Name}' does not have column{columnsEnding} '{string.Join("', '", missings.Select(m => m.Code))}'."));
+                    }
                 }
                 else
                 {
-                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, "Column header set expected."));
-                    return new ColumnHeaderSet(_dh.GetColumnNameMappings());
+                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Column name or alias expected."));
                 }
             }
 
-            return new ColumnHeaderSet(_dh.GetColumnNameMappings());
+            return new ColumnHeaderSet(_dh, forType);
+        }
+
+        /// <summary>
+        /// Checks for either a semicolon (;) or the end of the file
+        /// </summary>
+        /// <param name="outcome">The result</param>
+        /// <returns></returns>
+        private T AddStatement<T>(T outcome) where T : HDSLOutcome
+        {
+            if (Peek().Type == HDSLTokenTypes.EndOfLine ||
+            Peek().Type == HDSLTokenTypes.EndOfFile)
+            {
+                if (Peek().Type == HDSLTokenTypes.EndOfLine)
+                {
+                    outcome.Statement = $"{_currentStatement};";
+                }
+                else
+                {
+                    outcome.Statement = _currentStatement.ToString();
+                }
+            }
+            else
+            {
+                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"';' or end of file expected."));
+            }
+
+            return outcome;
         }
 
         #endregion
@@ -551,7 +716,7 @@ namespace HDDL.HDSL
         /// Also handles resetting the column header set back to default
         /// 
         /// Syntax:
-        /// Reset out | standard | error | columnheaderset;
+        /// Reset out | standard | error | columnmappings;
         /// </summary>
         private void HandleResetStatement()
         {
@@ -562,32 +727,68 @@ namespace HDDL.HDSL
                 {
                     if (Peek().Type == HDSLTokenTypes.Out)
                     {
-                        Pop();
+                        // check for EoF / EoL
+                        if (Peek().Type == HDSLTokenTypes.EndOfLine ||
+                        Peek().Type == HDSLTokenTypes.EndOfFile)
+                        {
+                            Pop();
 
-                        ResetStandardOutputToDefault();
-                        ResetStandardErrorToDefault();
+                            ResetStandardOutputToDefault();
+                            ResetStandardErrorToDefault();
+                        }
+                        else
+                        {
+                            _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"';' or end of file expected."));
+                        }
                     }
                     else if (Peek().Type == HDSLTokenTypes.Standard)
                     {
-                        Pop();
+                        // check for EoF / EoL
+                        if (Peek().Type == HDSLTokenTypes.EndOfLine ||
+                        Peek().Type == HDSLTokenTypes.EndOfFile)
+                        {
+                            Pop();
 
-                        ResetStandardOutputToDefault();
+                            ResetStandardOutputToDefault();
+                        }
+                        else
+                        {
+                            _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"';' or end of file expected."));
+                        }
                     }
                     else if (Peek().Type == HDSLTokenTypes.Error)
                     {
-                        Pop();
+                        // check for EoF / EoL
+                        if (Peek().Type == HDSLTokenTypes.EndOfLine ||
+                        Peek().Type == HDSLTokenTypes.EndOfFile)
+                        {
+                            Pop();
 
-                        ResetStandardErrorToDefault();
+                            ResetStandardErrorToDefault();
+                        }
+                        else
+                        {
+                            _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"';' or end of file expected."));
+                        }
                     }
-                    else if (Peek().Type == HDSLTokenTypes.ColumnHeaderSet)
+                    else if (Peek().Type == HDSLTokenTypes.ColumnMappings)
                     {
-                        Pop();
+                        // check for EoF / EoL
+                        if (Peek().Type == HDSLTokenTypes.EndOfLine ||
+                        Peek().Type == HDSLTokenTypes.EndOfFile)
+                        {
+                            Pop();
 
-                        _dh.ResetColumnNameMappingTable();
+                            _dh.ResetColumnNameMappingTable();
+                        }
+                        else
+                        {
+                            _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"';' or end of file expected."));
+                        }
                     }
                     else
                     {
-                        _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'out', 'standard', or 'error' expected."));
+                        _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'out', 'standard', 'error', or 'columnmappings' expected."));
                     }
                 }
             }
@@ -640,43 +841,52 @@ namespace HDDL.HDSL
                             break;
                     }
 
-                    if (error || standard)
+                    // check for EoF / EoL
+                    if (Peek().Type == HDSLTokenTypes.EndOfLine ||
+                    Peek().Type == HDSLTokenTypes.EndOfFile)
                     {
-                        var path = GetPath(true);
-                        if (!string.IsNullOrWhiteSpace(path))
+                        if (error || standard)
                         {
-                            try
+                            var path = GetPath(true);
+                            if (!string.IsNullOrWhiteSpace(path))
                             {
-                                var strm = new StreamWriter(File.OpenWrite(path));
-                                strm.AutoFlush = true;
+                                try
+                                {
+                                    var strm = new StreamWriter(File.OpenWrite(path));
+                                    strm.AutoFlush = true;
 
+                                    if (standard)
+                                    {
+                                        Console.SetOut(strm);
+                                    }
+
+                                    if (error)
+                                    {
+                                        Console.SetError(strm);
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Error attempting to setup new console stream during 'set out' statement.\n{ex}"));
+                                }
+                            }
+                            else
+                            {
                                 if (standard)
                                 {
-                                    Console.SetOut(strm);
+                                    ResetStandardOutputToDefault();
                                 }
 
                                 if (error)
                                 {
-                                    Console.SetError(strm);
+                                    ResetStandardErrorToDefault();
                                 }
                             }
-                            catch (Exception ex)
-                            {
-                                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Error attempting to setup new console stream during 'set out' statement.\n{ex}"));
-                            }
                         }
-                        else
-                        {
-                            if (standard)
-                            {
-                                ResetStandardOutputToDefault();
-                            }
-
-                            if (error)
-                            {
-                                ResetStandardErrorToDefault();
-                            }
-                        }
+                    }
+                    else
+                    {
+                        _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"';' or end of file expected."));
                     }
                 }
                 else
@@ -743,7 +953,16 @@ namespace HDDL.HDSL
                         }
                     }
 
-                    _dh.WriteWatches();
+                    // check for EoF / EoL
+                    if (Peek().Type == HDSLTokenTypes.EndOfLine ||
+                    Peek().Type == HDSLTokenTypes.EndOfFile)
+                    {
+                        _dh.WriteWatches();
+                    }
+                    else
+                    {
+                        _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"';' or end of file expected."));
+                    }
                 }
             }
             else
@@ -770,7 +989,7 @@ namespace HDDL.HDSL
                 var interval = GetTimeSpan();
                 if (interval.HasValue)
                 {
-                    var details = GetFindDetails();
+                    var details = GetFindDetails(typeof(DiskItem));
                     if (_errors.Count == 0 && !details.ResultsEmpty)
                     {
                         // wards are single target, in that each one represents a single path that should receive an integrity check
@@ -788,16 +1007,26 @@ namespace HDDL.HDSL
                                 Interval = interval.Value
                             };
 
-                            var dupe = _dh.GetWatches().Where(w => w.Path == ward.Path).SingleOrDefault();
-                            if (dupe == null)
+                            // check for EoF / EoL
+                            if (Peek().Type == HDSLTokenTypes.EndOfLine ||
+                            Peek().Type == HDSLTokenTypes.EndOfFile)
                             {
-                                _dh.Insert(ward);
+                                var dupe = _dh.GetWatches().Where(w => w.Path == ward.Path).SingleOrDefault();
+                                if (dupe == null)
+                                {
+                                    _dh.Insert(ward);
+                                }
+                                else
+                                {
+                                    ward.Id = dupe.Id;
+                                    _dh.Update(ward);
+                                }
                             }
                             else
                             {
-                                ward.Id = dupe.Id;
-                                _dh.Update(ward);
+                                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"';' or end of file expected."));
                             }
+
                         }
 
                         _dh.WriteWards();
@@ -817,25 +1046,28 @@ namespace HDDL.HDSL
         /// Allows scripts to run integrity scan
         /// 
         /// Syntax:
-        /// check [spinner|progress|text|quiet - defaults to text] [columns columnheaderset] [file pattern] [in/within/under [path[, path, path]] - defaults to current] [where clause];
+        /// check [spinner|progress|text|quiet - defaults to text] [columns columnref[, columnref]] [file pattern] [in/within/under [path[, path, path]] - defaults to current] [where clause];
         /// </summary>
-        private HDSLQueryOutcome HandleIntegrityCheck()
+        private HDSLIntegrityOutcome HandleIntegrityCheck()
         {
             if (More() && Peek().Type == HDSLTokenTypes.Check)
             {
                 Pop();
 
                 var displayMode = GetDisplayMode();
-                var findResult = HandleFindStatement();
+                var findResult = HandleFindStatement(typeof(DiskItem));
 
-                // don't integrity scan directories.
-                var files = findResult.Items.Where(di => di.IsFile).ToList();
-                if (files.Count > 0)
+                if (findResult != null)
                 {
-                    var scan = new Scanning.IntegrityScanEventWrapper(_dh, files, true, displayMode);
-                    if (scan.Go())
+                    // don't integrity scan directories.
+                    var files = findResult.Records.Where(di => di is DiskItem && ((DiskItem)di).IsFile).Select(di => (DiskItem)di).ToList();
+                    if (files.Count > 0)
                     {
-                        return scan.Result;
+                        var scan = new Scanning.IntegrityScanEventWrapper(_dh, files, true, displayMode, findResult.Columns);
+                        if (scan.Go())
+                        {
+                            return AddStatement(scan.Result);
+                        }
                     }
                 }
             }
@@ -844,7 +1076,7 @@ namespace HDDL.HDSL
                 _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'check' expected."));
             }
 
-            return new Scanning.IntegrityScanResultSet(new DiskItem[] { }, new DiskItem[] { });
+            return new HDSLIntegrityOutcome(new DiskItem[] { }, new DiskItem[] { }, new ColumnHeaderSet(_dh, typeof(DiskItem)), _currentStatement.ToString());
         }
 
         /// <summary>
@@ -885,8 +1117,18 @@ namespace HDDL.HDSL
                                               Id = Guid.NewGuid(),
                                               Path = p
                                           }).ToArray();
-                    _dh.Insert(exclusions);
-                    _dh.WriteExclusions();
+
+                    // check for EoF / EoL
+                    if (Peek().Type == HDSLTokenTypes.EndOfLine ||
+                    Peek().Type == HDSLTokenTypes.EndOfFile)
+                    {
+                        _dh.Insert(exclusions);
+                        _dh.WriteExclusions();
+                    }
+                    else
+                    {
+                        _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"';' or end of file expected."));
+                    }
                 }
                 else
                 {
@@ -923,8 +1165,18 @@ namespace HDDL.HDSL
                                       where
                                         paths.Where(p => p.Equals(e.Path, StringComparison.InvariantCultureIgnoreCase)).Any() == true
                                       select e).ToArray();
-                    _dh.Delete(exclusions);
-                    _dh.WriteExclusions();
+
+                    // check for EoF / EoL
+                    if (Peek().Type == HDSLTokenTypes.EndOfLine ||
+                    Peek().Type == HDSLTokenTypes.EndOfFile)
+                    {
+                        _dh.Delete(exclusions);
+                        _dh.WriteExclusions();
+                    }
+                    else
+                    {
+                        _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"';' or end of file expected."));
+                    }
                 }
                 else
                 {
@@ -946,7 +1198,7 @@ namespace HDDL.HDSL
         /// Syntax:
         /// scan [spinner|progress|text|quiet - defaults to text] [path[, path, path]];
         /// </summary>
-        private HDSLQueryOutcome HandleScanStatement()
+        private HDSLScanOutcome HandleScanStatement()
         {
             if (More() && Peek().Type == HDSLTokenTypes.Scan)
             {
@@ -956,10 +1208,10 @@ namespace HDDL.HDSL
                 var scanPaths = GetPathList();
                 if (scanPaths.Count > 0)
                 {
-                    var dsw = new Scanning.DiskScanEventWrapper(_dh, scanPaths, true, displayMode);
+                    var dsw = new Scanning.DiskScanEventWrapper(_dh, scanPaths, true, displayMode, new ColumnHeaderSet(_dh, typeof(DiskItem)));
                     if (dsw.Go())
                     {
-                        return dsw.Result;
+                        return AddStatement(dsw.Result);
                     }
                 }
                 else
@@ -972,7 +1224,7 @@ namespace HDDL.HDSL
                 _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'scan' expected."));
             }
 
-            return new Scanning.DiskScanResultSet(-1, -1, -1, new Scanning.Timings());
+            return new HDSLScanOutcome(new DiskItem[] { }, -1, -1, -1, new Scanning.Timings(), new ColumnHeaderSet(_dh, typeof(DiskItem)), _currentStatement.ToString());
         }
 
         /// <summary>
@@ -1035,16 +1287,26 @@ namespace HDDL.HDSL
 
                             if (!string.IsNullOrWhiteSpace(bm.Target))
                             {
-                                if (!_dh.GetBookmarks().Where(b => b.ItemName == bm.ItemName).Any())
+                                // check for EoF / EoL
+                                if (Peek().Type == HDSLTokenTypes.EndOfLine ||
+                                Peek().Type == HDSLTokenTypes.EndOfFile)
                                 {
-                                    _dh.Insert(bm);
-                                    _dh.WriteBookmarks();
+                                    if (!_dh.GetBookmarks().Where(b => b.ItemName == bm.ItemName).Any())
+                                    {
+                                        _dh.Insert(bm);
+                                        _dh.WriteBookmarks();
+                                    }
+                                    else
+                                    {
+                                        _dh.Update(bm);
+                                        _dh.WriteBookmarks();
+                                    }
                                 }
                                 else
                                 {
-                                    _dh.Update(bm);
-                                    _dh.WriteBookmarks();
+                                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"';' or end of file expected."));
                                 }
+
                             }
                         }
                         else
@@ -1089,27 +1351,77 @@ namespace HDDL.HDSL
                     if (Peek().Type == HDSLTokenTypes.Exclusions)
                     {
                         Pop();
-                        _dh.ClearExclusions();
+
+                        // check for EoF / EoL
+                        if (Peek().Type == HDSLTokenTypes.EndOfLine ||
+                        Peek().Type == HDSLTokenTypes.EndOfFile)
+                        {
+                            _dh.ClearExclusions();
+                        }
+                        else
+                        {
+                            _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"';' or end of file expected."));
+                        }
                     }
                     else if (Peek().Type == HDSLTokenTypes.Bookmarks)
                     {
                         Pop();
-                        _dh.ClearBookmarks();
+
+                        // check for EoF / EoL
+                        if (Peek().Type == HDSLTokenTypes.EndOfLine ||
+                        Peek().Type == HDSLTokenTypes.EndOfFile)
+                        {
+                            _dh.ClearBookmarks();
+                        }
+                        else
+                        {
+                            _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"';' or end of file expected."));
+                        }
                     }
                     else if (Peek().Type == HDSLTokenTypes.Watches)
                     {
                         Pop();
-                        _dh.ClearWatches();
+
+                        // check for EoF / EoL
+                        if (Peek().Type == HDSLTokenTypes.EndOfLine ||
+                        Peek().Type == HDSLTokenTypes.EndOfFile)
+                        {
+                            _dh.ClearWatches();
+                        }
+                        else
+                        {
+                            _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"';' or end of file expected."));
+                        }
                     }
                     else if (Peek().Type == HDSLTokenTypes.Wards)
                     {
                         Pop();
-                        _dh.ClearWards();
+
+                        // check for EoF / EoL
+                        if (Peek().Type == HDSLTokenTypes.EndOfLine ||
+                        Peek().Type == HDSLTokenTypes.EndOfFile)
+                        {
+                            _dh.ClearWards();
+                        }
+                        else
+                        {
+                            _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"';' or end of file expected."));
+                        }
                     }
                     else if (Peek().Type == HDSLTokenTypes.HashLogs)
                     {
                         Pop();
-                        _dh.ClearDiskItemHashLogs();
+
+                        // check for EoF / EoL
+                        if (Peek().Type == HDSLTokenTypes.EndOfLine ||
+                        Peek().Type == HDSLTokenTypes.EndOfFile)
+                        {
+                            _dh.ClearDiskItemHashLogs();
+                        }
+                        else
+                        {
+                            _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"';' or end of file expected."));
+                        }
                     }
                     else
                     {
@@ -1121,13 +1433,22 @@ namespace HDDL.HDSL
                             var queryDetail = string.Empty;
                             if (Peek().Type == HDSLTokenTypes.Where)
                             {
-                                queryDetail = OperatorBase.ConvertClause(_tokens).ToString();
+                                queryDetail = OperatorBase.ConvertClause(_tokens, new ClauseContext(_dh, typeof(DiskItem)), _currentStatement).ToString();
                             }
 
                             // execute the purge
                             try
                             {
-                                _dh.PurgeQueried(queryDetail, targets);
+                                // check for EoF / EoL
+                                if (Peek().Type == HDSLTokenTypes.EndOfLine ||
+                                Peek().Type == HDSLTokenTypes.EndOfFile)
+                                {
+                                    _dh.PurgeQueried(queryDetail, targets);
+                                }
+                                else
+                                {
+                                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"';' or end of file expected."));
+                                }
                             }
                             catch (Exception ex)
                             {
@@ -1150,50 +1471,75 @@ namespace HDDL.HDSL
         /// Find statements query the database for files and return them
         /// 
         /// Syntax:
-        /// find [file pattern] [in/within/under [path[, path, path]] - defaults to current] [where clause];
+        /// find [filesystem | wards | watches | hashlogs] [columns columnref[, columnref]] [file pattern] [in/within/under [path[, path, path]] - defaults to current] [where clause];
         /// 
         /// </summary>
+        /// <param name="forcedTypeContext">Preassigns the type context, skipping that step</param>
         /// <returns>The results find statement</returns>
-        private FindQueryResultSet HandleFindStatement()
+        private HDSLResultBag HandleFindStatement(Type? forcedTypeContext = null)
         {
             if (More() && Peek().Type == HDSLTokenTypes.Find)
             {
                 Pop();
             }
 
-            var details = GetFindDetails();
+            var details = GetFindDetails(forcedTypeContext);
             if (_errors.Count == 0 && !details.ResultsEmpty)
             {
-                // execute the query and get the records
-                var results = new List<DiskItem>();
-                try
+                HDSLResultBag result = null;
+                if (details.TableContext == typeof(DiskItem))
                 {
-                    switch (details.Method)
+                    // execute the query and get the records
+                    var results = new List<DiskItem>();
+                    try
                     {
-                        case FindQueryDepths.In:
-                            results.AddRange(_dh.GetFilteredDiskItemsByIn(details.FurtherDetails?.ToSQL(), details.Wildcard, details.Paths));
-                            break;
-                        case FindQueryDepths.Within:
-                            results.AddRange(_dh.GetFilteredDiskItemsByWithin(details.FurtherDetails?.ToSQL(), details.Wildcard, details.Paths));
-                            break;
-                        case FindQueryDepths.Under:
-                            results.AddRange(_dh.GetFilteredDiskItemsByUnder(details.FurtherDetails?.ToSQL(), details.Wildcard, details.Paths));
-                            break;
+                        switch (details.Method)
+                        {
+                            case FindQueryDepths.In:
+                                results.AddRange(_dh.GetFilteredDiskItemsByIn(details.FurtherDetails?.ToSQL(), details.Wildcard, details.Paths));
+                                break;
+                            case FindQueryDepths.Within:
+                                results.AddRange(_dh.GetFilteredDiskItemsByWithin(details.FurtherDetails?.ToSQL(), details.Wildcard, details.Paths));
+                                break;
+                            case FindQueryDepths.Under:
+                                results.AddRange(_dh.GetFilteredDiskItemsByUnder(details.FurtherDetails?.ToSQL(), details.Wildcard, details.Paths));
+                                break;
+                        }
                     }
+                    catch (Exception ex)
+                    {
+                        _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Exception encountered: '{ex}'."));
+                    }
+
+                    // Done
+                    result = new HDSLResultBag(results, details.Columns, details.TableContext, _currentStatement.ToString());
                 }
-                catch (Exception ex)
+                else if (details.TableContext == typeof(WardItem))
                 {
-                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Exception encountered: '{ex}'."));
+
+                }
+                else if (details.TableContext == typeof(WatchItem))
+                {
+
+                }
+                else if (details.TableContext == typeof(DiskItemHashLogItem))
+                {
+
                 }
 
-                // Done
-                return new FindQueryResultSet(results)
-                        {
-                            Columns = details.Columns
-                        };
+                // check for EoF / EoL
+                if (Peek().Type == HDSLTokenTypes.EndOfLine ||
+                Peek().Type == HDSLTokenTypes.EndOfFile)
+                {
+                    return result;
+                }
+                else
+                {
+                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"';' or end of file expected."));
+                }
             }
 
-            return new FindQueryResultSet(new DiskItem[] { });
+            return null;
         }
 
         #endregion

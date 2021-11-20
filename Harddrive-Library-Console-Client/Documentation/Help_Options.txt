@@ -11,29 +11,6 @@ The command utility supports the following parameters:
 		Executes the given HDSL code against the current databasee and outputs the results to the command prompt.
 	hdsl -exec: <HDSL script file path>
 		Executes the script in the indicated file and outputs the results to the command prompt.
-	hdsl -columns: a column format string, see below
-		Supported columns (all dates are in local time):
-			l => location
-			p => full path
-			n => directory or path name
-			e => extension
-			i => is file (y/n)
-			s => size
-			w => last write date
-			a => last access date
-			c => creation date
-			h => checksum hash
-			d => last checksum date
-			t => simple attributes (only lists readonly, system, archive, hidden, directory, and normal)
-			T => extended attributes (lists all attributes)
-			3 => simple three character attributes (only lists readonly, system, archive, hidden, directory, and normal)
-			# => extended three character attributes (lists all attributes)
-		Column Format Strings (use either, but not both)
-			-columns: <any combination of column letters, e.g "psc" (quotes optional) for the full path, followed by size and finally creation date>
-			-columns: <a comma seperated series of letter keys followed by a colon and then a number, where that number is the width of the column. e.g "p:100,s:40,c:70" (no quotes)>
-	hdsl -paging: <a paging string in the form [n]:[n]>, where n is a non-negative integer.
-		The first value is the page index. If omitted, all pages are displayed.
-		The second value is the number of rows per page. If omitted, defaults to 32.
 	hdsl -dm: p/s/t/q
 		Sets the display mode for any scans performed. SUpports the following parameters:
 			p - displays a progress bar representing scan progress.
@@ -44,6 +21,5 @@ The command utility supports the following parameters:
 Parameters are always handled in the following order:
 -db
 -scan
--check
 -run
 -exec

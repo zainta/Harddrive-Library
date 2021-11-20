@@ -4,6 +4,7 @@
 
 using HDDL.Data;
 using HDDL.HDSL;
+using HDDL.Scanning.Results;
 using HDDL.UI;
 using System;
 using System.Collections.Generic;
@@ -42,6 +43,11 @@ namespace HDDL.Scanning
         bool _done;
 
         /// <summary>
+        /// Column header information used for producing table rows
+        /// </summary>
+        ColumnHeaderSet _columnHeaders;
+
+        /// <summary>
         /// The integrity scan's targets
         /// </summary>
         IEnumerable<DiskItem> _scanTargets;
@@ -59,7 +65,7 @@ namespace HDDL.Scanning
         /// <summary>
         /// The results of the integrity check
         /// </summary>
-        public HDSLQueryOutcome Result { get; private set; }
+        public HDSLIntegrityOutcome Result { get; private set; }
 
         /// <summary>
         /// Takes a premade DiskScan instance and wraps it
@@ -68,7 +74,13 @@ namespace HDDL.Scanning
         /// <param name="scanTargets">The integrity scan's targets</param>
         /// <param name="displayMode">The mode to use to output progress feedback</param>
         /// <param name="allowScanRequest">Whether or not the wrapper is allowed to prompt for an initial disk scan</param>
-        public IntegrityScanEventWrapper(DataHandler handler, IEnumerable<DiskItem> scanTargets, bool allowScanRequest, EventWrapperDisplayModes displayMode)
+        /// <param name="columns">Column header information used for producing table rows</param>
+        public IntegrityScanEventWrapper(
+            DataHandler handler, 
+            IEnumerable<DiskItem> scanTargets, 
+            bool allowScanRequest, 
+            EventWrapperDisplayModes displayMode, 
+            ColumnHeaderSet columns)
         {
             _scanner = new IntegrityScan(handler, scanTargets);
             _uiFeedbackDisplay = null;
@@ -76,6 +88,7 @@ namespace HDDL.Scanning
             _dh = handler;
             _done = false;
             Result = null;
+            _columnHeaders = columns;
 
             _allowScanRequest = allowScanRequest;
             _scanTargets = scanTargets;
@@ -212,7 +225,7 @@ namespace HDDL.Scanning
                     Console.WriteLine("-- Done!");
                     break;
             }
-            Result = new IntegrityScanResultSet(changedFiles, scannedFiles);
+            Result = new HDSLIntegrityOutcome(scannedFiles, changedFiles, _columnHeaders, null);
 
             _done = true;
         }

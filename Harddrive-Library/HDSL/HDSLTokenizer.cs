@@ -20,7 +20,6 @@ namespace HDDL.HDSL
     {
         private const int Minimum_Column = 1;
         private const int Minimum_Row = 1;
-        public const char ColumnHeaderSetSeparatorCharacter = '-';
 
         /// <summary>
         /// The currently targeted HDSL code
@@ -133,7 +132,7 @@ namespace HDDL.HDSL
                 {
                     continue;
                 }
-                else if (More() && char.IsLetter(Peek()) && GetColumnHeaderSetDefinition())
+                else if (More() && char.IsLetter(Peek()) && GetColumnNames())
                 {
                     continue;
                 }
@@ -355,44 +354,19 @@ namespace HDDL.HDSL
         }
 
         /// <summary>
-        /// Detects column code strings and returns them as a tokens
+        /// Retrieves the matching mapping associated with the given text, either via name or alias.
         /// </summary>
         /// <param name="text">The text to test</param>
-        /// <returns></returns>
-        private bool IsColumnHeaderSet(string text)
+        /// <returns>The ColumnNameMappingItem instance, if found, or null</returns>
+        private ColumnNameMappingItem GetColumnNameOrAlias(string text)
         {
-            // loop through, removing chunks of the string that match column aliases until nothing is left.
-            // if anything is left then this is not a column string
-            var remains = text;
-            while (remains.Length > 0)
-            {
-                var match = (from mapping in _dh.GetColumnNameMappings()
-                             where
-                                remains.StartsWith(mapping.Alias, StringComparison.InvariantCultureIgnoreCase)
-                             select mapping).SingleOrDefault();
-                if (match != null)
-                {
-                    // found it
-                    remains = remains.Remove(0, match.Alias.Length);
+            var matches = (from mapping in _dh.GetAllColumnNameMappings()
+                           where
+                                mapping.Name.Equals(text, StringComparison.InvariantCultureIgnoreCase) ||
+                                mapping.Alias.Equals(text, StringComparison.InvariantCultureIgnoreCase)
+                           select mapping).FirstOrDefault();
 
-                    if (remains.StartsWith(ColumnHeaderSetSeparatorCharacter))
-                    {
-                        remains = remains.Remove(0, 1);
-                    }
-                }
-                else
-                {
-                    // unknown term
-                    break;
-                }
-            }
-
-            if (remains.Length == 0)
-            {
-                return true;
-            }
-
-            return false;
+            return matches;
         }
 
         /// <summary>
@@ -660,38 +634,6 @@ namespace HDDL.HDSL
                 {
                     token = new HDSLToken(HDSLTokenTypes.Where, keyword.ToString(), row, col, text);
                 }
-                else if (text == "size")
-                {
-                    token = new HDSLToken(HDSLTokenTypes.Size, keyword.ToString(), row, col, text);
-                }
-                else if (text == "written")
-                {
-                    token = new HDSLToken(HDSLTokenTypes.Written, keyword.ToString(), row, col, text);
-                }
-                else if (text == "accessed")
-                {
-                    token = new HDSLToken(HDSLTokenTypes.Accessed, keyword.ToString(), row, col, text);
-                }
-                else if (text == "created")
-                {
-                    token = new HDSLToken(HDSLTokenTypes.Created, keyword.ToString(), row, col, text);
-                }
-                else if (text == "extension")
-                {
-                    token = new HDSLToken(HDSLTokenTypes.Extension, keyword.ToString(), row, col, text);
-                }
-                else if (text == "last")
-                {
-                    token = new HDSLToken(HDSLTokenTypes.LastScan, keyword.ToString(), row, col, text);
-                }
-                else if (text == "first")
-                {
-                    token = new HDSLToken(HDSLTokenTypes.FirstScan, keyword.ToString(), row, col, text);
-                }
-                else if (text == "name")
-                {
-                    token = new HDSLToken(HDSLTokenTypes.Name, keyword.ToString(), row, col, text);
-                }
                 else if (text == "and")
                 {
                     token = new HDSLToken(HDSLTokenTypes.And, keyword.ToString(), row, col, text);
@@ -699,14 +641,6 @@ namespace HDDL.HDSL
                 else if (text == "or")
                 {
                     token = new HDSLToken(HDSLTokenTypes.Or, keyword.ToString(), row, col, text);
-                }
-                else if (text == "sort")
-                {
-                    token = new HDSLToken(HDSLTokenTypes.Sort, keyword.ToString(), row, col, text);
-                }
-                else if (text == "by")
-                {
-                    token = new HDSLToken(HDSLTokenTypes.By, keyword.ToString(), row, col, text);
                 }
                 else if (text == "under")
                 {
@@ -808,6 +742,22 @@ namespace HDDL.HDSL
                 {
                     token = new HDSLToken(HDSLTokenTypes.Columns, keyword.ToString(), row, col, text);
                 }
+                else if (text == "group")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.GroupBy, keyword.ToString(), row, col, text);
+                }
+                else if (text == "order")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.OrderBy, keyword.ToString(), row, col, text);
+                }
+                else if (text == "columnmappings")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.ColumnMappings, keyword.ToString(), row, col, text);
+                }
+                else if (text == "filesystem")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.FileSystem, keyword.ToString(), row, col, text);
+                }
                 else if (IsDiskAttributeName(text))
                 {
                     token = new HDSLToken(HDSLTokenTypes.AttributeLiteral, keyword.ToString(), row, col, GetDiskAttributeName(text));
@@ -903,46 +853,27 @@ namespace HDDL.HDSL
         }
 
         /// <summary>
-        /// Gathers and returns a set of column definition tokens for a columns clause
-        /// 
-        /// A "column set definition" is a series of case-insensitive column aliases seperated by dashes.
-        /// e.g id-fdate-sdate-path
+        /// Gathers case-insensitive tokens of the column names (either exact or using their aliases)
         /// </summary>
-        /// <returns>Whether or not a token was generated (if not, implies an error)</returns>
-        private bool GetColumnHeaderSetDefinition()
+        /// <returns></returns>
+        private bool GetColumnNames()
         {
-            if (!Tokens.Empty && Tokens.ToList().Last().Type == HDSLTokenTypes.Columns)
+            var keyword = new StringBuilder();
+            var i = 0;
+            while (More(i) && char.IsLetter(Peek(i)))
             {
-                var keyword = new StringBuilder();
-                while (More() &&
-                    (char.IsLetter(Peek()) || Peek() == ColumnHeaderSetSeparatorCharacter))
-                {
-                    keyword.Append(Pop());
-                }
+                keyword.Append(Peek(i));
+                i++;
+            }
 
-                HDSLToken token = null;
-                if (keyword.Length > 1)
-                {
-                    var text = keyword.ToString().ToLower();
-                    if (IsColumnHeaderSet(text))
-                    {
-                        token = new HDSLToken(HDSLTokenTypes.ColumnHeaderSet, keyword.ToString(), row, col, text);
-                    }
-                    else
-                    {
-                        // put everything back
-                        foreach (var ch in keyword.ToString())
-                        {
-                            buffer.Push(ch);
-                        }
-                    }
-                }
+            ColumnNameMappingItem mapping = GetColumnNameOrAlias(keyword.ToString());
+            if (mapping != null)
+            {
+                Add(new HDSLToken(HDSLTokenTypes.ColumnName, mapping.Name, row, col, mapping.Alias));
 
-                if (token != null)
-                {
-                    Add(token);
-                    return true;
-                }
+                // remove the characters
+                PopStr(0, keyword.Length);
+                return true;
             }
 
             return false;

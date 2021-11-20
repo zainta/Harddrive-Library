@@ -18,24 +18,43 @@ namespace HDDL.HDSL
         /// <summary>
         /// The columns to display, in the order to display them
         /// </summary>
-        public List<string> Columns { get; private set; }
+        public string[] Columns { get; private set; }
 
         /// <summary>
-        /// Creates a column header set with the given columns
+        /// The mappings for the requested columns
         /// </summary>
-        /// <param name="columnNames"></param>
-        public ColumnHeaderSet(IEnumerable<string> columnNames)
+        public ColumnNameMappingItem[] Mappings { get; private set; }
+
+        /// <summary>
+        /// The type of the header set is for (should be derived from HDDLRecordBase)
+        /// </summary>
+        private Type _for;
+
+        /// <summary>
+        /// Creates a Column Header Set by filling the columns list with information from the mapping metadata
+        /// </summary>
+        /// <param name="mappings">The defined mappings</param>
+        /// <param name="forType">The type of the header set is for (should be derived from HDDLRecordBase)</param>
+        public ColumnHeaderSet(IEnumerable<ColumnNameMappingItem> mappings, Type forType)
         {
-            Columns = new List<string>(columnNames);
+            _for = forType;
+            Columns = (from m in mappings select m.Name).ToArray();
+            Mappings = mappings.ToArray();
         }
 
         /// <summary>
-        /// Creates a default column header set
+        /// Creates a default Column Header Set that contains all default columns
         /// </summary>
-        /// <param name="mappings">The defined mappings</param>
-        public ColumnHeaderSet(IEnumerable<ColumnNameMappingItem> mappings)
+        /// <param name="dh">The datahandler to query for the information</param>
+        /// <param name="forType">The type of the header set is for (should be derived from HDDLRecordBase)</param>
+        public ColumnHeaderSet(DataHandler dh, Type forType)
         {
-            Columns = new List<string>(from m in mappings where m.IsDefault select m.Name);
+            _for = forType;
+            Mappings = dh.GetColumnNameMappings(_for)
+                .Where(m => m.IsDefault)
+                .ToArray();
+
+            Columns = (from m in Mappings select m.Name).ToArray();
         }
 
         /// <summary>

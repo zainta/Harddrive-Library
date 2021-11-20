@@ -6,17 +6,24 @@ using HDDL.HDSL.Logging;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace HDDL.HDSL
+namespace HDDL.HDSL.Results
 {
     /// <summary>
     /// Represents the results of an HDSL code execution
     /// </summary>
-    public class HDSLResult
+    public class HDSLOutcomeSet
     {
+        private List<HDSLOutcome> _results;
         /// <summary>
         /// A set of all query results from the script
         /// </summary>
-        public IEnumerable<HDSLQueryOutcome> Results { get; private set; }
+        public IReadOnlyList<HDSLOutcome> Results
+        {
+            get
+            {
+                return _results.AsReadOnly();
+            }
+        }
 
         /// <summary>
         /// Any errors encountered during the process
@@ -24,12 +31,21 @@ namespace HDDL.HDSL
         public HDSLLogBase[] Errors { get; private set; }
 
         /// <summary>
-        /// Creates a success result with the resulting paths as its contents
+        /// Creates a success result with the resulting items as its contents
         /// </summary>
         /// <param name="paths">The records matching the query</param>
-        public HDSLResult(IEnumerable<HDSLQueryOutcome> items)
+        public HDSLOutcomeSet(IEnumerable<HDSLOutcome> results)
         {
-            Results = items.ToArray();
+            _results = new List<HDSLOutcome>(results);
+            Errors = new HDSLLogBase[] { };
+        }
+
+        /// <summary>
+        /// Creates an empty result
+        /// </summary>
+        public HDSLOutcomeSet()
+        {
+            _results = new List<HDSLOutcome>();
             Errors = new HDSLLogBase[] { };
         }
 
@@ -37,10 +53,19 @@ namespace HDDL.HDSL
         /// Creates an error result with the errors encountered
         /// </summary>
         /// <param name="errors">The errors encountered during execution</param>
-        public HDSLResult(IEnumerable<HDSLLogBase> errors)
+        public HDSLOutcomeSet(IEnumerable<HDSLLogBase> errors)
         {
-            Results = new HDSLQueryOutcome[] { };
+            _results = new List<HDSLOutcome>();
             Errors = errors.ToArray();
+        }
+
+        /// <summary>
+        /// Adds a result set to the results
+        /// </summary>
+        /// <param name="result">The result set to add</param>
+        public void Add(HDSLOutcome result)
+        {
+            _results.Add(result);
         }
     }
 }

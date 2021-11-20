@@ -225,8 +225,8 @@ namespace HDDL.Data
                                 type text not null,
                                 isDefault integer not null
                                 );
-                             create unique index columnnamemappings_name_index on columnnamemappings(name);
-                             create unique index columnnamemappings_alias_index on columnnamemappings(alias);",
+                             create unique index columnnamemappings_name_index on columnnamemappings(name, type);
+                             create unique index columnnamemappings_alias_index on columnnamemappings(alias, type);",
                                 sqltCon))
                     {
 
@@ -319,6 +319,55 @@ namespace HDDL.Data
         #region Column Name Mappings
 
         /// <summary>
+        /// Retrieves the type of the given column
+        /// </summary>
+        /// <param name="nameOrAlias">Either the column name or alias, as defined in a mapping</param>
+        /// <param name="recordType">The type where the column is defined</param>
+        /// <returns>The type or null</returns>
+        public Type? GetColumnType(string nameOrAlias, Type recordType)
+        {
+            var mapping = GetColumnNameMappings(recordType)
+                .Where(m =>
+                    m.Name.Equals(nameOrAlias, StringComparison.InvariantCultureIgnoreCase) ||
+                    m.Alias.Equals(nameOrAlias, StringComparison.InvariantCultureIgnoreCase))
+                .SingleOrDefault();
+            if (mapping != null)
+            {
+                return mapping.DataType;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Generates items in the insertion queue for the given type
+        /// </summary>
+        /// <param name="type">The type to generate records for</param>
+        /// <returns>The number of records queued insertion</returns>
+        private long QueueRecordsForType(Type type)
+        {
+            var generated = 0;
+
+            var props = type.GetProperties();
+            foreach (var p in props)
+            {
+                Insert(new ColumnNameMappingItem()
+                {
+                    Id = Guid.NewGuid(),
+                    Name = p.Name,
+                    Alias = p.Name,
+                    IsActive = true,
+                    HostType = type.FullName,
+                    IsDefault = false
+                });
+
+                generated++;
+            }
+
+            return generated;
+        }
+
+        /// <summary>
         /// Performs the initial write for default mappings
         /// </summary>
         /// <returns>A tuple in the format total [inserts, updates, deletes]</returns>
@@ -326,194 +375,11 @@ namespace HDDL.Data
         {
             var deletions = ClearColumnNameMappings();
 
-            // Create an alias record for each property of the diskitem class
-
-            // Id
-            Insert(new ColumnNameMappingItem()
-            {
-                Id = Guid.NewGuid(),
-                Name = "id",
-                Alias = "id",
-                IsActive = true,
-                HostType = typeof(DiskItem).FullName,
-                IsDefault = false
-            });
-
-            // ParentId
-            Insert(new ColumnNameMappingItem()
-            {
-                Id = Guid.NewGuid(),
-                Name = "ParentId",
-                Alias = "pid",
-                IsActive = true,
-                HostType = typeof(DiskItem).FullName,
-                IsDefault = false
-            });
-
-            // first scanned
-            Insert(new ColumnNameMappingItem()
-            {
-                Id = Guid.NewGuid(),
-                Name = "FirstScanned",
-                Alias = "fdate",
-                IsActive = true,
-                HostType = typeof(DiskItem).FullName,
-                IsDefault = true
-            });
-
-            // last scanned
-            Insert(new ColumnNameMappingItem()
-            {
-                Id = Guid.NewGuid(),
-                Name = "LastScanned",
-                Alias = "sdate",
-                IsActive = true,
-                HostType = typeof(DiskItem).FullName,
-                IsDefault = true
-            });
-
-            // path
-            Insert(new ColumnNameMappingItem()
-            {
-                Id = Guid.NewGuid(),
-                Name = "Path",
-                Alias = "path",
-                IsActive = true,
-                HostType = typeof(DiskItem).FullName,
-                IsDefault = true
-            });
-
-            // item name
-            Insert(new ColumnNameMappingItem()
-            {
-                Id = Guid.NewGuid(),
-                Name = "ItemName",
-                Alias = "name",
-                IsActive = true,
-                HostType = typeof(DiskItem).FullName,
-                IsDefault = false
-            });
-
-            // is file
-            Insert(new ColumnNameMappingItem()
-            {
-                Id = Guid.NewGuid(),
-                Name = "IsFile",
-                Alias = "file",
-                IsActive = true,
-                HostType = typeof(DiskItem).FullName,
-                IsDefault = true
-            });
-
-            // extension
-            Insert(new ColumnNameMappingItem()
-            {
-                Id = Guid.NewGuid(),
-                Name = "Extension",
-                Alias = "ext",
-                IsActive = true,
-                HostType = typeof(DiskItem).FullName,
-                IsDefault = false
-            });
-
-            // size in bytes
-            Insert(new ColumnNameMappingItem()
-            {
-                Id = Guid.NewGuid(),
-                Name = "SizeInBytes",
-                Alias = "size",
-                IsActive = true,
-                HostType = typeof(DiskItem).FullName,
-                IsDefault = true
-            });
-
-            // last written
-            Insert(new ColumnNameMappingItem()
-            {
-                Id = Guid.NewGuid(),
-                Name = "LastWritten",
-                Alias = "wdate",
-                IsActive = true,
-                HostType = typeof(DiskItem).FullName,
-                IsDefault = true
-            });
-
-            // last accessed
-            Insert(new ColumnNameMappingItem()
-            {
-                Id = Guid.NewGuid(),
-                Name = "LastAccessed",
-                Alias = "adate",
-                IsActive = true,
-                HostType = typeof(DiskItem).FullName,
-                IsDefault = true
-            });
-
-            // creation date
-            Insert(new ColumnNameMappingItem()
-            {
-                Id = Guid.NewGuid(),
-                Name = "CreationDate",
-                Alias = "cdate",
-                IsActive = true,
-                HostType = typeof(DiskItem).FullName,
-                IsDefault = true
-            });
-
-            // depth
-            Insert(new ColumnNameMappingItem()
-            {
-                Id = Guid.NewGuid(),
-                Name = "Depth",
-                Alias = "depth",
-                IsActive = true,
-                HostType = typeof(DiskItem).FullName,
-                IsDefault = false
-            });
-
-            // file hash
-            Insert(new ColumnNameMappingItem()
-            {
-                Id = Guid.NewGuid(),
-                Name = "FileHash",
-                Alias = "hash",
-                IsActive = true,
-                HostType = typeof(DiskItem).FullName,
-                IsDefault = false
-            });
-
-            // hash timestamp
-            Insert(new ColumnNameMappingItem()
-            {
-                Id = Guid.NewGuid(),
-                Name = "HashTimestamp",
-                Alias = "hashtime",
-                IsActive = true,
-                HostType = typeof(DiskItem).FullName,
-                IsDefault = true
-            });
-
-            // attributes
-            Insert(new ColumnNameMappingItem()
-            {
-                Id = Guid.NewGuid(),
-                Name = "Attributes",
-                Alias = "attr",
-                IsActive = true,
-                HostType = typeof(DiskItem).FullName,
-                IsDefault = false
-            });
-
-            // machine unc name
-            Insert(new ColumnNameMappingItem()
-            {
-                Id = Guid.NewGuid(),
-                Name = "MachineUNCName",
-                Alias = "unc",
-                IsActive = true,
-                HostType = typeof(DiskItem).FullName,
-                IsDefault = false
-            });
+            // Create an alias records for the various types
+            QueueRecordsForType(typeof(DiskItem));
+            QueueRecordsForType(typeof(WardItem));
+            QueueRecordsForType(typeof(WatchItem));
+            QueueRecordsForType(typeof(DiskItemHashLogItem));
 
             var result = WriteColumnNameMappings();
             return new Tuple<long, long, long>(result.Item1, result.Item2, result.Item3 + deletions);
@@ -522,15 +388,37 @@ namespace HDDL.Data
         /// <summary>
         /// Retrieves and returns the ColumnNameMappings
         /// </summary>
+        /// <param name="forType">The type to pull mappings for</param>
         /// <returns></returns>
-        public List<ColumnNameMappingItem> GetColumnNameMappings()
+        public List<ColumnNameMappingItem> GetColumnNameMappings(Type forType)
         {
             if (_columnNameMappingCache == null ||
                 (_columnNameMappingCache != null && _columnNameMappingCache.Count == 0))
             {
                 _columnNameMappingCache = new List<ColumnNameMappingItem>();
 
-                var mappings = ExecuteReader(@"select * from columnnamemappings");
+                var mappings = ExecuteReader(@$"select * from columnnamemappings");
+                while (mappings.Read())
+                {
+                    _columnNameMappingCache.Add(new ColumnNameMappingItem(mappings));
+                }
+            }
+
+            return _columnNameMappingCache.Where(m => m.HostType  == forType.FullName).ToList();
+        }
+
+        /// <summary>
+        /// Retrieves and returns the ColumnNameMappings
+        /// </summary>
+        /// <returns></returns>
+        public List<ColumnNameMappingItem> GetAllColumnNameMappings()
+        {
+            if (_columnNameMappingCache == null ||
+                (_columnNameMappingCache != null && _columnNameMappingCache.Count == 0))
+            {
+                _columnNameMappingCache = new List<ColumnNameMappingItem>();
+
+                var mappings = ExecuteReader(@$"select * from columnnamemappings");
                 while (mappings.Read())
                 {
                     _columnNameMappingCache.Add(new ColumnNameMappingItem(mappings));

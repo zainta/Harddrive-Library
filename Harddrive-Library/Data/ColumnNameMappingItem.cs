@@ -6,7 +6,6 @@ using System;
 using System.Data;
 using System.Data.SQLite;
 using System.Text;
-using System.Reflection;
 using System.Linq;
 
 namespace HDDL.Data
@@ -102,7 +101,7 @@ namespace HDDL.Data
                 {
                     var props = Type.GetType(HostType).GetProperties();
                     DataType = (from p in props
-                                where p.Name == _name
+                                where p.Name.Equals(_name, StringComparison.InvariantCultureIgnoreCase)
                                 select p.PropertyType).SingleOrDefault();
                 }
             }

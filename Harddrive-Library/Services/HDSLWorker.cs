@@ -44,7 +44,7 @@ namespace HDDL.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            var hdslW = new HDSLWeb(_iniFile);
+            var hdslW = new HDSLWebHost(_iniFile);
             hdslW.Run();
 
             using (var sk = new ScannerKernal(

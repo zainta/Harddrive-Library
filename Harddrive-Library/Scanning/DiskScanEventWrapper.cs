@@ -4,6 +4,7 @@
 
 using HDDL.Data;
 using HDDL.HDSL;
+using HDDL.Scanning.Results;
 using HDDL.UI;
 using System;
 using System.Collections.Generic;
@@ -43,6 +44,11 @@ namespace HDDL.Scanning
         bool _done;
 
         /// <summary>
+        /// Column header information used for producing table rows
+        /// </summary>
+        ColumnHeaderSet _columnHeaders;
+
+        /// <summary>
         /// The paths to scan
         /// </summary>
         IEnumerable<string> _scanPaths;
@@ -60,7 +66,7 @@ namespace HDDL.Scanning
         /// <summary>
         /// The results of the disk scan
         /// </summary>
-        public HDSLQueryOutcome Result { get; private set; }
+        public HDSLScanOutcome Result { get; private set; }
 
         /// <summary>
         /// Takes a premade DiskScan instance and wraps it
@@ -68,12 +74,14 @@ namespace HDDL.Scanning
         /// <param name="premade">The diskscan instance to monitor</param>
         /// <param name="displayMode">The mode to use to output progress feedback</param>
         /// <param name="allowRecreation">Whether or not to prompt for, and perform, database recreation if it already exists</param>
-        public DiskScanEventWrapper(DiskScan premade, bool allowRecreation, EventWrapperDisplayModes displayMode)
+        /// <param name="columns">Column header information used for producing table rows</param>
+        public DiskScanEventWrapper(DiskScan premade, bool allowRecreation, EventWrapperDisplayModes displayMode, ColumnHeaderSet columns)
         {
             _scanner = premade;
             _uiFeedbackDisplay = null;
             _displayMode = displayMode;
             _done = false;
+            _columnHeaders = columns;
 
             _allowRecreation = allowRecreation;
             _dbPath = null;
@@ -87,12 +95,14 @@ namespace HDDL.Scanning
         /// <param name="scanPaths">The paths to start scans from</param>
         /// <param name="displayMode">The mode to use to output progress feedback</param>
         /// <param name="allowRecreation">Whether or not to prompt for, and perform, database recreation if it already exists</param>
-        public DiskScanEventWrapper(DataHandler handler, IEnumerable<string> scanPaths, bool allowRecreation, EventWrapperDisplayModes displayMode)
+        /// <param name="columns">Column header information used for producing table rows</param>
+        public DiskScanEventWrapper(DataHandler handler, IEnumerable<string> scanPaths, bool allowRecreation, EventWrapperDisplayModes displayMode, ColumnHeaderSet columns)
         {
             _scanner = new DiskScan(handler, scanPaths);
             _uiFeedbackDisplay = null;
             _displayMode = displayMode;
             _done = false;
+            _columnHeaders = columns;
 
             _allowRecreation = allowRecreation;
             _dbPath = null;
@@ -106,12 +116,13 @@ namespace HDDL.Scanning
         /// <param name="scanPaths">The paths to start scans from</param>
         /// <param name="displayMode">The mode to use to output progress feedback</param>
         /// <param name="allowRecreation">Whether or not to prompt for, and perform, database recreation if it already exists</param>
-        public DiskScanEventWrapper(string dbPath, IEnumerable<string> scanPaths, bool allowRecreation, EventWrapperDisplayModes displayMode)
+        public DiskScanEventWrapper(string dbPath, IEnumerable<string> scanPaths, bool allowRecreation, EventWrapperDisplayModes displayMode, ColumnHeaderSet columns)
         {
             _scanner = null;
             _uiFeedbackDisplay = null;
             _displayMode = displayMode;
             _done = false;
+            _columnHeaders = columns;
 
             _allowRecreation = allowRecreation;
             _dbPath = dbPath;
@@ -320,7 +331,7 @@ namespace HDDL.Scanning
 
         private void Scanner_ScanEnded(DiskScan scanner, long totalDeleted, Timings elapsed, ScanOperationOutcome outcome)
         {
-            (Result as DiskScanResultSet).Times = elapsed;
+            Result.DurationData = elapsed;
             _done = true;
         }
 
@@ -374,7 +385,7 @@ namespace HDDL.Scanning
 
         private void Scanner_ScanDatabaseActivityCompleted(DiskScan scanner, long additions, long updates, long deletions)
         {
-            Result = new DiskScanResultSet(additions, updates, deletions, null);
+            Result = new HDSLScanOutcome(new DiskItem[] { }, additions, updates, deletions, null, _columnHeaders, null);
         }
 
         private void Scanner_DeletionsOccurred(DiskScan scanner, long total)

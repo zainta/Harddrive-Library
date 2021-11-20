@@ -11,7 +11,7 @@ namespace HDDL.Web
     /// <summary>
     /// Provides the ability to make calls and retrieve information from the system via REST api calls.
     /// </summary>
-    public class HDSLWeb
+    public class HDSLWebHost
     {
         private IWebHost _host;
         private IniFileManager _settings;
@@ -20,7 +20,7 @@ namespace HDDL.Web
         /// Creates an HDSL Web component and supplies it with settings
         /// </summary>
         /// <param name="settings">The configuration settings</param>
-        public HDSLWeb(IniFileManager settings)
+        public HDSLWebHost(IniFileManager settings)
         {
             _settings = settings;
             _host = null;
