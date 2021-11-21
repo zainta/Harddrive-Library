@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Linq;
+using HDDL.HDSL.Where.Exceptions;
 
 namespace HDDL.HDSL.Where
 {
@@ -37,6 +38,16 @@ namespace HDDL.HDSL.Where
         public WhereValueTypes ValueType { get; private set; }
 
         /// <summary>
+        /// The token row where the error occurred
+        /// </summary>
+        public int Row { get; set; }
+
+        /// <summary>
+        /// The token column where the error occurred
+        /// </summary>
+        public int Column { get; set; }
+
+        /// <summary>
         /// Stores the actual type of the value
         /// </summary>
         private object _actual;
@@ -53,6 +64,8 @@ namespace HDDL.HDSL.Where
         /// <param name="cc">The clause's execution context</param>
         public WhereValue(HDSLToken token, ClauseContext cc)
         {
+            Column = token.Column;
+            Row = token.Row;
             _cc = cc;
             IsSlug = false;
             Keyword = null;
@@ -111,7 +124,7 @@ namespace HDDL.HDSL.Where
                             }
                             else
                             {
-                                throw new ArgumentException($"Unknown column type discovered '{mappingType.FullName}'.");
+                                throw new WhereClauseException(Column, Row, $"Unknown column type discovered '{mappingType.FullName}'.",  WhereClauseExceptionTypes.InvalidColumnTypeReferenced);
                             }
                         }
                         break;
@@ -158,7 +171,7 @@ namespace HDDL.HDSL.Where
                         }
                         else
                         {
-                            throw new ArgumentException($"Column '{_actual}' not found on type '{item.GetType().FullName}'.");
+                            throw new WhereClauseException(Column, Row, $"Column '{_actual}' not found on type '{item.GetType().FullName}'.", WhereClauseExceptionTypes.UnknownColumnReferenced);
                         }
                         break;
                     case HDSLTokenTypes.Now:

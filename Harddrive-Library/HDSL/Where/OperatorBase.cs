@@ -4,6 +4,7 @@
 
 using HDDL.Collections;
 using HDDL.Data;
+using HDDL.HDSL.Where.Exceptions;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -35,6 +36,26 @@ namespace HDDL.HDSL.Where
         /// The operator's right value
         /// </summary>
         public WhereValue RightValue { get; set; }
+
+        /// <summary>
+        /// The token row where the error occurred
+        /// </summary>
+        public int Row { get; set; }
+
+        /// <summary>
+        /// The token column where the error occurred
+        /// </summary>
+        public int Column { get; set; }
+
+        /// <summary>
+        /// The token that represents the operator
+        /// </summary>
+        /// <param name="self">The token that represents this operator</param>
+        public OperatorBase(HDSLToken self)
+        {
+            Row = self.Row;
+            Column = self.Column;
+        }
 
         /// <summary>
         /// Performs the relevant operation and returns if it evaluates to true or false
@@ -91,7 +112,7 @@ namespace HDDL.HDSL.Where
                     var topic = Get(tq, cc);
                     if (tq.Count > 1 && tq.Peek(1).Family == HDSLTokenFamilies.RelativeOperators)
                     {
-                        throw new InvalidOperationException("Logical expression expected between relative expressions.");
+                        throw new WhereClauseException(tq.Peek(1).Column, tq.Peek(1).Row, "Logical expression expected between relative expressions.", WhereClauseExceptionTypes.InvalidTermPosition);
                     }
                     else if (tq.Count == 0)
                     {
@@ -105,13 +126,22 @@ namespace HDDL.HDSL.Where
                 else if (tq.Count > 1 && tq.Peek(1).Family == HDSLTokenFamilies.StateOperators)
                 {
                     var val = tq.Pop();
-                    switch (tq.Pop().Type)
+                    var stateOp = tq.Pop();
+                    switch (stateOp.Type)
                     {
                         case HDSLTokenTypes.Has:
-                            result = new Has(val, cc);
+                            if (cc.QueriedType != typeof(DiskItem))
+                            {
+                                throw new WhereClauseException(stateOp.Column, stateOp.Row, $"The Has (+) operator is only valid when querying the file system.", WhereClauseExceptionTypes.InvalidUseofHasOrHasNot);
+                            }
+                            result = new Has(stateOp, val, cc);
                             break;
                         case HDSLTokenTypes.HasNot:
-                            result = new HasNot(val, cc);
+                            if (cc.QueriedType != typeof(DiskItem))
+                            {
+                                throw new WhereClauseException(stateOp.Column, stateOp.Row, $"The Has Not (-) operator is only valid when querying the file system.", WhereClauseExceptionTypes.InvalidUseofHasOrHasNot);
+                            }
+                            result = new HasNot(stateOp, val, cc);
                             break;
                     }
 
@@ -122,14 +152,14 @@ namespace HDDL.HDSL.Where
                 }
                 else if (tq.Count > 0 && tq.Peek().Family == HDSLTokenFamilies.LogicalOperators)
                 {
-                    var type = tq.Pop().Type;
-                    switch (type)
+                    var op = tq.Pop();
+                    switch (op.Type)
                     {
                         case HDSLTokenTypes.And:
-                            result = new And(recursor(tq, null), right);
+                            result = new And(op, recursor(tq, null), right);
                             break;
                         case HDSLTokenTypes.Or:
-                            result = new Or(recursor(tq, null), right);
+                            result = new Or(op, recursor(tq, null), right);
                             break;
                     }
                 }
@@ -158,23 +188,25 @@ namespace HDDL.HDSL.Where
                 switch (opratr.Type)
                 {
                     case HDSLTokenTypes.Equal:
-                        result = new Equals(left, right, cc);
+                        result = new Equals(opratr, left, right, cc);
                         break;
                     case HDSLTokenTypes.NotEqual:
-                        result = new NotEqual(left, right, cc);
+                        result = new NotEqual(opratr, left, right, cc);
                         break;
                     case HDSLTokenTypes.GreaterThan:
-                        result = new GreaterThan(left, right, cc);
+                        result = new GreaterThan(opratr, left, right, cc);
                         break;
                     case HDSLTokenTypes.GreaterOrEqual:
-                        result = new GreaterOrEqual(left, right, cc);
+                        result = new GreaterOrEqual(opratr, left, right, cc);
                         break;
                     case HDSLTokenTypes.LessThan:
-                        result = new LessThan(left, right, cc);
+                        result = new LessThan(opratr, left, right, cc);
                         break;
                     case HDSLTokenTypes.LessOrEqual:
-                        result = new LessOrEqual(left, right, cc);
+                        result = new LessOrEqual(opratr, left, right, cc);
                         break;
+                    default:
+                        throw new WhereClauseException(opratr.Column, opratr.Row, $"Unknown operator type '{opratr.Type}'.", WhereClauseExceptionTypes.UnknownOperatorType);
                 }
             }
 

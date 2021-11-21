@@ -16,7 +16,8 @@ namespace HDDL.HDSL.Where
         /// </summary>
         /// <param name="left">The operator who's result will be used as the left</param>
         /// <param name="right">The operator who's result will be used as the right</param>
-        public And(OperatorBase left, OperatorBase right)
+        /// <param name="self">The token that represents this operator</param>
+        public And(HDSLToken self, OperatorBase left, OperatorBase right) : base(self)
         {
             LeftContent = left;
             RightContent = right;

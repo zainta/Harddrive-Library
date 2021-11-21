@@ -3,6 +3,7 @@
 // You may obtain a copy of the License at https://mit-license.org/
 
 using HDDL.Data;
+using HDDL.HDSL.Where.Exceptions;
 using System;
 
 namespace HDDL.HDSL.Where
@@ -18,7 +19,8 @@ namespace HDDL.HDSL.Where
         /// <param name="left">The value used as the left</param>
         /// <param name="right">The value used as the right</param>
         /// <param name="cc">The clause's execution context</param>
-        public LessThan(HDSLToken left, HDSLToken right, ClauseContext cc)
+        /// <param name="self">The token that represents this operator</param>
+        public LessThan(HDSLToken self, HDSLToken left, HDSLToken right, ClauseContext cc) : base(self)
         {
             LeftValue = new WhereValue(left, cc);
             RightValue = new WhereValue(right, cc);
@@ -33,7 +35,7 @@ namespace HDDL.HDSL.Where
         {
             if (LeftValue.ValueType != RightValue.ValueType)
             {
-                throw new TypeMismatchException($"Cannot compare {LeftValue.ValueType} to {RightValue.ValueType}.");
+                throw new WhereClauseException(Column, Row, $"Cannot compare {LeftValue.ValueType} to {RightValue.ValueType}.", WhereClauseExceptionTypes.TypeMismatch);
             }
 
             var result = false;

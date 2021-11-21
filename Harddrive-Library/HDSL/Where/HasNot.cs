@@ -16,7 +16,8 @@ namespace HDDL.HDSL.Where
         /// </summary>
         /// <param name="right">The operator who's result will be used as the right</param>
         /// <param name="cc">The clause's execution context</param>
-        public HasNot(HDSLToken right, ClauseContext cc)
+        /// <param name="self">The token that represents this operator</param>
+        public HasNot(HDSLToken self, HDSLToken right, ClauseContext cc) : base(self)
         {
             RightValue = new WhereValue(right, cc);
         }

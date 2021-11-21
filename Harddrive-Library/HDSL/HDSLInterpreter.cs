@@ -7,6 +7,7 @@ using HDDL.Data;
 using HDDL.HDSL.Logging;
 using HDDL.HDSL.Results;
 using HDDL.HDSL.Where;
+using HDDL.HDSL.Where.Exceptions;
 using HDDL.IO.Disk;
 using HDDL.Scanning.Results;
 using System;
@@ -446,17 +447,28 @@ namespace HDDL.HDSL
                 Peek().Type == HDSLTokenTypes.Under ||
                 Peek().Type == HDSLTokenTypes.Within))
             {
-                switch (Pop().Type)
+                if (typeContext == typeof(DiskItem))
                 {
-                    case HDSLTokenTypes.In:
-                        op = FindQueryDepths.In;
-                        break;
-                    case HDSLTokenTypes.Within:
-                        op = FindQueryDepths.Within;
-                        break;
-                    case HDSLTokenTypes.Under:
-                        op = FindQueryDepths.Under;
-                        break;
+                    switch (Pop().Type)
+                    {
+                        case HDSLTokenTypes.In:
+                            op = FindQueryDepths.In;
+                            break;
+                        case HDSLTokenTypes.Within:
+                            op = FindQueryDepths.Within;
+                            break;
+                        case HDSLTokenTypes.Under:
+                            op = FindQueryDepths.Under;
+                            break;
+                    }
+                }
+                else
+                {
+                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"In, Within, and Under are only valid when querying the file system."));
+                    return new FindQueryDetails()
+                    {
+                        ResultsEmpty = true
+                    };
                 }
             }
 
@@ -482,11 +494,22 @@ namespace HDDL.HDSL
             OperatorBase queryDetail = null;
             if (More() && Peek().Type == HDSLTokenTypes.Where)
             {
-                var savePoint = Peek();
-                queryDetail = OperatorBase.ConvertClause(_tokens, new ClauseContext(_dh, typeContext), _currentStatement);
-                if (queryDetail == null)
+                try
                 {
-                    _errors.Add(new HDSLLogBase(savePoint.Column, savePoint.Row, $"Bad where clause."));
+                    var savePoint = Peek();
+                    queryDetail = OperatorBase.ConvertClause(_tokens, new ClauseContext(_dh, typeContext), _currentStatement);
+                    if (queryDetail == null)
+                    {
+                        _errors.Add(new HDSLLogBase(savePoint.Column, savePoint.Row, $"Bad where clause."));
+                    }
+                    else
+                    {
+                        ValidateWhereExpression(queryDetail);
+                    }
+                }
+                catch (WhereClauseException ex)
+                {
+                    _errors.Add(ex.AsHDSLLog());
                 }
             }
 
@@ -500,6 +523,34 @@ namespace HDDL.HDSL
                 Columns = columnHeaderSet,
                 TableContext = typeContext
             };
+        }
+
+        /// <summary>
+        /// Evaluates the operator base to ensure that it is valid
+        /// </summary>
+        /// <param name="queryDetail">The operator to evaluate</param>
+        private void ValidateWhereExpression(OperatorBase queryDetail)
+        {
+            queryDetail.Evaluate(new DiskItem()
+            {
+                Id = Guid.NewGuid(),
+                Path = @"c:\fakefile.txt",
+                CreationDate = DateTime.Now,
+                Extension = ".txt",
+                FirstScanned  = DateTime.Now,
+                LastScanned = DateTime.Now,
+                FileHash = null,
+                HashTimestamp = DateTime.Now,
+                Attributes = FileAttributes.Normal,
+                IsFile = true,
+                ItemName = "fakefile.txt",
+                SizeInBytes = 1024,
+                LastAccessed = DateTime.Now,
+                LastWritten = DateTime.Now,
+                MachineUNCName = "C:",
+                ParentId = null,
+                Depth = 2
+            });
         }
 
         /// <summary>
@@ -1521,29 +1572,43 @@ namespace HDDL.HDSL
                         {
                             // the where clause is optional.
                             // If present, it further filters the files selected from the path
-                            var queryDetail = string.Empty;
+                            OperatorBase queryDetail = null;
                             if (Peek().Type == HDSLTokenTypes.Where)
                             {
-                                queryDetail = OperatorBase.ConvertClause(_tokens, new ClauseContext(_dh, typeof(DiskItem)), _currentStatement).ToString();
+                                try
+                                {
+                                    queryDetail = OperatorBase.ConvertClause(_tokens, new ClauseContext(_dh, typeof(DiskItem)), _currentStatement);
+                                    if (queryDetail != null)
+                                    {
+                                        ValidateWhereExpression(queryDetail);
+                                    }
+                                }
+                                catch (WhereClauseException ex)
+                                {
+                                    _errors.Add(ex.AsHDSLLog());
+                                }
                             }
 
-                            // execute the purge
-                            try
+                            if (_errors.Count == 0)
                             {
-                                // check for EoF / EoL
-                                if (Peek().Type == HDSLTokenTypes.EndOfLine ||
-                                Peek().Type == HDSLTokenTypes.EndOfFile)
+                                // execute the purge
+                                try
                                 {
-                                    _dh.PurgeQueried(queryDetail, targets);
+                                    // check for EoF / EoL
+                                    if (Peek().Type == HDSLTokenTypes.EndOfLine ||
+                                    Peek().Type == HDSLTokenTypes.EndOfFile)
+                                    {
+                                        _dh.PurgeQueried(queryDetail.ToSQL(), targets);
+                                    }
+                                    else
+                                    {
+                                        _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"';' or end of file expected."));
+                                    }
                                 }
-                                else
+                                catch (Exception ex)
                                 {
-                                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"';' or end of file expected."));
+                                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Exception encountered: '{ex}'."));
                                 }
-                            }
-                            catch (Exception ex)
-                            {
-                                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Exception encountered: '{ex}'."));
                             }
                         }
                     }
