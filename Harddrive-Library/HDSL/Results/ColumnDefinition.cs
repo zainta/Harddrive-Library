@@ -13,6 +13,11 @@ namespace HDDL.HDSL.Results
     public class ColumnDefinition
     {
         /// <summary>
+        /// Defines a constant value that declares a column as having unrestricted width
+        /// </summary>
+        public const int UnrestrictedWidth = -1;
+
+        /// <summary>
         /// The name of the column
         /// </summary>
         public string Column { get; set; }
@@ -21,6 +26,11 @@ namespace HDDL.HDSL.Results
         /// The name of the column's data type
         /// </summary>
         public string Type { get; set; }
+
+        /// <summary>
+        /// The column's width
+        /// </summary>
+        public int Width { get; set; }
 
         /// <summary>
         /// Creates a column definition from the provided mapping instance
@@ -32,6 +42,12 @@ namespace HDDL.HDSL.Results
 
             Column = mapping.Name;
             Type = mapping.DataType.FullName;
+            Width = mapping.DisplayWidth;
+        }
+
+        public override string ToString()
+        {
+            return $"Column: {Column} | {Type} | {Width}";
         }
     }
 }

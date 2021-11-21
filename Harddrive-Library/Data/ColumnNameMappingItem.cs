@@ -70,6 +70,11 @@ namespace HDDL.Data
         public bool IsDefault { get; set; }
 
         /// <summary>
+        /// 
+        /// </summary>
+        public int DisplayWidth { get; set; }
+
+        /// <summary>
         /// Creates an instance from the current record in the data reader
         /// </summary>
         /// <param name="row"></param>
@@ -81,6 +86,7 @@ namespace HDDL.Data
             Alias = row.GetString("alias");
             IsActive = row.GetBoolean("isActive");
             IsDefault = row.GetBoolean("isDefault");
+            DisplayWidth = row.GetInt32("width");
         }
 
         /// <summary>
@@ -114,9 +120,9 @@ namespace HDDL.Data
         public override string ToInsertStatement()
         {
             return $@"insert into columnnamemappings 
-                        (id, name, alias, isActive, type, isDefault) 
+                        (id, name, alias, isActive, type, isDefault, width) 
                       values 
-                        ('{Id}', '{DataHelper.Sanitize(Name)}', '{DataHelper.Sanitize(Alias)}', {IsActive}, '{HostType}', {IsDefault});";
+                        ('{Id}', '{DataHelper.Sanitize(Name)}', '{DataHelper.Sanitize(Alias)}', {IsActive}, '{HostType}', {IsDefault}, {DisplayWidth});";
         }
 
         /// <summary>
@@ -130,7 +136,8 @@ namespace HDDL.Data
                             alias = '{DataHelper.Sanitize(Alias)}',
                             isActive = {IsActive},
                             type = '{HostType}',
-                            isDefault = {IsDefault}
+                            isDefault = {IsDefault},
+                            width = {DisplayWidth}
                         where id = '{Id}';";
         }
 

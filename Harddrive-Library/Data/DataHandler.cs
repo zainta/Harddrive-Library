@@ -2,6 +2,7 @@
 // Licensed under the MIT License, (the "License"); you may not use this file except in compliance with the License. 
 // You may obtain a copy of the License at https://mit-license.org/
 
+using HDDL.HDSL.Results;
 using HDDL.IO.Disk;
 using System;
 using System.Collections.Generic;
@@ -223,7 +224,8 @@ namespace HDDL.Data
                                 alias text not null,
                                 isActive integer not null,
                                 type text not null,
-                                isDefault integer not null
+                                isDefault integer not null,
+                                width integer not null
                                 );
                              create unique index columnnamemappings_name_index on columnnamemappings(name, type);
                              create unique index columnnamemappings_alias_index on columnnamemappings(alias, type);",
@@ -340,6 +342,46 @@ namespace HDDL.Data
         }
 
         /// <summary>
+        /// Takes a type and returns a default width to display it (in character count)
+        /// </summary>
+        /// <param name="propertyType">The type</param>
+        /// <returns>The number of characters width its column should be</returns>
+        private int GetWidthByType(Type propertyType)
+        {
+            var width = ColumnDefinition.UnrestrictedWidth;
+            if (propertyType == typeof(long))
+            {
+                width = 10;
+            }
+            else if (propertyType == typeof(DateTime))
+            {
+                width = 22;
+            }
+            else if (propertyType == typeof(string))
+            {
+                width = 100;
+            }
+            else if (propertyType == typeof(bool))
+            {
+                width = 3;
+            }
+            else if (propertyType == typeof(Guid))
+            {
+                width = Guid.Empty.ToString().Length;
+            }
+            else if (propertyType == typeof(int))
+            {
+                width = 10;
+            }
+            else if (propertyType == typeof(TimeSpan))
+            {
+                width = 20;
+            }
+
+            return width;
+        }
+
+        /// <summary>
         /// Generates items in the insertion queue for the given type
         /// </summary>
         /// <param name="type">The type to generate records for</param>
@@ -351,17 +393,21 @@ namespace HDDL.Data
             var props = type.GetProperties();
             foreach (var p in props)
             {
-                Insert(new ColumnNameMappingItem()
+                if (p.PropertyType != typeof(DiskItem))
                 {
-                    Id = Guid.NewGuid(),
-                    Name = p.Name,
-                    Alias = p.Name,
-                    IsActive = true,
-                    HostType = type.FullName,
-                    IsDefault = false
-                });
+                    Insert(new ColumnNameMappingItem()
+                    {
+                        Id = Guid.NewGuid(),
+                        Name = p.Name,
+                        Alias = p.Name,
+                        IsActive = true,
+                        HostType = type.FullName,
+                        IsDefault = false,
+                        DisplayWidth = GetWidthByType(p.PropertyType)
+                    });
 
-                generated++;
+                    generated++;
+                }
             }
 
             return generated;

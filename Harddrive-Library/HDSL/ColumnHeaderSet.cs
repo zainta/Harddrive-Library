@@ -89,7 +89,7 @@ namespace HDDL.HDSL
             var results = new Dictionary<string, object>();
 
             var props = record.GetType().GetProperties();
-            foreach (var column in Columns.Reverse<string>())
+            foreach (var column in Columns)
             {
                 var prop = (from p in props where p.Name.Equals(column, StringComparison.InvariantCultureIgnoreCase) select p).SingleOrDefault();
                 if (prop != null)
@@ -111,7 +111,7 @@ namespace HDDL.HDSL
             var results = new Dictionary<PropertyInfo, object>();
 
             var props = record.GetType().GetProperties();
-            foreach (var column in Columns.Reverse<string>())
+            foreach (var column in Columns)
             {
                 var prop = (from p in props where p.Name.Equals(column, StringComparison.InvariantCultureIgnoreCase) select p).SingleOrDefault();
                 if (prop != null)

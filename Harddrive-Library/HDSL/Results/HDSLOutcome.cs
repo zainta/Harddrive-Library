@@ -35,6 +35,11 @@ namespace HDDL.HDSL.Results
         public string Statement { get; internal set; }
 
         /// <summary>
+        /// the column header set
+        /// </summary>
+        private ColumnHeaderSet _chs;
+
+        /// <summary>
         /// Takes a column header set and a set of disk items and builds the results
         /// </summary>
         /// <param name="items">The records to return</param>
@@ -43,14 +48,24 @@ namespace HDDL.HDSL.Results
         /// <param name="statement">The HDSL statement that produced these results</param>
         public HDSLOutcome(IEnumerable<HDDLRecordBase> items, ColumnHeaderSet columns, Type type, string statement)
         {
+            _chs = columns;
             Statement = statement;
             RecordType = type;
             Columns = (from m in columns.Mappings select new ColumnDefinition(m)).ToArray();
 
+            SetRecords(items);
+        }
+
+        /// <summary>
+        /// Replaces the records in the Records array
+        /// </summary>
+        /// <param name="items">The records to convert and store</param>
+        public void SetRecords(IEnumerable<HDDLRecordBase> items)
+        {
             var results = new List<Dictionary<string, object>>();
             foreach (var item in items)
             {
-                results.Add(columns.GetColumns(item));
+                results.Add(_chs.GetColumns(item));
             }
             Records = results.ToArray();
         }

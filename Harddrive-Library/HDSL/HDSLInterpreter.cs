@@ -644,12 +644,12 @@ namespace HDDL.HDSL
 
                 if (tokens.Count > 0)
                 {
-                    var columns =
-                        (from mapping in _dh.GetColumnNameMappings(forType)
-                         where tokens.Where(a =>
-                            a.Code.Equals(mapping.Alias, StringComparison.InvariantCultureIgnoreCase) ||
-                            a.Code.Equals(mapping.Name, StringComparison.InvariantCultureIgnoreCase)).Any()
-                         select mapping).ToArray();
+                    var columns = tokens.Select(t => _dh.GetColumnNameMappings(forType)
+                                            .Where(m => m.Alias.Equals(t.Code, StringComparison.InvariantCultureIgnoreCase) ||
+                                                    m.Name.Equals(t.Code, StringComparison.InvariantCultureIgnoreCase)).SingleOrDefault()
+                                        )
+                        .Where(v => v != null)
+                        .ToArray();
                     if (columns.Length == tokens.Count)
                     {
                         return new ColumnHeaderSet(columns, forType);
