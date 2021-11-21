@@ -418,32 +418,7 @@ namespace HDDL.HDSL
         /// <returns></returns>
         private FindQueryDetails GetFindDetails(Type? forcedTypeContext = null)
         {
-            Type typeContext = typeof(DiskItem);
-            if (forcedTypeContext == null)
-            {
-                if (Peek().Type == HDSLTokenTypes.FileSystem ||
-                    Peek().Type == HDSLTokenTypes.Wards ||
-                    Peek().Type == HDSLTokenTypes.Watches ||
-                    Peek().Type == HDSLTokenTypes.HashLogs)
-                {
-                    switch (Pop().Type)
-                    {
-                        case HDSLTokenTypes.Wards:
-                            typeContext = typeof(WardItem);
-                            break;
-                        case HDSLTokenTypes.Watches:
-                            typeContext = typeof(WatchItem);
-                            break;
-                        case HDSLTokenTypes.HashLogs:
-                            typeContext = typeof(DiskItemHashLogItem);
-                            break;
-                    }
-                }
-            }
-            else
-            {
-                typeContext = forcedTypeContext;
-            }
+            Type typeContext = GetTypeContext(forcedTypeContext);
 
             // the column header set is optional
             var columnHeaderSet = GetColumnHeaderSet(typeContext);
@@ -525,6 +500,43 @@ namespace HDDL.HDSL
                 Columns = columnHeaderSet,
                 TableContext = typeContext
             };
+        }
+
+        /// <summary>
+        /// Gets the current statement context from the next token
+        /// </summary>
+        /// <param name="forcedTypeContext">Preassigns the type context, skipping that step</param>
+        /// <returns></returns>
+        private Type GetTypeContext(Type? forcedTypeContext = null)
+        {
+            Type typeContext = typeof(DiskItem);
+            if (forcedTypeContext == null)
+            {
+                if (Peek().Type == HDSLTokenTypes.FileSystem ||
+                    Peek().Type == HDSLTokenTypes.Wards ||
+                    Peek().Type == HDSLTokenTypes.Watches ||
+                    Peek().Type == HDSLTokenTypes.HashLogs)
+                {
+                    switch (Pop().Type)
+                    {
+                        case HDSLTokenTypes.Wards:
+                            typeContext = typeof(WardItem);
+                            break;
+                        case HDSLTokenTypes.Watches:
+                            typeContext = typeof(WatchItem);
+                            break;
+                        case HDSLTokenTypes.HashLogs:
+                            typeContext = typeof(DiskItemHashLogItem);
+                            break;
+                    }
+                }
+            }
+            else
+            {
+                typeContext = forcedTypeContext;
+            }
+
+            return typeContext;
         }
 
         /// <summary>
@@ -806,7 +818,7 @@ namespace HDDL.HDSL
         /// 
         /// Note that not providing a path will result in the behavior of "Reset out;"
         /// Syntax:
-        /// Set out | standard | error path;
+        /// set out | standard | error path | alias [filesystem | wards | watches | hashlogs] columnref,  span (width in characters) | alias [filesystem | wards | watches | hashlogs] columnref 'alias string';
         /// </summary>
         private void HandleSetStatement()
         {
@@ -836,10 +848,17 @@ namespace HDDL.HDSL
 
                             standard = true;
                             break;
+                        case HDSLTokenTypes.Alias:
+                            Pop();
+
+                            HandleSetAliasStatement();
+                            break;
                         default:
-                            _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'out', 'standard', or 'error' expected."));
+                            _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'out', 'standard', 'error', or 'alias' expected."));
                             break;
                     }
+
+                    if (_errors.Count > 0) return;
 
                     // check for EoF / EoL
                     if (Peek().Type == HDSLTokenTypes.EndOfLine ||
@@ -891,12 +910,84 @@ namespace HDDL.HDSL
                 }
                 else
                 {
-                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'out', 'standard', or 'error' expected."));
+                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'out', 'standard', 'error', or 'alias' expected."));
                 }
             }
             else
             {
                 _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'set' expected."));
+            }
+        }
+
+        /// <summary>
+        /// Handles the Set Alias sub-statement type
+        /// 
+        /// Purpose:
+        /// Allows the alteration of aliases via HDSL code and setting the width of columns
+        /// 
+        /// Syntax:
+        /// set alias [filesystem | wards | watches | hashlogs] columnref, span (width in characters);
+        /// set alias [filesystem | wards | watches | hashlogs] columnref, 'new alias string';
+        /// </summary>
+        private void HandleSetAliasStatement()
+        {
+            var typeContext = GetTypeContext();
+
+            if (Peek().Type == HDSLTokenTypes.ColumnName)
+            {
+                var column = Pop().Code;
+                if (Peek().Type == HDSLTokenTypes.Comma)
+                {
+                    Pop();
+                    if (Peek().Type == HDSLTokenTypes.String)
+                    {
+                        var newAlias = Pop().Literal;
+                        var target = _dh.GetMappingByNameAndType(column, typeContext);
+
+                        // make sure it isn't taken
+                        var dupe = _dh.GetMappingByNameAndType(newAlias, typeContext);
+                        if (dupe == null)
+                        {
+                            target.Alias = newAlias;
+                            _dh.Update(target);
+                            _dh.WriteColumnNameMappings();
+                        }
+                        else
+                        {
+                            if (dupe.Id != target.Id)
+                            {
+                                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Column '{dupe.Name}' already has the alias '{dupe.Alias}'."));
+                            }
+                        }
+                    }
+                    else if (Peek().Type == HDSLTokenTypes.Span)
+                    {
+                        Pop();
+                        if (Peek().Type == HDSLTokenTypes.WholeNumber)
+                        {
+                            var target = _dh.GetMappingByNameAndType(column, typeContext);
+                            target.DisplayWidth = int.Parse(Pop().Literal);
+                            _dh.Update(target);
+                            _dh.WriteColumnNameMappings();
+                        }
+                        else
+                        {
+                            _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Whole number expected."));
+                        }
+                    }
+                    else
+                    {
+                        _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"'span' or new alias string expected."));
+                    }
+                }
+                else
+                {
+                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Comma (,) expected."));
+                }
+            }
+            else
+            {
+                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Column reference expected."));
             }
         }
 

@@ -95,10 +95,17 @@ HDSL is a simple query language designed for the retrieval of files and director
      * e.g `5:::` means 5 days.
      * e.g `10::` means 10 hours.
      * e.g `1::2:30` means 1 day, 2 minutes, and 30 seconds.
- * `set out | standard | error path;`
-   * Redirects the console's output to the provided path.
-   * Using `standard` changes the standard output, `error` the error, and `out` will change both.
-   * e.g `set standard @'C:\HDSL\activity.log';` will reroute standard output to the C:\HDSL\Activity.log file.
+ * The `set` statement
+   * `set out | standard | error path;`
+     * Redirects the console's output to the provided path.
+     * Using `standard` changes the standard output, `error` the error, and `out` will change both.
+     * e.g `set standard @'C:\HDSL\activity.log';` will reroute standard output to the C:\HDSL\Activity.log file.
+   * `set alias [filesystem | wards | watches | hashlogs] columnref, span (width in characters);`
+     * Changes the display width for the given column.
+     * e.g `set filesystem SizeInBytes, span 10;` will set the display width of the SizeInBytes column to 10 characters.
+   * `set alias [filesystem | wards | watches | hashlogs] columnref, 'new alias string';`
+     * Changes the alias for the given column to the new one provided.
+     * e.g `set filesystem SizeInBytes, 'Size';` will change the SizeInBytes column's alias to 'Size', allowing it to be referenced by that name.
  * `reset out | standard | error | columnheaderset;`
    * Resets the targetting output stream to its default, thereby restoring it to the console.
    * Using `standard` resets the standard output, `error` the error, and `out` will reset both.

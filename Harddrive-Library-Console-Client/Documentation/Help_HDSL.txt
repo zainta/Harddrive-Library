@@ -29,7 +29,7 @@
     watch [passive] [path[, path, path] - defaults to current];
 		Creates a watch for each of the given paths.  
 		A watch performs an initial scan and then passively monitors location for activity, updating the database when any is detected.
-	    The `passive` keyword causes the watch to start in passive mode and skip the initial scan.
+	    The passive keyword causes the watch to start in passive mode and skip the initial scan.
 		e.g watch 'C:\'; will watch the entire C: drive, automatically updating when changes occur after the initial scan.
 	ward (time interval) [file pattern] [in/within/under [path[, path, path]] - defaults to current] [where clause];
 		Performs an immediate integrity check and then successive ones whenever the interval expires.
@@ -38,10 +38,17 @@
 			e.g 5::: means 5 days.
 			e.g 10:: means 10 hours.
 			e.g 1::2:30 means 1 day, 2 minutes, and 30 seconds.
-	set out | standard | error path;
-		Redirects the console's output to the provided path.
-		Using "standard" changes the standard output, "error" the error, and "out" will change both.
-		e.g set standard @'C:\HDSL\activity.log'; will reroute standard output to the C:\HDSL\Activity.log file.
+	* The set statement
+	   * set out | standard | error path;
+		 * Redirects the console's output to the provided path.
+		 * Using standard changes the standard output, error the error, and out will change both.
+		 * e.g set standard @'C:\HDSL\activity.log'; will reroute standard output to the C:\HDSL\Activity.log file.
+	   * set alias [filesystem | wards | watches | hashlogs] columnref, span (width in characters);
+		 * Changes the display width for the given column.
+		 * e.g set filesystem SizeInBytes, span 10; will set the display width of the SizeInBytes column to 10 characters.
+	   * set alias [filesystem | wards | watches | hashlogs] columnref, 'new alias string';
+		 * Changes the alias for the given column to the new one provided.
+		 * e.g set filesystem SizeInBytes, 'Size'; will change the SizeInBytes column's alias to 'Size', allowing it to be referenced by that name.
 	reset out | standard | error;
 		Resets the targetting output stream to its default, thereby restoring it to the console.
 		Using "standard" resets the standard output, "error" the error, and "out" will reset both.
@@ -54,4 +61,4 @@ Special Keywords
 
 	In HDSL, there are some special keywords that can be used universally, but only under specific circumstances.
 		The force keyword can be used prior to any path or bookmark anywhere a list of paths is valid (see syntax above).  When used, it will cause the statement to no longer validate the path's existence.  This allows, for example, explicit exclusion of files that do not yet exist but will in the future.
-		The ampersand `@`, when preceding a string, will make that string ignore escape sequences.  
+		The ampersand (@), when preceding a string, will make that string ignore escape sequences.  

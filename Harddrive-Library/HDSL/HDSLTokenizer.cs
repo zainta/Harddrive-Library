@@ -758,6 +758,14 @@ namespace HDDL.HDSL
                 {
                     token = new HDSLToken(HDSLTokenTypes.FileSystem, keyword.ToString(), row, col, text);
                 }
+                else if (text == "alias")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Alias, keyword.ToString(), row, col, text);
+                }
+                else if (text == "span")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Span, keyword.ToString(), row, col, text);
+                }
                 else if (IsDiskAttributeName(text))
                 {
                     token = new HDSLToken(HDSLTokenTypes.AttributeLiteral, keyword.ToString(), row, col, GetDiskAttributeName(text));

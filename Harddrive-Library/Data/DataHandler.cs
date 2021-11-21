@@ -134,6 +134,82 @@ namespace HDDL.Data
             return new DataHandler(dbPath);
         }
 
+        #region General Utility
+
+        /// <summary>
+        /// Takes a type and returns a default width to display it (in character count)
+        /// </summary>
+        /// <param name="propertyType">The type</param>
+        /// <returns>The number of characters width its column should be</returns>
+        private int GetWidthByType(Type propertyType)
+        {
+            var width = ColumnDefinition.UnrestrictedWidth;
+            if (propertyType == typeof(long))
+            {
+                width = 10;
+            }
+            else if (propertyType == typeof(DateTime))
+            {
+                width = 22;
+            }
+            else if (propertyType == typeof(string))
+            {
+                width = 100;
+            }
+            else if (propertyType == typeof(bool))
+            {
+                width = 3;
+            }
+            else if (propertyType == typeof(Guid))
+            {
+                width = Guid.Empty.ToString().Length;
+            }
+            else if (propertyType == typeof(int))
+            {
+                width = 10;
+            }
+            else if (propertyType == typeof(TimeSpan))
+            {
+                width = 20;
+            }
+
+            return width;
+        }
+
+        /// <summary>
+        /// Generates items in the insertion queue for the given type
+        /// </summary>
+        /// <param name="type">The type to generate records for</param>
+        /// <returns>The number of records queued insertion</returns>
+        private long QueueRecordsForType(Type type)
+        {
+            var generated = 0;
+
+            var props = type.GetProperties();
+            foreach (var p in props)
+            {
+                if (p.PropertyType != typeof(DiskItem))
+                {
+                    Insert(new ColumnNameMappingItem()
+                    {
+                        Id = Guid.NewGuid(),
+                        Name = p.Name,
+                        Alias = p.Name,
+                        IsActive = true,
+                        HostType = type.FullName,
+                        IsDefault = false,
+                        DisplayWidth = GetWidthByType(p.PropertyType)
+                    });
+
+                    generated++;
+                }
+            }
+
+            return generated;
+        }
+
+        #endregion
+
         #region Database Utility
 
         /// <summary>
@@ -321,6 +397,27 @@ namespace HDDL.Data
         #region Column Name Mappings
 
         /// <summary>
+        /// Retrieves and returns the mapping for a given column type combination
+        /// </summary>
+        /// <param name="nameorAlias">The name of the column</param>
+        /// <param name="hostType">The name of the hosting type</param>
+        /// <returns>Null or the record</returns>
+        public ColumnNameMappingItem GetMappingByNameAndType(string nameorAlias, Type hostType)
+        {
+            var mapping = GetColumnNameMappings(hostType)
+                .Where(m =>
+                    m.Name.Equals(nameorAlias, StringComparison.InvariantCultureIgnoreCase) ||
+                    m.Alias.Equals(nameorAlias, StringComparison.InvariantCultureIgnoreCase))
+                .SingleOrDefault();
+            if (mapping != null)
+            {
+                return mapping;
+            }
+
+            return null;
+        }
+
+        /// <summary>
         /// Retrieves the type of the given column
         /// </summary>
         /// <param name="nameOrAlias">Either the column name or alias, as defined in a mapping</param>
@@ -339,78 +436,6 @@ namespace HDDL.Data
             }
 
             return null;
-        }
-
-        /// <summary>
-        /// Takes a type and returns a default width to display it (in character count)
-        /// </summary>
-        /// <param name="propertyType">The type</param>
-        /// <returns>The number of characters width its column should be</returns>
-        private int GetWidthByType(Type propertyType)
-        {
-            var width = ColumnDefinition.UnrestrictedWidth;
-            if (propertyType == typeof(long))
-            {
-                width = 10;
-            }
-            else if (propertyType == typeof(DateTime))
-            {
-                width = 22;
-            }
-            else if (propertyType == typeof(string))
-            {
-                width = 100;
-            }
-            else if (propertyType == typeof(bool))
-            {
-                width = 3;
-            }
-            else if (propertyType == typeof(Guid))
-            {
-                width = Guid.Empty.ToString().Length;
-            }
-            else if (propertyType == typeof(int))
-            {
-                width = 10;
-            }
-            else if (propertyType == typeof(TimeSpan))
-            {
-                width = 20;
-            }
-
-            return width;
-        }
-
-        /// <summary>
-        /// Generates items in the insertion queue for the given type
-        /// </summary>
-        /// <param name="type">The type to generate records for</param>
-        /// <returns>The number of records queued insertion</returns>
-        private long QueueRecordsForType(Type type)
-        {
-            var generated = 0;
-
-            var props = type.GetProperties();
-            foreach (var p in props)
-            {
-                if (p.PropertyType != typeof(DiskItem))
-                {
-                    Insert(new ColumnNameMappingItem()
-                    {
-                        Id = Guid.NewGuid(),
-                        Name = p.Name,
-                        Alias = p.Name,
-                        IsActive = true,
-                        HostType = type.FullName,
-                        IsDefault = false,
-                        DisplayWidth = GetWidthByType(p.PropertyType)
-                    });
-
-                    generated++;
-                }
-            }
-
-            return generated;
         }
 
         /// <summary>

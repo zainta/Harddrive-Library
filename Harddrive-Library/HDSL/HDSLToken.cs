@@ -42,6 +42,8 @@ namespace HDDL.HDSL
                     case HDSLTokenTypes.AttributeLiteral:
                         Family = HDSLTokenFamilies.AttributeLiterals;
                         break;
+                    case HDSLTokenTypes.Alias:
+                    case HDSLTokenTypes.Span:
                     case HDSLTokenTypes.FileSystem:
                     case HDSLTokenTypes.ColumnMappings:
                     case HDSLTokenTypes.GroupBy:

@@ -58,6 +58,8 @@ namespace HDDL.HDSL
         OrderBy,
         ColumnMappings,
         FileSystem,
+        Alias,
+        Span,
 
         // value keywords
         Now,
