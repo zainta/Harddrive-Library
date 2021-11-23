@@ -32,6 +32,10 @@ namespace HDDL.HDSL.Where.Exceptions
         /// <summary>
         /// The column does not exist on the current context type
         /// </summary>
-        UnknownColumnReferenced
+        UnknownColumnReferenced,
+        /// <summary>
+        /// The Like operator (~) can only be used with two strings
+        /// </summary>
+        InvalidUseOfLike
     }
 }

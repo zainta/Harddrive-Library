@@ -90,6 +90,7 @@ namespace HDDL.HDSL
                     case HDSLTokenTypes.Or:
                         Family = HDSLTokenFamilies.LogicalOperators;
                         break;
+                    case HDSLTokenTypes.Like:
                     case HDSLTokenTypes.GreaterThan:
                     case HDSLTokenTypes.LessThan:
                     case HDSLTokenTypes.Equal:

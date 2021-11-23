@@ -20,4 +20,13 @@
     <PackageReference Include="System.Management" Version="5.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="fuzzy.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="re.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

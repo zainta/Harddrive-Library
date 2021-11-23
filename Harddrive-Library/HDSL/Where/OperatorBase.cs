@@ -205,6 +205,9 @@ namespace HDDL.HDSL.Where
                     case HDSLTokenTypes.LessOrEqual:
                         result = new LessOrEqual(opratr, left, right, cc);
                         break;
+                    case HDSLTokenTypes.Like:
+                        result = new Like(opratr, left, right, cc);
+                        break;
                     default:
                         throw new WhereClauseException(opratr.Column, opratr.Row, $"Unknown operator type '{opratr.Type}'.", WhereClauseExceptionTypes.UnknownOperatorType);
                 }
@@ -226,7 +229,7 @@ namespace HDDL.HDSL.Where
         /// Converts the clause into SQL
         /// </summary>
         /// <returns></returns>
-        public string ToSQL()
+        public virtual string ToSQL()
         {
             var result = string.Empty;
             if (LeftContent != null && RightContent != null)

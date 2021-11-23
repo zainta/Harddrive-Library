@@ -16,7 +16,7 @@ namespace HDDL.Data
         /// <summary>
         /// The path string to the location of the scan
         /// </summary>
-        internal string Path { get; set; }
+        public string Path { get; set; }
 
         /// <summary>
         /// If in passive mode, this will contain the disk item representations the targeted path

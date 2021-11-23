@@ -301,7 +301,7 @@ namespace HDDL.Data
         /// <param name="filter">The wildcard filter</param>
         /// <param name="paths">The paths to search</param>
         /// <returns>The matching DiskItems</returns>
-        public IEnumerable<DiskItem> GetFilteredDiskItemsByIn(string whereDetail, string filter, IEnumerable<string> paths);
+        public IEnumerable<DiskItem> GetFilteredDiskItemsByIn(string whereDetail, IEnumerable<string> paths);
 
         /// <summary>
         /// Retrieves all records located at any depth inside of any of the provided paths, matching the given filter with the provided whereDetail
@@ -310,7 +310,7 @@ namespace HDDL.Data
         /// <param name="filter">The wildcard filter</param>
         /// <param name="paths">The paths to search</param>
         /// <returns>The matching DiskItems</returns>
-        public IEnumerable<DiskItem> GetFilteredDiskItemsByWithin(string whereDetail, string filter, IEnumerable<string> paths);
+        public IEnumerable<DiskItem> GetFilteredDiskItemsByWithin(string whereDetail, IEnumerable<string> paths);
 
         /// <summary>
         /// Retrieves all records located within any subdirectories immediately inside of any of the provided paths, matching the given filter with the provided whereDetail
@@ -319,7 +319,7 @@ namespace HDDL.Data
         /// <param name="filter">The wildcard filter</param>
         /// <param name="paths">The paths to search</param>
         /// <returns>The matching DiskItems</returns>
-        public IEnumerable<DiskItem> GetFilteredDiskItemsByUnder(string whereDetail, string filter, IEnumerable<string> paths);
+        public IEnumerable<DiskItem> GetFilteredDiskItemsByUnder(string whereDetail, IEnumerable<string> paths);
 
         /// <summary>
         /// Attempts to retrieve and return a DiskItem by it's path

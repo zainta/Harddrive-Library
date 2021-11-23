@@ -820,6 +820,10 @@ namespace HDDL.HDSL
                 {
                     token = new HDSLToken(HDSLTokenTypes.Dot, Pop(), row, col, ".");
                 }
+                else if (Peek() == '~')
+                {
+                    token = new HDSLToken(HDSLTokenTypes.Like, Pop(), row, col, "~");
+                }
 
                 if (buffer.Count > 1)
                 {

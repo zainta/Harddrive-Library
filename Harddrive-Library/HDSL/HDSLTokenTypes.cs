@@ -88,6 +88,7 @@ namespace HDDL.HDSL
         NotEqual,
         GreaterOrEqual,
         LessOrEqual,
+        Like,
 
         // Logical Operators
 

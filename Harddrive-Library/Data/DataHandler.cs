@@ -331,6 +331,12 @@ namespace HDDL.Data
             if (_connection == null)
             {
                 _connection = new SQLiteConnection($"data source={ConnectionString}");
+                _connection.Open();
+
+                // add extensions
+                _connection.EnableExtensions(true);
+                _connection.LoadExtension("re");
+                _connection.LoadExtension("fuzzy");
             }
             if (_connection.State == ConnectionState.Closed)
                 _connection.Open();
@@ -615,6 +621,33 @@ namespace HDDL.Data
         #region DiskItemHashLog Related
 
         /// <summary>
+        /// Retrieves all hashlogs for records that match the criteria
+        /// </summary>
+        /// <param name="whereDetail">The filtering detail provided through the Find statement's where clause</param>
+        /// <param name="paths">The paths to search</param>
+        /// <returns>The matching DiskItems</returns>
+        internal IEnumerable<DiskItemHashLogItem> GetFilteredHashLogs(string whereDetail, IEnumerable<string> paths)
+        {
+            if (paths.Any())
+            {
+                var pathListing = string.Join("','", paths);
+                var results = new List<DiskItemHashLogItem>();
+
+                // retrieve all hashlogs for all retrieved records by parent id
+                var detailClause = string.IsNullOrWhiteSpace(whereDetail) ? string.Empty : $" and {whereDetail}";
+                var records = ExecuteReader($"select * from hashlog where path in ('{pathListing}'){detailClause}");
+                while (records.Read())
+                {
+                    results.Add(new DiskItemHashLogItem(records));
+                }
+
+                return results.ToArray();
+            }
+
+            return new DiskItemHashLogItem[] { };
+        }
+
+        /// <summary>
         /// Deletes all DiskitemHashLogs from the database
         /// </summary>
         public long ClearDiskItemHashLogs()
@@ -711,6 +744,39 @@ namespace HDDL.Data
         #endregion
 
         #region Watch Related
+
+        /// <summary>
+        /// Retrieves all wards for the given paths and criteria
+        /// </summary>
+        /// <param name="whereDetail">The filtering detail provided through the Find statement's where clause</param>
+        /// <param name="paths">The paths to search</param>
+        /// <returns>The matching DiskItems</returns>
+        internal IEnumerable<WatchItem> GetFilteredWatches(string whereDetail, IEnumerable<string> paths)
+        {
+            if (paths.Any())
+            {
+                var pathListing = string.Join("','", paths);
+                var results = new List<WatchItem>();
+
+                // retrieve all hashlogs for all retrieved records by parent id
+                var detailClause = string.IsNullOrWhiteSpace(whereDetail) ? string.Empty : $" and {whereDetail}";
+                var records = ExecuteReader($"select * from watches where path in ('{pathListing}'){detailClause}");
+                while (records.Read())
+                {
+                    DiskItem di = null;
+                    if (!(records["path"] is DBNull))
+                    {
+                        di = GetDiskItemByPath(records.GetString("path"));
+                    }
+
+                    results.Add(new WatchItem(records, di));
+                }
+
+                return results.ToArray();
+            }
+
+            return new WatchItem[] { };
+        }
 
         /// <summary>
         /// Retrieves and returns the watches
@@ -899,6 +965,39 @@ namespace HDDL.Data
         #endregion
 
         #region Ward Related
+
+        /// <summary>
+        /// Retrieves all wards for the given paths and criteria
+        /// </summary>
+        /// <param name="whereDetail">The filtering detail provided through the Find statement's where clause</param>
+        /// <param name="paths">The paths to search</param>
+        /// <returns>The matching DiskItems</returns>
+        internal IEnumerable<WardItem> GetFilteredWards(string whereDetail, IEnumerable<string> paths)
+        {
+            if (paths.Any())
+            {
+                var pathListing = string.Join("','", paths);
+                var results = new List<WardItem>();
+
+                // retrieve all hashlogs for all retrieved records by parent id
+                var detailClause = string.IsNullOrWhiteSpace(whereDetail) ? string.Empty : $" and {whereDetail}";
+                var records = ExecuteReader($"select * from wards where path in ('{pathListing}'){detailClause}");
+                while (records.Read())
+                {
+                    DiskItem di = null;
+                    if (!(records["path"] is DBNull))
+                    {
+                        di = GetDiskItemByPath(records.GetString("path"));
+                    }
+
+                    results.Add(new WardItem(records, di));
+                }
+
+                return results.ToArray();
+            }
+
+            return new WardItem[] { };
+        }
 
         /// <summary>
         /// Retrieves and returns the wards
@@ -1463,19 +1562,17 @@ namespace HDDL.Data
         /// Retrieves all records at the provided depths relative to the given path, obeying all defined criteria
         /// </summary>
         /// <param name="whereDetail">The filtering detail provided through the Find statement's where clause</param>
-        /// <param name="filter">The wildcard filter</param>
         /// <param name="paths">The paths to search</param>
         /// <param name="depthSpecification">The depth criteria for the search</param>
         /// <returns>The matching DiskItems</returns>
-        private IEnumerable<DiskItem> GetFilteredDiskItems(string whereDetail, string filter, IEnumerable<string> paths, string depthSpecification)
+        private IEnumerable<DiskItem> GetFilteredDiskItems(string whereDetail, IEnumerable<string> paths, string depthSpecification)
         {
             var queries = new List<string>();
             var results = new List<DiskItem>();
             foreach (var path in paths)
             {
                 var depth = PathHelper.GetDependencyCount(new DiskItemType(path, false));
-                var filterClause = !string.IsNullOrWhiteSpace(filter) ? $" and itemName like '{filter.Replace("*", "%")}'" : string.Empty;
-                var query = $"select * from diskitems where path like '{path}%'{filterClause} and {depthSpecification}".Replace("[current]", depth.ToString());
+                var query = $"select * from diskitems where path like '{path}%' and {depthSpecification}".Replace("[current]", depth.ToString());
                 if (!string.IsNullOrWhiteSpace(whereDetail))
                 {
                     queries.Add($"{query} and ({whereDetail});");
@@ -1506,36 +1603,33 @@ namespace HDDL.Data
         /// Retrieves all records immediately inside of any of the provided paths, matching the given filter with the provided whereDetail
         /// </summary>
         /// <param name="whereDetail">The filtering detail provided through the Find statement's where clause</param>
-        /// <param name="filter">The wildcard filter</param>
         /// <param name="paths">The paths to search</param>
         /// <returns>The matching DiskItems</returns>
-        public IEnumerable<DiskItem> GetFilteredDiskItemsByIn(string whereDetail, string filter, IEnumerable<string> paths)
+        public IEnumerable<DiskItem> GetFilteredDiskItemsByIn(string whereDetail, IEnumerable<string> paths)
         {
-            return GetFilteredDiskItems(whereDetail, filter, paths, $"depth = ([current] + 1)");
+            return GetFilteredDiskItems(whereDetail, paths, $"depth = ([current] + 1)");
         }
 
         /// <summary>
         /// Retrieves all records located at any depth inside of any of the provided paths, matching the given filter with the provided whereDetail
         /// </summary>
         /// <param name="whereDetail">The filtering detail provided through the Find statement's where clause</param>
-        /// <param name="filter">The wildcard filter</param>
         /// <param name="paths">The paths to search</param>
         /// <returns>The matching DiskItems</returns>
-        public IEnumerable<DiskItem> GetFilteredDiskItemsByWithin(string whereDetail, string filter, IEnumerable<string> paths)
+        public IEnumerable<DiskItem> GetFilteredDiskItemsByWithin(string whereDetail, IEnumerable<string> paths)
         {
-            return GetFilteredDiskItems(whereDetail, filter, paths, $"depth > [current]");
+            return GetFilteredDiskItems(whereDetail, paths, $"depth > [current]");
         }
 
         /// <summary>
         /// Retrieves all records located within any subdirectories immediately inside of any of the provided paths, matching the given filter with the provided whereDetail
         /// </summary>
         /// <param name="whereDetail">The filtering detail provided through the Find statement's where clause</param>
-        /// <param name="filter">The wildcard filter</param>
         /// <param name="paths">The paths to search</param>
         /// <returns>The matching DiskItems</returns>
-        public IEnumerable<DiskItem> GetFilteredDiskItemsByUnder(string whereDetail, string filter, IEnumerable<string> paths)
+        public IEnumerable<DiskItem> GetFilteredDiskItemsByUnder(string whereDetail, IEnumerable<string> paths)
         {
-            return GetFilteredDiskItems(whereDetail, filter, paths, $"depth > ([current] + 1)");
+            return GetFilteredDiskItems(whereDetail, paths, $"depth > ([current] + 1)");
         }
 
         /// <summary>

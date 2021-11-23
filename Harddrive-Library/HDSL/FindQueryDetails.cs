@@ -13,11 +13,6 @@ namespace HDDL.HDSL
     class FindQueryDetails
     {
         /// <summary>
-        /// The query's wildcard
-        /// </summary>
-        public string Wildcard { get; set; }
-
-        /// <summary>
         /// The where clause structure associated with the find
         /// </summary>
         public OperatorBase FurtherDetails { get; set; }

@@ -413,7 +413,7 @@ namespace HDDL.HDSL
         /// Gathers the information required for a Find query and returns it
         /// 
         /// Syntax
-        /// [filesystem | wards | watches | hashlogs] [columns columnref[, columnref]] [file pattern] [in/within/under [path[, path, path]] - defaults to current] [where clause];
+        /// [filesystem | wards | watches | hashlogs] [columns columnref[, columnref]] [in/within/under [path[, path, path]] - defaults to current] [where clause];
         /// </summary>
         /// <param name="forcedTypeContext">Preassigns the type context, skipping that step</param>
         /// <returns></returns>
@@ -429,13 +429,6 @@ namespace HDDL.HDSL
                 {
                     ResultsEmpty = true
                 };
-            }
-
-            // the wildcard expression defaults to "*.*".  Defining it explicitly is optional
-            var wildcardExpression = "*.*";
-            if (More() && Peek().Type == HDSLTokenTypes.String)
-            {
-                wildcardExpression = Pop().Literal;
             }
 
             // the depth clause is optional, and can take a comma seperated list of paths.
@@ -518,7 +511,6 @@ namespace HDDL.HDSL
                 FurtherDetails = queryDetail,
                 Method = op,
                 Paths = targetPaths,
-                Wildcard = wildcardExpression,
                 ResultsEmpty = false,
                 Columns = columnHeaderSet,
                 TableContext = typeContext
@@ -790,12 +782,11 @@ namespace HDDL.HDSL
                 {
                     if (Peek().Type == HDSLTokenTypes.Out)
                     {
+                        Pop();
                         // check for EoF / EoL
                         if (Peek().Type == HDSLTokenTypes.EndOfLine ||
                         Peek().Type == HDSLTokenTypes.EndOfFile)
                         {
-                            Pop();
-
                             ResetStandardOutputToDefault();
                             ResetStandardErrorToDefault();
                         }
@@ -806,12 +797,11 @@ namespace HDDL.HDSL
                     }
                     else if (Peek().Type == HDSLTokenTypes.Standard)
                     {
+                        Pop();
                         // check for EoF / EoL
                         if (Peek().Type == HDSLTokenTypes.EndOfLine ||
                         Peek().Type == HDSLTokenTypes.EndOfFile)
                         {
-                            Pop();
-
                             ResetStandardOutputToDefault();
                         }
                         else
@@ -821,12 +811,11 @@ namespace HDDL.HDSL
                     }
                     else if (Peek().Type == HDSLTokenTypes.Error)
                     {
+                        Pop();
                         // check for EoF / EoL
                         if (Peek().Type == HDSLTokenTypes.EndOfLine ||
                         Peek().Type == HDSLTokenTypes.EndOfFile)
                         {
-                            Pop();
-
                             ResetStandardErrorToDefault();
                         }
                         else
@@ -836,12 +825,11 @@ namespace HDDL.HDSL
                     }
                     else if (Peek().Type == HDSLTokenTypes.ColumnMappings)
                     {
+                        Pop();
                         // check for EoF / EoL
                         if (Peek().Type == HDSLTokenTypes.EndOfLine ||
                         Peek().Type == HDSLTokenTypes.EndOfFile)
                         {
-                            Pop();
-
                             _dh.ResetColumnNameMappingTable();
                         }
                         else
@@ -1120,7 +1108,7 @@ namespace HDDL.HDSL
         /// Allows scheduling of a periodic integrity check
         /// 
         /// Syntax:
-        /// ward (time interval) [file pattern] [in/within/under [path[, path, path]] - defaults to current] [where clause];
+        /// ward (time interval) [in/within/under [path[, path, path]] - defaults to current] [where clause];
         /// </summary>
         private void HandleWardDefinition()
         {
@@ -1142,7 +1130,7 @@ namespace HDDL.HDSL
                             var ward = new WardItem()
                             {
                                 Id = Guid.NewGuid(),
-                                HDSL = $"check quiet '{details.Wildcard}' {details.Method.ToString().ToLower()} '{path.Replace(@"\", @"\\")}' {whereKeyword}{details.FurtherDetails};",
+                                HDSL = $"check quiet {details.Method.ToString().ToLower()} '{path.Replace(@"\", @"\\")}' {whereKeyword}{details.FurtherDetails};",
                                 NextScan = DateTime.Now,
                                 Path = path,
                                 Target = null,
@@ -1153,7 +1141,7 @@ namespace HDDL.HDSL
                             if (Peek().Type == HDSLTokenTypes.EndOfLine ||
                             Peek().Type == HDSLTokenTypes.EndOfFile)
                             {
-                                var dupe = _dh.GetWatches().Where(w => w.Path == ward.Path).SingleOrDefault();
+                                var dupe = _dh.GetWards().Where(w => w.Path == ward.Path).SingleOrDefault();
                                 if (dupe == null)
                                 {
                                     _dh.Insert(ward);
@@ -1188,7 +1176,7 @@ namespace HDDL.HDSL
         /// Allows scripts to run integrity scan
         /// 
         /// Syntax:
-        /// check [spinner|progress|text|quiet - defaults to text] [columns columnref[, columnref]] [file pattern] [in/within/under [path[, path, path]] - defaults to current] [where clause];
+        /// check [spinner|progress|text|quiet - defaults to text] [columns columnref[, columnref]] [in/within/under [path[, path, path]] - defaults to current] [where clause];
         /// </summary>
         private HDSLIntegrityOutcome HandleIntegrityCheck()
         {
@@ -1627,8 +1615,8 @@ namespace HDDL.HDSL
         /// Find statements query the database for files and return them
         /// 
         /// Syntax:
-        /// find [filesystem | wards | watches | hashlogs] [columns columnref[, columnref]] [file pattern] [in/within/under [path[, path, path]] - defaults to current] [where clause];
-        /// 
+        /// find [filesystem - default] [columns columnref[, columnref]] [in/within/under [path[, path, path]] - defaults to current] [where clause];
+        /// find [wards | watches | hashlogs] [columns columnref[, columnref]] [path[, path, path] - defaults to current] [where clause];
         /// </summary>
         /// <param name="forcedTypeContext">Preassigns the type context, skipping that step</param>
         /// <returns>The results find statement</returns>
@@ -1652,13 +1640,13 @@ namespace HDDL.HDSL
                         switch (details.Method)
                         {
                             case FindQueryDepths.In:
-                                results.AddRange(_dh.GetFilteredDiskItemsByIn(details.FurtherDetails?.ToSQL(), details.Wildcard, details.Paths));
+                                results.AddRange(_dh.GetFilteredDiskItemsByIn(details.FurtherDetails?.ToSQL(), details.Paths));
                                 break;
                             case FindQueryDepths.Within:
-                                results.AddRange(_dh.GetFilteredDiskItemsByWithin(details.FurtherDetails?.ToSQL(), details.Wildcard, details.Paths));
+                                results.AddRange(_dh.GetFilteredDiskItemsByWithin(details.FurtherDetails?.ToSQL(), details.Paths));
                                 break;
                             case FindQueryDepths.Under:
-                                results.AddRange(_dh.GetFilteredDiskItemsByUnder(details.FurtherDetails?.ToSQL(), details.Wildcard, details.Paths));
+                                results.AddRange(_dh.GetFilteredDiskItemsByUnder(details.FurtherDetails?.ToSQL(), details.Paths));
                                 break;
                         }
                     }
@@ -1672,15 +1660,21 @@ namespace HDDL.HDSL
                 }
                 else if (details.TableContext == typeof(WardItem))
                 {
-
+                    var results = new List<WardItem>();
+                    results.AddRange(_dh.GetFilteredWards(details.FurtherDetails?.ToSQL(), details.Paths));
+                    result = new HDSLResultBag(results, details.Columns, details.TableContext, _currentStatement.ToString());
                 }
                 else if (details.TableContext == typeof(WatchItem))
                 {
-
+                    var results = new List<WatchItem>();
+                    results.AddRange(_dh.GetFilteredWatches(details.FurtherDetails?.ToSQL(), details.Paths));
+                    result = new HDSLResultBag(results, details.Columns, details.TableContext, _currentStatement.ToString());
                 }
                 else if (details.TableContext == typeof(DiskItemHashLogItem))
                 {
-
+                    var results = new List<DiskItemHashLogItem>();
+                    results.AddRange(_dh.GetFilteredHashLogs(details.FurtherDetails?.ToSQL(), details.Paths));
+                    result = new HDSLResultBag(results, details.Columns, details.TableContext, _currentStatement.ToString());
                 }
 
                 // check for EoF / EoL

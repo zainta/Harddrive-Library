@@ -57,9 +57,12 @@ HDSL offers a shorthand parameter alternative format that, while less legible, a
 
 ## The Hard Drive Search Language
 HDSL is a simple query language designed for the retrieval of files and directories based on their locations and characteristics.  The system currently implements the following statements:
- * `find [filesystem | wards | watches | hashlogs] [columns columnref[, columnref]] [file search pattern - defaults to *.*] [in/within/under [path[, path, path]] - defaults to current] [where clause];`
+ * `find [filesystem - default] [columns columnref[, columnref]] [in/within/under [path[, path, path]] - defaults to current] [where clause];` or
+   `find [wards | watches | hashlogs] [columns columnref[, columnref]] [path[, path, path] - defaults to current] [where clause];`
    * Retrieves the items that match the query and displays them.
-   * e.g `find '*.dll' in 'C:\Windows\System32' where size < 1024000;` to search for all dll files in C:\Windows\System32 that are under 1mb in size.
+   * The following statements all do the same thing -- they search for .dll files in C:\Windows\System32 that are under 1mb in size.
+     * e.g `find in 'C:\Windows\System32' where SizeInBytes < 1024000 and Extension = '.dll';`
+     * e.g `find under 'C:\Windows\System32' where SizeInBytes < 1024000 and Path ~ '.*\.dll$';`
  * `purge [bookmarks | exclusions | watches | wards | hashlogs] | [path[, path, path] [where clause]];`
    * Removes matching entries from the current database.
    * e.g `purge;` deletes all file tracking records from the database
@@ -71,7 +74,7 @@ HDSL is a simple query language designed for the retrieval of files and director
  * `scan [spinner|progress|text|quiet - defaults to text] [path[, path, path]];`
    * Performs a disk item scan with the requested display mode on the provided paths.  
    * e.g `scan text 'C:\';` will scan the entire C: drive and output progress to the console as text.
- * `check [spinner|progress|text|quiet - defaults to text] [columns columnref[, columnref]] [file pattern] [in/within/under] [path[, path, path] - defaults to current] [where clause];`
+ * `check [spinner|progress|text|quiet - defaults to text] [columns columnref[, columnref]] [in/within/under] [path[, path, path] - defaults to current] [where clause];`
    * Performs a `find` query and then executes an integrity scan on the results of the query.
    * Compares existing hashes to the database to newly generated ones.  If no previous integrity check has been performed, simply stores the values in the database.
    * e.g `scan text 'C:\';` will perform an integrity check on the entire C: drive and output progress to the console as text.
@@ -88,7 +91,7 @@ HDSL is a simple query language designed for the retrieval of files and director
    * A watch performs an initial scan and then passively monitors location for activity, updating the database when any is detected.
    * The `passive` keyword causes the watch to start in passive mode and skip the initial scan.
    * e.g `watch 'C:\';` will watch the entire C: drive, automatically updating when changes occur after the initial scan.
- * `ward (time interval) [file pattern] [in/within/under [path[, path, path]] - defaults to current] [where clause];`
+ * `ward (time interval) [in/within/under [path[, path, path]] - defaults to current] [where clause];`
    * Performs an immediate integrity check and then successive ones whenever the interval expires.
    * e.g `ward 5::: under 'C:\Windows\System32' where extension = '.dll' and +system;` will create a ward to perform an integrity check on .dll system files every 5 days.
    * Time Intervals use the following syntax `d:h:m:s` where each number is optional, but the colons are required for meaning determination.
