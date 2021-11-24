@@ -53,7 +53,7 @@ namespace HDDL.Data
         /// <summary>
         /// The file size in bytes
         /// </summary>
-        public long SizeInBytes { get; set; }
+        public long Size { get; set; }
 
         /// <summary>
         /// When the item was last updated
@@ -116,7 +116,7 @@ namespace HDDL.Data
             ItemName = row.GetString("itemName");
             IsFile = row.GetBoolean("isFile");
             Extension = row.GetString("extension");
-            SizeInBytes = row.GetInt64("size");
+            Size = row.GetInt64("size");
             LastWritten = DateTimeDataHelper.ConvertToDateTime(row.GetString("lastWritten"));
             LastAccessed = DateTimeDataHelper.ConvertToDateTime(row.GetString("lastAccessed"));
             CreationDate = DateTimeDataHelper.ConvertToDateTime(row.GetString("created"));
@@ -152,7 +152,7 @@ namespace HDDL.Data
                          '{DataHelper.Sanitize(ItemName)}', 
                          {IsFile}, 
                          '{DataHelper.Sanitize(Extension)}',
-                         {SizeInBytes}, 
+                         {Size}, 
                          '{DateTimeDataHelper.ConvertToString(LastWritten)}', 
                          '{DateTimeDataHelper.ConvertToString(LastAccessed)}', 
                          '{DateTimeDataHelper.ConvertToString(CreationDate)}', 
@@ -177,7 +177,7 @@ namespace HDDL.Data
                         itemName = '{DataHelper.Sanitize(ItemName)}', 
                         isFile = {IsFile}, 
                         extension = '{DataHelper.Sanitize(Extension)}', 
-                        size = {SizeInBytes}, 
+                        size = {Size}, 
                         lastWritten = '{DateTimeDataHelper.ConvertToString(LastWritten)}', 
                         lastAccessed = '{DateTimeDataHelper.ConvertToString(LastAccessed)}', 
                         created = '{DateTimeDataHelper.ConvertToString(CreationDate)}', 
@@ -206,7 +206,7 @@ namespace HDDL.Data
         {
             if (IsFile)
             {
-                return $"({SizeInBytes}) '{Path}'";
+                return $"({Size}) '{Path}'";
             }
             else
             {
@@ -253,7 +253,7 @@ namespace HDDL.Data
         public void CopyFrom(DiskItem item)
         {
             LastScanned = item.LastScanned;
-            SizeInBytes = item.SizeInBytes;
+            Size = item.Size;
             LastWritten = item.LastWritten;
             LastAccessed = item.LastAccessed;
         }

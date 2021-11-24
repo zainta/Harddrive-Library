@@ -36,6 +36,10 @@ namespace HDDL.HDSL.Where.Exceptions
         /// <summary>
         /// The Like operator (~) can only be used with two strings
         /// </summary>
-        InvalidUseOfLike
+        InvalidUseOfLike,
+        /// <summary>
+        /// The operator cannot act on the given operands' type
+        /// </summary>
+        OperatorTypeMismatch
     }
 }

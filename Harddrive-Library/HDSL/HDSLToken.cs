@@ -77,7 +77,7 @@ namespace HDDL.HDSL
                     case HDSLTokenTypes.Check:
                     case HDSLTokenTypes.Find:
                     case HDSLTokenTypes.Asc:
-                    case HDSLTokenTypes.Dsc:
+                    case HDSLTokenTypes.Desc:
                     case HDSLTokenTypes.Purge:
                     case HDSLTokenTypes.Where:
                         Family = HDSLTokenFamilies.LanguageKeywords;

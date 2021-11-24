@@ -198,7 +198,7 @@ namespace HDDL.Scanning
                     using (HashAlgorithm hasher = SHA512.Create())
                     {
 
-                        StartedScanningFile?.Invoke(this, di.Path, di.SizeInBytes, 0);
+                        StartedScanningFile?.Invoke(this, di.Path, di.Size, 0);
 
                         byte[] hash = hasher.ComputeHash(fs);
                         var sb = new StringBuilder();
@@ -225,7 +225,7 @@ namespace HDDL.Scanning
                         }
                         di.FileHash = hashStr;
 
-                        FinishedScanningFile?.Invoke(this, di.Path, di.SizeInBytes, di.SizeInBytes);
+                        FinishedScanningFile?.Invoke(this, di.Path, di.Size, di.Size);
                     }
                 }
             }

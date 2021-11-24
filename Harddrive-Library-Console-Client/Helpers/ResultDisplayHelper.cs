@@ -159,7 +159,7 @@ namespace HDSL.ConsoleClient.Helpers
                 var v = GetAs<long>(value);
                 switch (cd.Column)
                 {
-                    case "SizeInBytes":
+                    case "Size":
                         result = ShortenSize(v);
                         break;
                 }

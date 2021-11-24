@@ -413,7 +413,7 @@ namespace HDDL.HDSL
         /// Gathers the information required for a Find query and returns it
         /// 
         /// Syntax
-        /// [filesystem | wards | watches | hashlogs] [columns columnref[, columnref]] [in/within/under [path[, path, path]] - defaults to current] [where clause];
+        /// [filesystem | wards | watches | hashlogs] [columns columnref[, columnref]] [in/within/under [path[, path, path]] - defaults to current] [where clause] [group clause] [order clause];
         /// </summary>
         /// <param name="forcedTypeContext">Preassigns the type context, skipping that step</param>
         /// <returns></returns>
@@ -506,6 +506,16 @@ namespace HDDL.HDSL
                 }
             }
 
+            // the grouping and sorting clauses are optional
+            var groupingSortingData = GetGroupingSortingSet(typeContext);
+            if (_errors.Count > 0)
+            {
+                return new FindQueryDetails()
+                {
+                    ResultsEmpty = true
+                };
+            }
+
             return new FindQueryDetails()
             {
                 FurtherDetails = queryDetail,
@@ -513,7 +523,8 @@ namespace HDDL.HDSL
                 Paths = targetPaths,
                 ResultsEmpty = false,
                 Columns = columnHeaderSet,
-                TableContext = typeContext
+                TableContext = typeContext,
+                GroupSortDetails = groupingSortingData
             };
         }
 
@@ -536,7 +547,7 @@ namespace HDDL.HDSL
                 Attributes = FileAttributes.Normal,
                 IsFile = true,
                 ItemName = "fakefile.txt",
-                SizeInBytes = 1024,
+                Size = 1024,
                 LastAccessed = DateTime.Now,
                 LastWritten = DateTime.Now,
                 MachineUNCName = "C:",
@@ -675,6 +686,57 @@ namespace HDDL.HDSL
         }
 
         /// <summary>
+        /// Gathers a list of column name tokens and, with the provided type, returns the column mappings for the named tokens for that type
+        /// </summary>
+        /// <param name="forType">The type</param>
+        /// <returns></returns>
+        private ColumnNameMappingItem[] GetColumnMappingsForTypeByTokenSet(Type forType)
+        {
+            var tokens = new List<HDSLToken>();
+            while (More() && Peek().Type == HDSLTokenTypes.ColumnName)
+            {
+                tokens.Add(Pop());
+                if (Peek().Type == HDSLTokenTypes.Comma)
+                {
+                    Pop();
+                }
+            }
+
+            if (tokens.Count > 0)
+            {
+                var columns = tokens.Select(t => _dh.GetColumnNameMappings(forType)
+                                        .Where(m => m.Alias.Equals(t.Code, StringComparison.InvariantCultureIgnoreCase) ||
+                                                m.Name.Equals(t.Code, StringComparison.InvariantCultureIgnoreCase)).SingleOrDefault()
+                                    )
+                    .Where(v => v != null)
+                    .ToArray();
+                if (columns.Length == tokens.Count)
+                {
+                    return columns.ToArray();
+                }
+                else
+                {
+                    // get the names of the missing columns and report them in an error
+                    var missings =
+                        (from t in tokens
+                         where columns.Where(c =>
+                            c.Name.Equals(t.Code, StringComparison.InvariantCultureIgnoreCase) ||
+                            c.Name.Equals(t.Code, StringComparison.InvariantCultureIgnoreCase)).Any() == false
+                         select t).ToArray();
+
+                    var columnsEnding = missings.Length > 1 ? "s" : string.Empty;
+                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Type '{forType.Name}' does not have column{columnsEnding} '{string.Join("', '", missings.Select(m => m.Code))}'."));
+                }
+            }
+            else
+            {
+                _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Column name or alias expected."));
+            }
+
+            return new ColumnNameMappingItem[] { };
+        }
+
+        /// <summary>
         /// Converts a list of column names into a ColumnHeaderSet instance
         /// </summary>
         /// <param name="forType">The type of the header set is for (should be derived from HDDLRecordBase)</param>
@@ -687,45 +749,10 @@ namespace HDDL.HDSL
             {
                 Pop();
 
-                var tokens = new List<HDSLToken>();
-                while (More() && Peek().Type == HDSLTokenTypes.ColumnName)
+                var columns = GetColumnMappingsForTypeByTokenSet(forType);
+                if (columns.Length > 0 && _errors.Count == 0)
                 {
-                    tokens.Add(Pop());
-                    if (Peek().Type == HDSLTokenTypes.Comma)
-                    {
-                        Pop();
-                    }
-                }
-
-                if (tokens.Count > 0)
-                {
-                    var columns = tokens.Select(t => _dh.GetColumnNameMappings(forType)
-                                            .Where(m => m.Alias.Equals(t.Code, StringComparison.InvariantCultureIgnoreCase) ||
-                                                    m.Name.Equals(t.Code, StringComparison.InvariantCultureIgnoreCase)).SingleOrDefault()
-                                        )
-                        .Where(v => v != null)
-                        .ToArray();
-                    if (columns.Length == tokens.Count)
-                    {
-                        return new ColumnHeaderSet(columns, forType);
-                    }
-                    else
-                    {
-                        // get the names of the missing columns and report them in an error
-                        var missings =
-                            (from t in tokens
-                             where columns.Where(c =>
-                                c.Name.Equals(t.Code, StringComparison.InvariantCultureIgnoreCase) ||
-                                c.Name.Equals(t.Code, StringComparison.InvariantCultureIgnoreCase)).Any() == false
-                             select t).ToArray();
-
-                        var columnsEnding = missings.Length > 1 ? "s" : string.Empty;
-                        _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Type '{forType.Name}' does not have column{columnsEnding} '{string.Join("', '", missings.Select(m => m.Code))}'."));
-                    }
-                }
-                else
-                {
-                    _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Column name or alias expected."));
+                    return new ColumnHeaderSet(columns, forType);
                 }
             }
 
@@ -757,6 +784,55 @@ namespace HDDL.HDSL
             }
 
             return outcome;
+        }
+
+        /// <summary>
+        /// Gathers and packages grouping and sorting information for use in querying
+        /// 
+        /// Syntax:
+        /// Group [columnref[, columnref]] Order [columnref[, columnref]]
+        /// </summary>
+        /// <param name="forType">The type of the header set is for (should be derived from HDDLRecordBase)</param>
+        /// <returns></returns>
+        private QueryGroupSortSet GetGroupingSortingSet(Type forType)
+        {
+            var result = new QueryGroupSortSet();
+
+            while (
+                _errors.Count == 0 &&
+                More() &&
+                (Peek().Type == HDSLTokenTypes.GroupBy ||
+                Peek().Type == HDSLTokenTypes.OrderBy))
+            {
+                bool isOrderBy = Pop().Type == HDSLTokenTypes.OrderBy;
+                var columns = GetColumnMappingsForTypeByTokenSet(forType);
+
+                if (isOrderBy)
+                {
+                    result.OrderBy.AddRange(columns.Select(c => c.Name));
+
+                    if (Peek().Type == HDSLTokenTypes.Asc)
+                    {
+                        Pop();
+                    }
+                    else if (Peek().Type == HDSLTokenTypes.Desc)
+                    {
+                        Pop();
+                        result.AscendingSortOrder = false;
+                    }
+                }
+                else
+                {
+                    result.GroupBy.AddRange(columns.Select(c => c.Name));
+                }
+            }
+
+            if (_errors.Count == 0)
+            {
+                return result;
+            }
+
+            return new QueryGroupSortSet();
         }
 
         #endregion
@@ -1108,7 +1184,7 @@ namespace HDDL.HDSL
         /// Allows scheduling of a periodic integrity check
         /// 
         /// Syntax:
-        /// ward (time interval) [in/within/under [path[, path, path]] - defaults to current] [where clause];
+        /// ward (time interval) [in/within/under [path[, path, path]] - defaults to current] [where clause] [group clause] [order clause];
         /// </summary>
         private void HandleWardDefinition()
         {
@@ -1176,7 +1252,7 @@ namespace HDDL.HDSL
         /// Allows scripts to run integrity scan
         /// 
         /// Syntax:
-        /// check [spinner|progress|text|quiet - defaults to text] [columns columnref[, columnref]] [in/within/under [path[, path, path]] - defaults to current] [where clause];
+        /// check [spinner|progress|text|quiet - defaults to text] [columns columnref[, columnref]] [in/within/under [path[, path, path]] - defaults to current] [where clause] [group clause] [order clause];
         /// </summary>
         private HDSLIntegrityOutcome HandleIntegrityCheck()
         {
@@ -1615,8 +1691,8 @@ namespace HDDL.HDSL
         /// Find statements query the database for files and return them
         /// 
         /// Syntax:
-        /// find [filesystem - default] [columns columnref[, columnref]] [in/within/under [path[, path, path]] - defaults to current] [where clause];
-        /// find [wards | watches | hashlogs] [columns columnref[, columnref]] [path[, path, path] - defaults to current] [where clause];
+        /// find [filesystem - default] [columns columnref[, columnref]] [in/within/under [path[, path, path]] - defaults to current] [where clause] [group clause] [order clause];
+        /// find [wards | watches | hashlogs] [columns columnref[, columnref]] [path[, path, path] - defaults to current] [where clause] [group clause] [order clause];
         /// </summary>
         /// <param name="forcedTypeContext">Preassigns the type context, skipping that step</param>
         /// <returns>The results find statement</returns>
@@ -1640,13 +1716,13 @@ namespace HDDL.HDSL
                         switch (details.Method)
                         {
                             case FindQueryDepths.In:
-                                results.AddRange(_dh.GetFilteredDiskItemsByIn(details.FurtherDetails?.ToSQL(), details.Paths));
+                                results.AddRange(_dh.GetFilteredDiskItemsByIn(details.FurtherDetails?.ToSQL(), details.GroupSortDetails?.ToSQL(), details.Paths));
                                 break;
                             case FindQueryDepths.Within:
-                                results.AddRange(_dh.GetFilteredDiskItemsByWithin(details.FurtherDetails?.ToSQL(), details.Paths));
+                                results.AddRange(_dh.GetFilteredDiskItemsByWithin(details.FurtherDetails?.ToSQL(), details.GroupSortDetails?.ToSQL(), details.Paths));
                                 break;
                             case FindQueryDepths.Under:
-                                results.AddRange(_dh.GetFilteredDiskItemsByUnder(details.FurtherDetails?.ToSQL(), details.Paths));
+                                results.AddRange(_dh.GetFilteredDiskItemsByUnder(details.FurtherDetails?.ToSQL(), details.GroupSortDetails?.ToSQL(), details.Paths));
                                 break;
                         }
                     }
@@ -1661,19 +1737,19 @@ namespace HDDL.HDSL
                 else if (details.TableContext == typeof(WardItem))
                 {
                     var results = new List<WardItem>();
-                    results.AddRange(_dh.GetFilteredWards(details.FurtherDetails?.ToSQL(), details.Paths));
+                    results.AddRange(_dh.GetFilteredWards(details.FurtherDetails?.ToSQL(), details.GroupSortDetails?.ToSQL(), details.Paths));
                     result = new HDSLResultBag(results, details.Columns, details.TableContext, _currentStatement.ToString());
                 }
                 else if (details.TableContext == typeof(WatchItem))
                 {
                     var results = new List<WatchItem>();
-                    results.AddRange(_dh.GetFilteredWatches(details.FurtherDetails?.ToSQL(), details.Paths));
+                    results.AddRange(_dh.GetFilteredWatches(details.FurtherDetails?.ToSQL(), details.GroupSortDetails?.ToSQL(), details.Paths));
                     result = new HDSLResultBag(results, details.Columns, details.TableContext, _currentStatement.ToString());
                 }
                 else if (details.TableContext == typeof(DiskItemHashLogItem))
                 {
                     var results = new List<DiskItemHashLogItem>();
-                    results.AddRange(_dh.GetFilteredHashLogs(details.FurtherDetails?.ToSQL(), details.Paths));
+                    results.AddRange(_dh.GetFilteredHashLogs(details.FurtherDetails?.ToSQL(), details.GroupSortDetails?.ToSQL(), details.Paths));
                     result = new HDSLResultBag(results, details.Columns, details.TableContext, _currentStatement.ToString());
                 }
 

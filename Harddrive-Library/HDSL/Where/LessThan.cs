@@ -48,7 +48,7 @@ namespace HDDL.HDSL.Where
                     result = LeftValue.Get<double>(record) < RightValue.Get<double>(record);
                     break;
                 case WhereValueTypes.String:
-                    throw new InvalidOperationException($"Cannot use {GetOperatorSign()} operator with string type operands.");
+                    throw new WhereClauseException(Column, Row, $"Cannot use {GetOperatorSign()} operator with string type operands.", WhereClauseExceptionTypes.OperatorTypeMismatch);
                 case WhereValueTypes.WholeNumber:
                     result = LeftValue.Get<long>(record) < RightValue.Get<long>(record);
                     break;

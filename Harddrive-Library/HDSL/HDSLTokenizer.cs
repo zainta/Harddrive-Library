@@ -618,9 +618,9 @@ namespace HDDL.HDSL
                 {
                     token = new HDSLToken(HDSLTokenTypes.Asc, keyword.ToString(), row, col, text);
                 }
-                else if (text == "dsc")
+                else if (text == "desc")
                 {
-                    token = new HDSLToken(HDSLTokenTypes.Dsc, keyword.ToString(), row, col, text);
+                    token = new HDSLToken(HDSLTokenTypes.Desc, keyword.ToString(), row, col, text);
                 }
                 else if (text == "purge")
                 {

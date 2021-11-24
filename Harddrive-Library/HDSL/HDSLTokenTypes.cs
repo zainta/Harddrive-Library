@@ -26,7 +26,7 @@ namespace HDDL.HDSL
         In,
         Find,
         Asc,
-        Dsc,
+        Desc,
         Purge,
         Within,
         Where,

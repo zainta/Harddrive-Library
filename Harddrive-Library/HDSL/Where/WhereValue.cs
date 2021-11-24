@@ -110,7 +110,7 @@ namespace HDDL.HDSL.Where
                             {
                                 ValueType = WhereValueTypes.String;
                             }
-                            else if (mappingType == typeof(long))
+                            else if (mappingType == typeof(long) || mappingType == typeof(bool))
                             {
                                 ValueType = WhereValueTypes.WholeNumber;
                             }
@@ -167,7 +167,14 @@ namespace HDDL.HDSL.Where
 
                         if (prop != null)
                         {
-                            result = prop.GetValue(item);
+                            if (prop.PropertyType == typeof(bool))
+                            {
+                                result = Convert.ToInt64(prop.GetValue(item));
+                            }
+                            else
+                            {
+                                result = prop.GetValue(item);
+                            }
                         }
                         else
                         {

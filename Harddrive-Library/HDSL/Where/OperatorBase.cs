@@ -79,6 +79,11 @@ namespace HDDL.HDSL.Where
         {
             ListStack<HDSLToken> queue = new ListStack<HDSLToken>();
 
+            if (tokens.Peek().Type == HDSLTokenTypes.Where)
+            {
+                tokens.Pop();
+            }
+
             // We build the structure using reverse token order due to how evaluation works
             while (!tokens.Empty)
             {
@@ -97,8 +102,11 @@ namespace HDDL.HDSL.Where
                 {
                     queue.Push(tokens.Peek());
                 }
-                var pop = tokens.Pop();
-                HDSLInterpreter.AppendStatementPiece(currentStatement, pop);
+                else
+                {
+                    break;
+                }
+                HDSLInterpreter.AppendStatementPiece(currentStatement, tokens.Pop());
             }
 
             // recursively go through the queue building the operator instances

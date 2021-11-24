@@ -41,5 +41,10 @@ namespace HDDL.HDSL
         /// The type that's being queried
         /// </summary>
         public Type TableContext { get; set; }
+
+        /// <summary>
+        /// The grouping and sorting information for the query
+        /// </summary>
+        public QueryGroupSortSet GroupSortDetails { get; set; }
     }
 }
