@@ -4,6 +4,7 @@
 
 using HDDL.Collections;
 using HDDL.Data;
+using HDDL.HDSL.Interpreter;
 using HDDL.HDSL.Where.Exceptions;
 using System;
 using System.Collections.Generic;
