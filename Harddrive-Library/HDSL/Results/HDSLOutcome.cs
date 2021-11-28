@@ -27,7 +27,7 @@ namespace HDDL.HDSL.Results
         /// <summary>
         /// The returned records' type
         /// </summary>
-        public Type RecordType { get; private set; }
+        public string RecordType { get; private set; }
 
         /// <summary>
         /// The HDSL statement that produced these results
@@ -50,7 +50,7 @@ namespace HDDL.HDSL.Results
         {
             _chs = columns;
             Statement = statement;
-            RecordType = type;
+            RecordType = type.FullName;
             Columns = (from m in columns.Mappings select new ColumnDefinition(m)).ToArray();
 
             SetRecords(items);

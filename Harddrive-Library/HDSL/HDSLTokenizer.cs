@@ -10,6 +10,7 @@ using System.Text;
 using System.Linq;
 using System.IO;
 using HDDL.Data;
+using HDDL.HDSL.Permissions;
 
 namespace HDDL.HDSL
 {
@@ -47,9 +48,9 @@ namespace HDDL.HDSL
         public List<HDSLLogBase> Outcome { get; private set; }
 
         /// <summary>
-        /// A list of tokens that cannot be generated
+        /// A list containing the only generatable tokens
         /// </summary>
-        public string[] Blacklist { get; private set; }
+        public HDSLListManager PermittedTokenTypes { get; private set; }
 
         /// <summary>
         /// Used for column header tokens
@@ -67,17 +68,18 @@ namespace HDDL.HDSL
             Tokens = new ListStack<HDSLToken>();
             Outcome = new List<HDSLLogBase>();
             _dh = dh;
+            PermittedTokenTypes = null;
         }
 
         /// <summary>
         /// Tokenizes the given code and stores the result in the Tokens class property
         /// </summary>
         /// <param name="code">The code to tokenize</param>
-        /// <param name="blacklistedTokens">A set of tokens that cannot be generated and will result in an error if encountered</param>
+        /// <param name="tokenPermissions">An optional list instance defining which tokens can be generated</param>
         /// <returns>A result output log detailing any errors encountered</returns>
-        public HDSLLogBase[] Tokenize(string code, params string[] blacklistedTokens)
+        public HDSLLogBase[] Tokenize(string code, HDSLListManager tokenPermissions = null)
         {
-            Blacklist = blacklistedTokens;
+            PermittedTokenTypes = tokenPermissions;
 
             Outcome.Clear();
             buffer = new ListStack<char>(code);
@@ -383,23 +385,26 @@ namespace HDDL.HDSL
         }
 
         /// <summary>
-        /// Adds the given token to the list if it is not in the forbidden set, adds an error message if it is
+        /// Adds the given token to the list if it is allowed
         /// </summary>
         /// <param name="token">The token to add</param>
         /// <returns>The unmodified token</returns>
         private HDSLToken Add(HDSLToken token)
         {
-            if ((from b in Blacklist
-                 where
-                    token.Type.ToString().StartsWith(b, StringComparison.InvariantCultureIgnoreCase) ||
-                    b.Equals(token.Literal, StringComparison.InvariantCultureIgnoreCase)
-                 select b).Any())
+            if (PermittedTokenTypes == null)
             {
-                Outcome.Add(new HDSLLogBase(token.Column, token.Row, $"Token '{token.Literal}' is disallowed."));
+                Tokens.Add(token);
             }
             else
             {
-                Tokens.Add(token);
+                if (PermittedTokenTypes.Graylist.Where(a => a == token.Type.ToString().ToLower()).Any())
+                {
+                    Tokens.Add(token);
+                }
+                else
+                {
+                    Outcome.Add(new HDSLLogBase(token.Column, token.Row, $"Token '{token.Literal}' is disallowed."));
+                }
             }
 
             return token;

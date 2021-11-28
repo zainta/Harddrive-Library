@@ -14,7 +14,7 @@ namespace HDDL.Web
     public class HDSLWebGreetingController : Controller
     {
         /// <summary>
-        /// Returns the text "hi" signalling that the service is functional.
+        /// Returns the text "hi" signaling that the service is functional.
         /// </summary>
         /// <returns></returns>
         [HttpGet()]

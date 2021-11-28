@@ -30,6 +30,10 @@ namespace HDDL.HDSL.Interpreter
                     statement.Append(statement.Length == 0 ? token.Code : $" {token.Code}");
                 }
             }
+            else if (token.Type == HDSLTokenTypes.Comma)
+            {
+                statement.Append(token.Code);
+            }
             else
             {
                 statement.Append(statement.Length == 0 ? token.Code : $" {token.Code}");

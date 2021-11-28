@@ -166,7 +166,7 @@ namespace HDDL.Scanning.Monitoring
                         _lastTopic != e.FullPath ||
                         _lastAlteration != e.ChangeType)
                     {
-                        Inform($"'{e.FullPath}' was altered.");
+                        Inform($"'{e.FullPath}' was {e.ChangeType.ToString().ToLower()}.");
                         _lastOccurance = lastOccurred;
                         _lastTopic = e.FullPath;
                         _lastAlteration = e.ChangeType;

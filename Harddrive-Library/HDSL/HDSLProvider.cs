@@ -6,6 +6,7 @@ using HDDL.Collections;
 using HDDL.Data;
 using HDDL.HDSL.Interpreter;
 using HDDL.HDSL.Logging;
+using HDDL.HDSL.Permissions;
 using HDDL.HDSL.Results;
 using System;
 using System.IO;
@@ -22,15 +23,15 @@ namespace HDDL.HDSL
         /// </summary>
         /// <param name="code">The code to execute</param>
         /// <param name="dbPath">The file index database to use</param>
-        /// <param name="blacklistedTokens">A set of tokens that cannot be generated and will result in an error if encountered</param>
+        /// <param name="tokenPermissions">An optional list instance defining which tokens can be generated</param>
         /// <returns>An HDSLResult containing either errors or the results of the query</returns>
-        public static HDSLOutcomeSet ExecuteCode(string code, string dbPath, params string[] blacklistedTokens)
+        public static HDSLOutcomeSet ExecuteCode(string code, string dbPath, HDSLListManager tokenPermissions = null)
         {
             HDSLOutcomeSet result;
             using (var dh = DataHandler.Get(dbPath))
             {
                 var t = new HDSLTokenizer(true, dh);
-                var logs = t.Tokenize(code, blacklistedTokens);
+                var logs = t.Tokenize(code, tokenPermissions);
                 if (logs.Length == 0)
                 {
                     result = Execute(t.Tokens, dh);
@@ -49,13 +50,13 @@ namespace HDDL.HDSL
         /// </summary>
         /// <param name="code">The code to execute</param>
         /// <param name="dh">The datahandler to use</param>
-        /// <param name="blacklistedTokens">A set of tokens that cannot be generated and will result in an error if encountered</param>
+        /// <param name="tokenPermissions">An optional list instance defining which tokens can be generated</param>
         /// <returns>An HDSLResult containing either errors or the results of the query</returns>
-        public static HDSLOutcomeSet ExecuteCode(string code, DataHandler dh, params string[] blacklistedTokens)
+        public static HDSLOutcomeSet ExecuteCode(string code, DataHandler dh, HDSLListManager tokenPermissions = null)
         {
             HDSLOutcomeSet result;
             var t = new HDSLTokenizer(true, dh);
-            var logs = t.Tokenize(code, blacklistedTokens);
+            var logs = t.Tokenize(code, tokenPermissions);
             if (logs.Length == 0)
             {
                 result = Execute(t.Tokens, dh);
@@ -73,9 +74,9 @@ namespace HDDL.HDSL
         /// </summary>
         /// <param name="path">The script file to execute</param>
         /// <param name="dbPath">The file index database to use</param>
-        /// <param name="blacklistedTokens">A set of tokens that cannot be generated and will result in an error if encountered</param>
+        /// <param name="tokenPermissions">An optional list instance defining which tokens can be generated</param>
         /// <returns>An HDSLResult containing either errors or the results of the query</returns>
-        public static HDSLOutcomeSet ExecuteScript(string path, string dbPath, params string[] blacklistedTokens)
+        public static HDSLOutcomeSet ExecuteScript(string path, string dbPath, HDSLListManager tokenPermissions = null)
         {
             string code = null;
             HDSLOutcomeSet result = null;
@@ -97,7 +98,7 @@ namespace HDDL.HDSL
 
             if (result == null)
             {
-                result = ExecuteCode(code, dbPath, blacklistedTokens);
+                result = ExecuteCode(code, dbPath, tokenPermissions);
             }
 
             return result;
@@ -108,9 +109,9 @@ namespace HDDL.HDSL
         /// </summary>
         /// <param name="path">The script file to execute</param>
         /// <param name="dh">The datahandler to use</param>
-        /// <param name="blacklistedTokens">A set of tokens that cannot be generated and will result in an error if encountered</param>
+        /// <param name="tokenPermissions">An optional list instance defining which tokens can be generated</param>
         /// <returns>An HDSLResult containing either errors or the results of the query</returns>
-        public static HDSLOutcomeSet ExecuteScript(string path, DataHandler dh, params string[] blacklistedTokens)
+        public static HDSLOutcomeSet ExecuteScript(string path, DataHandler dh, HDSLListManager tokenPermissions = null)
         {
             string code = null;
             HDSLOutcomeSet result = null;
@@ -132,7 +133,7 @@ namespace HDDL.HDSL
 
             if (result == null)
             {
-                result = ExecuteCode(code, dh, blacklistedTokens);
+                result = ExecuteCode(code, dh, tokenPermissions);
             }
 
             return result;
