@@ -17,7 +17,7 @@ namespace HDDL.Scanning.Monitoring
     /// <summary>
     /// A centralized logic hub for scanning.  Tracks an area, ensures exclusions are followed, takes Wards into account, and maintains integrity checks
     /// </summary>
-    public class ScannerKernal : ReporterBase, IDisposable
+    class ScannerKernal : ReporterBase, IDisposable
     {
         /// <summary>
         /// The watcher used for monitoring
@@ -60,6 +60,11 @@ namespace HDDL.Scanning.Monitoring
         public bool Active { get; private set; }
 
         /// <summary>
+        /// A central message container for all messages
+        /// </summary>
+        internal MessageHub Messages { get; private set; }
+
+        /// <summary>
         /// Creates a Scanner Kernal
         /// </summary>
         /// <param name="dbPath">The path to an existing database file</param>
@@ -77,6 +82,7 @@ namespace HDDL.Scanning.Monitoring
             _dbPath = dbPath;
             _sideLoadDetails = sideLoadDetails;
             Active = false;
+            SetupEventsHub();
         }
 
         /// <summary>
@@ -91,6 +97,7 @@ namespace HDDL.Scanning.Monitoring
             _dh = dh;
             _sideLoadDetails = sideLoadDetails;
             Active = false;
+            SetupEventsHub();
         }
 
         #region Control
@@ -124,6 +131,7 @@ namespace HDDL.Scanning.Monitoring
         /// </summary>
         private void SilentStart()
         {
+            Messages.Start();
             _monitor?.Start();
             _watchers?.ForEach(w => w.Start());
 
@@ -148,6 +156,7 @@ namespace HDDL.Scanning.Monitoring
                 _sideLoadWatcher.Stop();
             }
 
+            Messages.Stop();
             Active = false;
         }
 
@@ -160,8 +169,8 @@ namespace HDDL.Scanning.Monitoring
 
             if (_monitor != null)
             {
-                _monitor.MessageRelayed += _monitor_MessageRelayed;
                 _monitor.Stop();
+                Messages.Remove(_monitor);
                 _monitor = null;
             }
 
@@ -177,9 +186,8 @@ namespace HDDL.Scanning.Monitoring
 
             if (_sideLoadWatcher != null)
             {
-                _sideLoadWatcher.ReportDiskEvent -= _sideLoadWatcher_ReportDiskEvent;
-                _sideLoadWatcher.MessageRelayed -= _sideLoadWatcher_MessageRelayed;
                 _sideLoadWatcher.Stop();
+                Messages.Remove(_sideLoadWatcher);
                 _sideLoadWatcher = null;
             }
         }
@@ -325,7 +333,7 @@ namespace HDDL.Scanning.Monitoring
             }
 
             _monitor = new IntegrityMonitorSymphony(_dh, GetMessagingMode());
-            _monitor.MessageRelayed += _monitor_MessageRelayed;
+            Messages.Add(_monitor);
 
             return true;
         }
@@ -381,6 +389,17 @@ namespace HDDL.Scanning.Monitoring
         #region Management Methods
 
         /// <summary>
+        /// Creates and sets the Message Hub up.
+        /// </summary>
+        private void SetupEventsHub()
+        {
+            Messages = new MessageHub();
+            Messages.RecycleRequired += Events_RecycleRequired;
+            Messages.DiskEventOccurred += Events_DiskEventOccurred;
+            Messages.Add(this);
+        }
+
+        /// <summary>
         /// Calls the handler methods
         /// </summary>
         private bool CallHandles()
@@ -428,8 +447,7 @@ namespace HDDL.Scanning.Monitoring
                         GetMessagingMode(),
                         _dh.GetProcessedExclusions().Select(e => e.Path));
 
-                    watcherResult.ReportDiskEvent += Watcher_ReportDiskEvent;
-                    watcherResult.MessageRelayed += Watcher_MessageRelayed;
+                    Messages.Add(watcherResult);
                     _watchers.Add(watcherResult);
                 }
                 catch (Exception ex)
@@ -447,9 +465,8 @@ namespace HDDL.Scanning.Monitoring
         /// <param name="watcher">The watcher to remove</param>
         private void RemoveWatcher(NonSpammingFileSystemWatcher watcher)
         {
-            watcher.ReportDiskEvent -= Watcher_ReportDiskEvent;
-            watcher.MessageRelayed -= Watcher_MessageRelayed;
             watcher.Stop();
+            Messages.Remove(watcher);
             _watchers.Remove(watcher);
         }
 
@@ -462,8 +479,7 @@ namespace HDDL.Scanning.Monitoring
             {
                 // it's a directory
                 _sideLoadWatcher = new NonSpammingFileSystemWatcher(_sideLoadDetails.SideLoadSource, GetMessagingMode());
-                _sideLoadWatcher.ReportDiskEvent += _sideLoadWatcher_ReportDiskEvent;
-                _sideLoadWatcher.MessageRelayed += _sideLoadWatcher_MessageRelayed;
+                Messages.Add(_sideLoadWatcher);
 
                 if (_narrateProgress)
                 {
@@ -479,8 +495,7 @@ namespace HDDL.Scanning.Monitoring
                     fi.DirectoryName,
                     GetMessagingMode(),
                     filter: fi.Name);
-                _sideLoadWatcher.ReportDiskEvent += _sideLoadWatcher_ReportDiskEvent;
-                _sideLoadWatcher.MessageRelayed += _sideLoadWatcher_MessageRelayed;
+                Messages.Add(_sideLoadWatcher);
 
                 if (_narrateProgress)
                 {
@@ -490,115 +505,36 @@ namespace HDDL.Scanning.Monitoring
 
             if (Active)
             {
-                _monitor.Start();
+                _sideLoadWatcher.Start();
             }
         }
 
         #endregion
 
-        #region Side Loading Watcher Events
+        #region Events
 
         /// <summary>
-        /// Receives disk events relayed from the side-loading watcher
+        /// Handles recycling of all reporter base instances that require it
         /// </summary>
-        /// <param name="origin"></param>
-        /// <param name="message"></param>
-        private void _sideLoadWatcher_ReportDiskEvent(NonSpammingFileSystemWatcher origin, FileSystemWatcherEventNatures nature, FileSystemEventArgs e)
+        /// <param name="target"></param>
+        private void Events_RecycleRequired(ReporterBase target)
         {
-            if (_narrateProgress)
+            if (target.Id == _sideLoadWatcher.Id)
             {
-                Inform("Pausing for side-load...");
-            }
-            CallHandles();
-            if (_narrateProgress)
-            {
-                Inform("Resuming...");
-            }
-            SilentStart();
-        }
-
-        /// <summary>
-        /// Receives messages relayed from the side-loading watcher
-        /// </summary>
-        /// <param name="origin"></param>
-        /// <param name="nature"></param>
-        /// <param name="e"></param>
-        private void _sideLoadWatcher_MessageRelayed(ReporterBase origin, MessageBundle message)
-        {
-            var watcher = origin as NonSpammingFileSystemWatcher;
-            if (watcher != null &&
-                message.Type == MessageTypes.Error)
-            {
-                Relay(message);
-
-                watcher.ReportDiskEvent -= Watcher_ReportDiskEvent;
-                watcher.MessageRelayed -= Watcher_MessageRelayed;
+                var source = (NonSpammingFileSystemWatcher)target;
+                Messages.Remove(source);
                 _sideLoadWatcher.Stop();
                 _sideLoadWatcher = null;
 
                 AddSideLoadWatcher();
-                Warn($"Successfully recycled the side-load watcher for path '{watcher.GetPath()}'.");
+                Warn($"Successfully recycled the side-load watcher for path '{source.GetPath()}'.");
             }
-            else
+            else if (target is NonSpammingFileSystemWatcher)
             {
-                Relay(message);
-            }
-        }
+                var source = (NonSpammingFileSystemWatcher)target;
+                RemoveWatcher(source);
 
-        #endregion
-
-        #region File System Watcher Events
-
-        /// <summary>
-        /// Monitors the watches and updates disk items when they report activity
-        /// </summary>
-        /// <param name="origin"></param>
-        /// <param name="nature"></param>
-        /// <param name="e"></param>
-        private void Watcher_ReportDiskEvent(NonSpammingFileSystemWatcher origin, FileSystemWatcherEventNatures nature, FileSystemEventArgs e)
-        {
-            DiskItem di = null;
-            // when a disk event is detected, we want to update the target with the new information
-            switch (nature)
-            {
-                case FileSystemWatcherEventNatures.Deletion:
-                    {
-                        di = _dh.GetDiskItemByPath(e.FullPath);
-                        if (di != null)
-                        {
-                            _dh.Delete(di);
-                            _dh.WriteDiskItems();
-                        }
-                    }
-                    break;
-                case FileSystemWatcherEventNatures.Creation:
-                case FileSystemWatcherEventNatures.Alteration:
-                    {
-                        var scanWrapper = new DiskScanEventWrapper(_dh, new string[] { e.FullPath }, false, EventWrapperDisplayModes.Displayless, new ColumnHeaderSet(_dh, typeof(DiskItem)));
-                        if (!scanWrapper.Go())
-                        {
-                            Warn($"Failed a scan on '{e.FullPath}'.");
-                        }
-                    }
-                    break;
-            }
-        }
-
-        /// <summary>
-        /// Monitors the watches and reacts to or relays their messages
-        /// </summary>
-        /// <param name="origin"></param>
-        /// <param name="message"></param>
-        private void Watcher_MessageRelayed(ReporterBase origin, MessageBundle message)
-        {
-            var watcher = origin as NonSpammingFileSystemWatcher;
-            if (watcher != null &&
-                message.Type == MessageTypes.Error)
-            {
-                Relay(message);
-                RemoveWatcher(watcher);
-
-                var watch = _dh.GetWatches().Where(w => w.Path == watcher.GetPath()).SingleOrDefault();
+                var watch = _dh.GetWatches().Where(w => w.Path == source.GetPath()).SingleOrDefault();
                 if (watch != null)
                 {
                     var newWatcher = AddWatch(watch);
@@ -606,51 +542,86 @@ namespace HDDL.Scanning.Monitoring
                     {
                         newWatcher.Start();
                     }
-                    Warn($"Successfully recycled watcher for path '{watcher.GetPath()}'.");
+                    Warn($"Successfully recycled watcher for path '{source.GetPath()}'.");
                 }
             }
-            else
+            else if (target is IntegrityMonitorSymphony)
             {
-                Relay(message);
-            }
-        }
-
-        /// <summary>
-        /// Monitors the integrity scan manager and reacts to or relays their messages
-        /// </summary>
-        /// <param name="origin"></param>
-        /// <param name="message"></param>
-        private void _monitor_MessageRelayed(ReporterBase origin, MessageBundle message)
-        {
-            var monitor = origin as IntegrityMonitorSymphony;
-            if (monitor != null &&
-                message.Type == MessageTypes.Error)
-            {
-                Relay(message);
-
+                var source = (IntegrityMonitorSymphony)target;
                 // unbind from old monitor
-                monitor.MessageRelayed -= _monitor_MessageRelayed;
+                Messages.Remove(source);
 
                 // create a new one
                 _monitor = new IntegrityMonitorSymphony(_dh, GetMessagingMode());
-                _monitor.MessageRelayed += _monitor_MessageRelayed;
-                monitor = _monitor;
+                Messages.Add(_monitor);
+                source = _monitor;
                 if (Active)
                 {
                     _monitor.Start();
                 }
                 Warn($"Successfully recycled integrity scan queue monitor.");
             }
+        }
+
+        /// <summary>
+        /// Handles all disk events from non-spamming file system watchers
+        /// </summary>
+        /// <param name="target"></param>
+        /// <param name="nature"></param>
+        /// <param name="e"></param>
+        private void Events_DiskEventOccurred(NonSpammingFileSystemWatcher target, FileSystemWatcherEventNatures nature, FileSystemEventArgs e)
+        {
+            if (target.Id == _sideLoadWatcher.Id)
+            {
+                // side loader detected a script
+
+                if (_narrateProgress)
+                {
+                    Inform("Pausing for side-load...");
+                }
+                CallHandles();
+                if (_narrateProgress)
+                {
+                    Inform("Resuming...");
+                }
+                SilentStart();
+            }
             else
             {
-                Relay(message);
+                // watchers detected work
+
+                DiskItem di = null;
+                // when a disk event is detected, we want to update the target with the new information
+                switch (nature)
+                {
+                    case FileSystemWatcherEventNatures.Deletion:
+                        {
+                            di = _dh.GetDiskItemByPath(e.FullPath);
+                            if (di != null)
+                            {
+                                _dh.Delete(di);
+                                _dh.WriteDiskItems();
+                            }
+                        }
+                        break;
+                    case FileSystemWatcherEventNatures.Creation:
+                    case FileSystemWatcherEventNatures.Alteration:
+                        {
+                            var scanWrapper = new DiskScanEventWrapper(_dh, new string[] { e.FullPath }, false, EventWrapperDisplayModes.Displayless, new ColumnHeaderSet(_dh, typeof(DiskItem)));
+                            if (!scanWrapper.Go())
+                            {
+                                Warn($"Failed a scan on '{e.FullPath}'.");
+                            }
+                        }
+                        break;
+                }
             }
         }
 
         #endregion
 
         /// <summary>
-        /// Takes an HDSLResult instance and throws an exception if it contains errors
+        /// Takes an HDSLResult instance and reports an exception if it contains errors
         /// </summary>
         /// <param name="result">The instance to check</param>
         /// <param name="scriptPath">The script that failed to execute</param>

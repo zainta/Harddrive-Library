@@ -9,17 +9,12 @@ namespace HDDL.Scanning.Monitoring
     /// <summary>
     /// Encapsulates a message from a ReporterBase derivative
     /// </summary>
-    public class MessageBundle
+    class MessageBundle : EventMessageBase
     {
         /// <summary>
         /// When the message occurred
         /// </summary>
         public DateTime Occurred { get; set; }
-
-        /// <summary>
-        /// The ReporterBase the message came from
-        /// </summary>
-        public ReporterBase Origin { get; set; }
 
         /// <summary>
         /// The message
@@ -42,10 +37,9 @@ namespace HDDL.Scanning.Monitoring
         /// <param name="source">The ReporterBase instance who created the message bundle</param>
         /// <param name="message">The message</param>
         /// <param name="type">The type of message - defaults to information</param>
-        public MessageBundle(ReporterBase source, string message, MessageTypes type = MessageTypes.Information)
+        public MessageBundle(ReporterBase source, string message, MessageTypes type = MessageTypes.Information) : base(source)
         {
             Occurred = DateTime.Now;
-            Origin = source;
             Message = message;
             Error = null;
             Type = type;
@@ -58,10 +52,9 @@ namespace HDDL.Scanning.Monitoring
         /// <param name="message">The message</param>
         /// <param name="ex">The exception</param>
         /// <param name="type">The type of message - defaults to information</param>
-        public MessageBundle(ReporterBase source, string message, Exception ex, MessageTypes type = MessageTypes.Error)
+        public MessageBundle(ReporterBase source, string message, Exception ex, MessageTypes type = MessageTypes.Error) : base(source)
         {
             Occurred = DateTime.Now;
-            Origin = source;
             Message = message;
             Error = ex;
             Type = type;

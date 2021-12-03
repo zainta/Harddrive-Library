@@ -53,33 +53,42 @@ namespace HDDL.Services
                     MessagingModes.Error | MessagingModes.Warning | MessagingModes.Information | MessagingModes.VerboseInformation,
                     false))
             {
-                sk.MessageRelayed += Sk_MessageRelayed; ;
                 if (sk.Initialize())
                 {
                     sk.Start();
                     while (!stoppingToken.IsCancellationRequested)
                     {
-                        await Task.Delay(1000, stoppingToken);
+                        if (!sk.Messages.Events.IsEmpty)
+                        {
+                            EventMessageBase emb = null;
+                            if (sk.Messages.Events.TryDequeue(out emb))
+                            {
+                                if (emb is MessageBundle)
+                                {
+                                    var message = (MessageBundle)emb;
+                                    switch (message.Type)
+                                    {
+                                        case MessageTypes.Error:
+                                            _logger.LogError($"{message}", message.Error);
+                                            break;
+                                        case MessageTypes.VerboseInformation:
+                                        case MessageTypes.Information:
+                                            _logger.LogInformation($"{message}");
+                                            break;
+                                        case MessageTypes.Warning:
+                                            _logger.LogWarning($"{message}");
+                                            break;
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            await Task.Delay(1000, stoppingToken);
+                        }
                     }
                     sk.Stop();
                 }
-            }
-        }
-
-        private void Sk_MessageRelayed(ReporterBase origin, MessageBundle message)
-        {
-            switch (message.Type)
-            {
-                case MessageTypes.Error:
-                    _logger.LogError($"{message}", message.Error);
-                    break;
-                case MessageTypes.VerboseInformation:
-                case MessageTypes.Information:
-                    _logger.LogInformation($"{message}");
-                    break;
-                case MessageTypes.Warning:
-                    _logger.LogWarning($"{message}");
-                    break;
             }
         }
     }

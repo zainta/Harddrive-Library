@@ -3,6 +3,7 @@
 // You may obtain a copy of the License at https://mit-license.org/
 
 using System;
+using System.Collections.Concurrent;
 
 namespace HDDL.Scanning.Monitoring
 {
@@ -11,12 +12,15 @@ namespace HDDL.Scanning.Monitoring
     /// </summary>
     public abstract class ReporterBase
     {
-        public delegate void RelayMessageDelegate(ReporterBase origin, MessageBundle message);
+        /// <summary>
+        /// The reporter base's identifying guid
+        /// </summary>
+        internal Guid Id { get; private set; }
 
         /// <summary>
-        /// Occurs when a message is sent from the ReporterBase
+        /// The reporter base's backlog of events
         /// </summary>
-        public event RelayMessageDelegate MessageRelayed;
+        internal ConcurrentQueue<EventMessageBase> Events { get; private set; }
 
         /// <summary>
         /// The kinds and styles of messages that will be relayed
@@ -29,7 +33,9 @@ namespace HDDL.Scanning.Monitoring
         /// <param name="messenging">The kinds and styles of messages that will be relayed</param>
         public ReporterBase(MessagingModes messenging = MessagingModes.Error)
         {
+            Id = Guid.NewGuid();
             _messenging = messenging;
+            Events = new ConcurrentQueue<EventMessageBase>();
         }
 
         /// <summary>
@@ -110,7 +116,7 @@ namespace HDDL.Scanning.Monitoring
                 if (_messenging.HasFlag(MessagingModes.Error) &&
                     requiredModes.HasFlag(MessagingModes.Error))
                 {
-                    MessageRelayed?.Invoke(this, new MessageBundle(this, message, ex));
+                    Events.Enqueue(new MessageBundle(this, message, ex));
                 }
             }
             else
@@ -118,58 +124,23 @@ namespace HDDL.Scanning.Monitoring
                 if (_messenging.HasFlag(MessagingModes.Error) &&
                     requiredModes.HasFlag(MessagingModes.Error))
                 {
-                    MessageRelayed?.Invoke(this, new MessageBundle(this, message, MessageTypes.Error));
+                    Events.Enqueue(new MessageBundle(this, message, MessageTypes.Error));
                 }
                 else if (_messenging.HasFlag(MessagingModes.Warning) &&
                     requiredModes.HasFlag(MessagingModes.Warning))
                 {
-                    MessageRelayed?.Invoke(this, new MessageBundle(this, message, MessageTypes.Information));
+                    Events.Enqueue(new MessageBundle(this, message, MessageTypes.Information));
                 }
                 else if (_messenging.HasFlag(MessagingModes.Information) &&
                     requiredModes.HasFlag(MessagingModes.Information))
                 {
-                    MessageRelayed?.Invoke(this, new MessageBundle(this, message, MessageTypes.Information));
+                    Events.Enqueue(new MessageBundle(this, message, MessageTypes.Information));
                 }
                 else if ((_messenging.HasFlag(MessagingModes.Information) || _messenging.HasFlag(MessagingModes.VerboseInformation)) &&
                     (requiredModes.HasFlag(MessagingModes.Information) || requiredModes.HasFlag(MessagingModes.VerboseInformation)))
                 {
-                    MessageRelayed?.Invoke(this, new MessageBundle(this, message, MessageTypes.VerboseInformation));
+                    Events.Enqueue(new MessageBundle(this, message, MessageTypes.VerboseInformation));
                 }
-            }
-        }
-
-        /// <summary>
-        /// Passes a relayed message onward up the reporting chain
-        /// </summary>
-        /// <param name="bundle">The bundle to pass</param>
-        protected void Relay(MessageBundle bundle)
-        {
-            switch (bundle.Type)
-            {
-                case MessageTypes.Error:
-                    if (_messenging.HasFlag(MessagingModes.Error))
-                    {
-                        MessageRelayed?.Invoke(this, bundle);
-                    }
-                    break;
-                case MessageTypes.Information:
-                    if (_messenging.HasFlag(MessagingModes.Information))
-                    {
-                        MessageRelayed?.Invoke(this, bundle);
-                    }
-                    break;
-                case MessageTypes.VerboseInformation:
-                    if (_messenging.HasFlag(MessagingModes.VerboseInformation))
-                    {
-                        MessageRelayed?.Invoke(this, bundle);
-                    }
-                    break;
-                case MessageTypes.Warning:
-                    if (_messenging.HasFlag(MessagingModes.Warning))
-                    {
-                        MessageRelayed?.Invoke(this, bundle);
-                    }
-                    break;
             }
         }
     }

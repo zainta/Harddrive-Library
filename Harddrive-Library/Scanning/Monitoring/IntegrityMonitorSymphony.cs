@@ -18,25 +18,6 @@ namespace HDDL.Scanning.Monitoring
     /// </summary>
     class IntegrityMonitorSymphony : ReporterBase
     {
-        public delegate void IntegrityScanStartsDelegate(IntegrityMonitorSymphony originator, WardItem integrityCheck);
-        public delegate void IntegrityScanEndsDelegate(IntegrityMonitorSymphony originator, WardItem integrityCheck, HDSLOutcome result);
-        public delegate void IntegrityScanStateChanged(IntegrityMonitorSymphony originator, IntegrityMonitorSymphonyStates newState, IntegrityMonitorSymphonyStates oldState);
-
-        /// <summary>
-        /// Occurs when the state property changes
-        /// </summary>
-        public event IntegrityScanStateChanged StateChanged;
-
-        /// <summary>
-        /// Occurs when an integrity check begins
-        /// </summary>
-        public event IntegrityScanStartsDelegate ScanStarted;
-
-        /// <summary>
-        /// Occurs when an integrity check concludes
-        /// </summary>
-        public event IntegrityScanEndsDelegate ScanEnded;
-
         private DataHandler _dh;
 
         /// <summary>
@@ -79,7 +60,7 @@ namespace HDDL.Scanning.Monitoring
                 {
                     var orig = _state;
                     _state = value;
-                    StateChanged?.Invoke(this, _state, orig);
+                    Events.Enqueue(new IntegritySymphonyEvent(this, orig, _state));
                 }
             }
         }
@@ -133,7 +114,7 @@ namespace HDDL.Scanning.Monitoring
                     var due = (from w in Wards where w.IsDue() select w).FirstOrDefault();
                     if (due != null)
                     {
-                        ScanStarted?.Invoke(this, due);
+                        Events.Enqueue(new IntegritySymphonyEvent(this, due));
                         var result = HDSLProvider.ExecuteCode(due.HDSL, _dh);
 
                         // handle the results
@@ -165,7 +146,7 @@ namespace HDDL.Scanning.Monitoring
                         due.NextScan = DateTime.Now.Add(due.Interval);
                         _dh.Update(due);
                         _dh.WriteWards();
-                        ScanEnded?.Invoke(this, due, result.Results.FirstOrDefault());
+                        Events.Enqueue(new IntegritySymphonyEvent(this, due, result.Results.FirstOrDefault()));
                     }
 
                     // wait 10 seconds before checking for another integrity check's need

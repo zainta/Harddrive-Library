@@ -4,6 +4,7 @@
 
 using HDDL.IO.Disk;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 
@@ -14,13 +15,6 @@ namespace HDDL.Scanning.Monitoring
     /// </summary>
     class NonSpammingFileSystemWatcher : ReporterBase
     {
-        public delegate void ReportingOccurrence(NonSpammingFileSystemWatcher origin, FileSystemWatcherEventNatures nature, FileSystemEventArgs e);
-
-        /// <summary>
-        /// Occurs when something happens in the monitored area
-        /// </summary>
-        public event ReportingOccurrence ReportDiskEvent;
-
         private const long MinOccuranceDifferenceValue = 100; // milliseconds
 
         /// <summary>
@@ -54,6 +48,11 @@ namespace HDDL.Scanning.Monitoring
         private IEnumerable<string> _exclusions;
 
         /// <summary>
+        /// The non-spamming file system watcher's backlog of events
+        /// </summary>
+        public ConcurrentQueue<NonSpammingFileSystemWatcherEvent> Events { get; private set; }
+
+        /// <summary>
         /// Creates a non-spamming file system watcher to monitor the given location
         /// </summary>
         /// <param name="path">The path to monitor</param>
@@ -62,6 +61,7 @@ namespace HDDL.Scanning.Monitoring
         /// <param name="exclusions">A list of files and directories to ignore modifications to</param>
         public NonSpammingFileSystemWatcher(string path, MessagingModes messenging, IEnumerable<string> exclusions = null, string filter = "*.*") : base(messenging)
         {
+            Events = new ConcurrentQueue<NonSpammingFileSystemWatcherEvent>();
             _exclusions = exclusions == null ? new string[] { } : exclusions;
             _path = path;
             _watcher = new FileSystemWatcher();
@@ -140,7 +140,7 @@ namespace HDDL.Scanning.Monitoring
                         _lastTopic = e.FullPath;
                         _lastAlteration = e.ChangeType;
 
-                        ReportDiskEvent?.Invoke(this, FileSystemWatcherEventNatures.Deletion, e);
+                        Events.Enqueue(new NonSpammingFileSystemWatcherEvent(this, FileSystemWatcherEventNatures.Deletion, e));
                     }
                 }
                 catch (Exception ex)
@@ -171,7 +171,7 @@ namespace HDDL.Scanning.Monitoring
                         _lastTopic = e.FullPath;
                         _lastAlteration = e.ChangeType;
 
-                        ReportDiskEvent?.Invoke(this, FileSystemWatcherEventNatures.Alteration, e);
+                        Events.Enqueue(new NonSpammingFileSystemWatcherEvent(this, FileSystemWatcherEventNatures.Alteration, e));
                     }
                 }
                 catch (Exception ex)
@@ -202,7 +202,7 @@ namespace HDDL.Scanning.Monitoring
                         _lastTopic = e.FullPath;
                         _lastAlteration = e.ChangeType;
 
-                        ReportDiskEvent?.Invoke(this, FileSystemWatcherEventNatures.Creation, e);
+                        Events.Enqueue(new NonSpammingFileSystemWatcherEvent(this, FileSystemWatcherEventNatures.Creation, e));
                     }
                 }
                 catch (Exception ex)
@@ -220,6 +220,7 @@ namespace HDDL.Scanning.Monitoring
         private void Watcher_Error(object sender, ErrorEventArgs e)
         {
             Error("An error was encountered.", e.GetException());
+            Events.Enqueue(new NonSpammingFileSystemWatcherEvent(this, e.GetException()));
         }
 
         #endregion
