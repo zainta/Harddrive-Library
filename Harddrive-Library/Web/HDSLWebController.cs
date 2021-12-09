@@ -3,8 +3,8 @@
 // You may obtain a copy of the License at https://mit-license.org/
 
 using HDDL.Data;
-using HDDL.HDSL;
-using HDDL.HDSL.Permissions;
+using HDDL.Language.HDSL;
+using HDDL.Language.HDSL.Permissions;
 using HDDL.IO.Settings;
 using Microsoft.AspNetCore.Mvc;
 

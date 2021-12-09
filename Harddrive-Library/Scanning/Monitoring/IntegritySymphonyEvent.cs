@@ -3,7 +3,7 @@
 // You may obtain a copy of the License at https://mit-license.org/
 
 using HDDL.Data;
-using HDDL.HDSL.Results;
+using HDDL.Language.HDSL.Results;
 
 namespace HDDL.Scanning.Monitoring
 {

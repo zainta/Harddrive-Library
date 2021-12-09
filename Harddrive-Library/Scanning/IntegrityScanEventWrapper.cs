@@ -3,14 +3,12 @@
 // You may obtain a copy of the License at https://mit-license.org/
 
 using HDDL.Data;
-using HDDL.HDSL;
+using HDDL.Language.HDSL;
 using HDDL.Scanning.Results;
 using HDDL.UI;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace HDDL.Scanning

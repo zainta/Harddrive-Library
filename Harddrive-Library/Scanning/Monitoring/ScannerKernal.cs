@@ -3,8 +3,8 @@
 // You may obtain a copy of the License at https://mit-license.org/
 
 using HDDL.Data;
-using HDDL.HDSL;
-using HDDL.HDSL.Results;
+using HDDL.Language.HDSL;
+using HDDL.Language.HDSL.Results;
 using HDDL.IO.Disk;
 using System;
 using System.Collections.Generic;
