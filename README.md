@@ -49,6 +49,8 @@ HDSL supports flags to assist with its output and behavior.  Note that all flags
   * When on, the number of records returned by a query will be output after the queries results.
 * s - Update ini file - defaults to off
   * When on, rewrites the ini file with the value provided for the database path.  Either the ini file value if the -db option is omitted, or the new value provided through -db.
+* r - Remote service usage - defaults to on
+  * When on, the console utility will attempt to query the configured service endpoints for results rather than running them itself.
 
 ### Shortcuts
 HDSL offers a shorthand parameter alternative format that, while less legible, allows another method of providing the same parameters.
@@ -61,8 +63,8 @@ HDSL is a simple query language designed for the retrieval of files and director
    `find [wards | watches | hashlogs] [columns columnref[, columnref]] [path[, path, path] - defaults to current] [where clause] [group clause] [order clause];`
    * Retrieves the items that match the query and displays them.
    * The following statements all do the same thing -- they search for .dll files in C:\Windows\System32 that are under 1mb in size.
-     * e.g `find in 'C:\Windows\System32' where SizeInBytes < 1024000 and Extension = '.dll';`
-     * e.g `find under 'C:\Windows\System32' where SizeInBytes < 1024000 and Path ~ '.*\.dll$';`
+     * e.g `find in 'C:\Windows\System32' where Size < 1024000 and Extension = '.dll';`
+     * e.g `find under 'C:\Windows\System32' where Size < 1024000 and Path ~ '.*\.dll$';`
  * `purge [bookmarks | exclusions | watches | wards | hashlogs] | [path[, path, path] [where clause] [group clause] [order clause]];`
    * Removes matching entries from the current database.
    * e.g `purge;` deletes all file tracking records from the database
@@ -105,10 +107,13 @@ HDSL is a simple query language designed for the retrieval of files and director
      * e.g `set standard @'C:\HDSL\activity.log';` will reroute standard output to the C:\HDSL\Activity.log file.
    * `set alias [filesystem | wards | watches | hashlogs] columnref, span (width in characters);`
      * Changes the display width for the given column.
-     * e.g `set filesystem SizeInBytes, span 10;` will set the display width of the SizeInBytes column to 10 characters.
+     * e.g `set filesystem Size, span 10;` will set the display width of the Size column to 10 characters.
    * `set alias [filesystem | wards | watches | hashlogs] columnref, 'new alias string';`
      * Changes the alias for the given column to the new one provided.
-     * e.g `set filesystem SizeInBytes, 'Size';` will change the SizeInBytes column's alias to 'Size', allowing it to be referenced by that name.
+     * e.g `set filesystem Size, 'Size';` will change the Size column's alias to 'Size', allowing it to be referenced by that name.
+   * `set alias [filesystem | wards | watches | hashlogs] columnref, default 0/1;`
+	   * Changes the given column's default status, causing it to appear in relevant queries that omit the columns clause.
+		 * e.g `set filesystem Size, default 1;` will make the Size column in the filesystem a default return value for queries.
  * `reset out | standard | error | columnheaderset;`
    * Resets the targetting output stream to its default, thereby restoring it to the console.
    * Using `standard` resets the standard output, `error` the error, and `out` will reset both.

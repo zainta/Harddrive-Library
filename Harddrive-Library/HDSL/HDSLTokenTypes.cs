@@ -60,6 +60,7 @@ namespace HDDL.HDSL
         FileSystem,
         Alias,
         Span,
+        Default,
 
         // value keywords
         Now,

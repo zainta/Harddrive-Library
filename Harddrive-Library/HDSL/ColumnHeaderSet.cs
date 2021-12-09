@@ -3,6 +3,7 @@
 // You may obtain a copy of the License at https://mit-license.org/
 
 using HDDL.Data;
+using HDDL.HDSL.Results;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -62,7 +63,7 @@ namespace HDDL.HDSL
         /// </summary>
         /// <param name="record">The record to pull values from</param>
         /// <returns>The values that were found</returns>
-        public object[] GetValues(HDDLRecordBase record)
+        public HDSLValueItem[] GetValues(HDDLRecordBase record)
         {
             var foundProps = new List<PropertyInfo>();
 
@@ -76,7 +77,9 @@ namespace HDDL.HDSL
                 }
             }
 
-            return (from p in foundProps select p.GetValue(record)).Reverse().ToArray();
+            return (from p in foundProps select new HDSLValueItem(p.Name, p.PropertyType.FullName, p.GetValue(record)))
+                .Reverse()
+                .ToArray();
         }
 
         /// <summary>
@@ -84,9 +87,9 @@ namespace HDDL.HDSL
         /// </summary>
         /// <param name="record">The record to pull from</param>
         /// <returns>The values that were found</returns>
-        public Dictionary<string, object> GetColumns(HDDLRecordBase record)
+        public HDSLRecord GetColumns(HDDLRecordBase record)
         {
-            var results = new Dictionary<string, object>();
+            var results = new List<HDSLValueItem>();
 
             var props = record.GetType().GetProperties();
             foreach (var column in Columns)
@@ -94,11 +97,11 @@ namespace HDDL.HDSL
                 var prop = (from p in props where p.Name.Equals(column, StringComparison.InvariantCultureIgnoreCase) select p).SingleOrDefault();
                 if (prop != null)
                 {
-                    results.Add(prop.Name, prop.GetValue(record));
+                    results.Add(new HDSLValueItem(prop.Name, prop.PropertyType.FullName, prop.GetValue(record)));
                 }
             }
 
-            return results;
+            return new HDSLRecord(results);
         }
 
         /// <summary>

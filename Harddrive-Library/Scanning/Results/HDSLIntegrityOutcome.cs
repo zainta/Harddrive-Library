@@ -17,7 +17,7 @@ namespace HDDL.Scanning.Results
         /// <summary>
         /// Contains the results from the query
         /// </summary>
-        public Dictionary<string, object>[] Changed { get; private set; }
+        public HDSLRecord[] Changed { get; private set; }
 
         /// <summary>
         /// Takes a column header set and a set of disk items and builds the results
@@ -29,7 +29,7 @@ namespace HDDL.Scanning.Results
         public HDSLIntegrityOutcome(IEnumerable<DiskItem> scanned, IEnumerable<DiskItem> changed, ColumnHeaderSet columns, string statement) : 
             base(scanned, columns, typeof(DiskItem), statement)
         {
-            var results = new List<Dictionary<string, object>>();
+            var results = new List<HDSLRecord>();
             foreach (var item in changed)
             {
                 results.Add(columns.GetColumns(item));

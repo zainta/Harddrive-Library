@@ -225,6 +225,7 @@ namespace HDDL.HDSL.Interpreter
         /// Syntax:
         /// set alias [filesystem | wards | watches | hashlogs] columnref, span (width in characters);
         /// set alias [filesystem | wards | watches | hashlogs] columnref, 'new alias string';
+        /// set alias [filesystem | wards | watches | hashlogs] columnref, default 0/1;
         /// </summary>
         private void HandleSetAliasStatement()
         {
@@ -264,6 +265,23 @@ namespace HDDL.HDSL.Interpreter
                         {
                             var target = _dh.GetMappingByNameAndType(column, typeContext);
                             target.DisplayWidth = int.Parse(Pop().Literal);
+                            _dh.Update(target);
+                            _dh.WriteColumnNameMappings();
+                        }
+                        else
+                        {
+                            _errors.Add(new HDSLLogBase(Peek().Column, Peek().Row, $"Whole number expected."));
+                        }
+                    }
+                    else if (Peek().Type == HDSLTokenTypes.Default)
+                    {
+                        Pop();
+                        if (Peek().Type == HDSLTokenTypes.WholeNumber)
+                        {
+                            var isDefault = int.Parse(Pop().Literal) > 0;
+
+                            var target = _dh.GetMappingByNameAndType(column, typeContext);
+                            target.IsDefault = isDefault;
                             _dh.Update(target);
                             _dh.WriteColumnNameMappings();
                         }

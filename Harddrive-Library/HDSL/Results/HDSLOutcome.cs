@@ -22,7 +22,7 @@ namespace HDDL.HDSL.Results
         /// <summary>
         /// Contains the results from the query
         /// </summary>
-        public Dictionary<string, object>[] Records { get; private set; }
+        public HDSLRecord[] Records { get; private set; }
 
         /// <summary>
         /// The returned records' type
@@ -62,7 +62,7 @@ namespace HDDL.HDSL.Results
         /// <param name="items">The records to convert and store</param>
         public void SetRecords(IEnumerable<HDDLRecordBase> items)
         {
-            var results = new List<Dictionary<string, object>>();
+            var results = new List<HDSLRecord>();
             foreach (var item in items)
             {
                 results.Add(_chs.GetColumns(item));

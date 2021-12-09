@@ -5,7 +5,6 @@
 using HDDL.HDSL.Results;
 using HDDL.IO.Parameters;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -71,19 +70,19 @@ namespace HDSL.ConsoleClient.Helpers
         /// <param name="row">The data row to display</param>
         /// <param name="displayValue">If true, displays the property's value, otherwise displays the column name</param>
         /// <param name="embelish">Whether or not to display embelishments</param>
-        private static void DisplayRow(HDSLOutcome result, Dictionary<string, object> row, bool displayValue, bool embelish)
+        private static void DisplayRow(HDSLOutcome result, HDSLRecord row, bool displayValue, bool embelish)
         {
             // headers are not shown for unembelished results
             if (!displayValue && !embelish) return;
 
-            foreach (var column in row.Keys)
+            foreach (var column in row.Columns)
             {
                 var columnData = result.Columns.Where(c => c.Column == column).Single();
                 var columnIndex = Array.IndexOf(result.Columns, columnData);
 
                 if (displayValue)
                 {
-                    Console.Write(Pad(GetFormattedValue(columnData, row[column]), columnData.Width));
+                    Console.Write(Pad(GetFormattedValue(columnData, row[column]?.Value), columnData.Width));
                 }
                 else
                 {
