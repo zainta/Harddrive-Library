@@ -66,6 +66,10 @@ namespace HDDL.Language.HDSL
                 {
                     continue;
                 }
+                else if (More(1) && PeekStr(0, 2) == "/*" && GetMultiLineComment())
+                {
+                    continue;
+                }
                 else if (More() && char.IsWhiteSpace(Peek()) && GetWhitespace())
                 {
                     continue;
@@ -90,7 +94,7 @@ namespace HDDL.Language.HDSL
                     Add(new HDSLToken(HDSLTokenTypes.Comma, Pop(), _row, _col, ","));
                     continue;
                 }
-                else if (More() && Peek() == ':') // _colon
+                else if (More() && Peek() == ':') // Colon
                 {
                     Add(new HDSLToken(HDSLTokenTypes.Colon, Pop(), _row, _col, ":"));
                     continue;
@@ -383,6 +387,23 @@ namespace HDDL.Language.HDSL
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Gathers a multi line comment token and add it to the list
+        /// 
+        /// Multi line comments run until they are terminated, starting with a /* and ending with */.
+        /// </summary>
+        /// <returns>Whether or not a token was generated (if not, implies an error)</returns>
+        private bool GetMultiLineComment()
+        {
+            var comment = GetPairedSet("/*", "*/", '\\');
+            if (comment != null)
+            {
+                Add(new HDSLToken(HDSLTokenTypes.MultiLineComment, comment[1], _row, _col, comment[0]));
+                return true;
+            }
+            return false;
         }
 
         /// <summary>

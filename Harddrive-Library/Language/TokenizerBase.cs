@@ -160,17 +160,97 @@ namespace HDDL.Language
         /// <summary>
         /// Retrieves and returns everything between the first occurrance of start and end, taking into account escapes
         /// </summary>
+        /// <param name="start">The starting characters</param>
+        /// <param name="end">The ending characters</param>
+        /// <param name="escape">The character used to escape start and end to allow them inside of the run (escape only works if end is a single character)</param>
+        /// <returns>An array containing the literal of the paired set in the first slot and the encoded paired set with escapes in the second</returns>
+        protected string[] GetPairedSet(string start, string end, char? escape = null)
+        {
+            string[] result = null;
+            var literal = new StringBuilder();
+            var encoded = new StringBuilder();
+            if (More(start.Length) && PeekStr(length: start.Length).Equals(start, StringComparison.InvariantCultureIgnoreCase))
+            {
+                encoded.Append(PopStr(length: start.Length));
+
+                var done = false;
+                while (!done)
+                {
+                    if (More(end.Length) == false)
+                    {
+                        Outcome.Add(new LogItemBase(_col, _row, string.Format("End of file before paired set closed.  '{0}' expected.", end)));
+                        return null;
+                    }
+
+                    if (escape.HasValue &&
+                        Peek() == escape.Value) // found the escape character
+                    {
+                        // check to see if the character after the escape is the ending character
+                        if (More(end.Length + 1) && PeekStr(1, end.Length) == end)
+                        {
+                            // yes
+                            literal.Append(Peek(1));
+                            encoded.Append(Pop());
+                            encoded.Append(Pop());
+                        }
+                        else if (More(1) && Peek(1) == escape.Value)
+                        {
+                            // if this is an escaped escape character then we have to copy it over
+                            // and remove the escape
+                            Pop();
+
+                            literal.Append(Peek());
+                            encoded.Append(Pop());
+                        }
+                        else
+                        {
+                            // no
+                            literal.Append(Peek());
+                            literal.Append(Peek(1));
+                            encoded.Append(Pop());
+                            encoded.Append(Pop());
+                        }
+                    }
+                    else if (PeekStr(length: end.Length) == end) // this is a non-escaped end.  we're done
+                    {
+                        done = true;
+                        encoded.Append(PopStr(length: end.Length));
+                    }
+                    else // copy one character and compare again
+                    {
+                        literal.Append(Peek());
+                        encoded.Append(Pop());
+                    }
+                }
+
+                result = new string[] { literal.ToString(), encoded.ToString() };
+            }
+            else
+            {
+                Outcome.Add(new LogItemBase(_col, _row, $"Unexpected character found.  Expected '{start}'."));
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Retrieves and returns everything between the first occurrance of start and end, taking into account escapes
+        /// </summary>
         /// <param name="start">The starting character</param>
         /// <param name="end">The ending character</param>
         /// <param name="escape">The character used to escape start and end to allow them inside of the run</param>
+        /// <param name="ignoreStart">If true, does not check for the start of the paired set</param>
         /// <returns>An array containing the literal of the paired set in the first slot and the encoded paired set with escapes in the second</returns>
-        protected string[] GetPairedSet(char start, char end, char? escape = null)
+        protected string[] GetPairedSet(char start, char end, char? escape = null, bool ignoreStart = false)
         {
             var literal = new StringBuilder();
             var encoded = new StringBuilder();
-            if (More() && Peek() == start)
+            if (ignoreStart || (More() && Peek() == start))
             {
-                encoded.Append(Pop());
+                if (!ignoreStart)
+                {
+                    encoded.Append(Pop());
+                }
 
                 bool done = false;
                 while (!done)
@@ -188,7 +268,7 @@ namespace HDDL.Language
                         if (More(1) && Peek(1) == end)
                         {
                             // yes
-                            literal.Append(Peek());
+                            literal.Append(Peek(1));
                             encoded.Append(Pop());
                             encoded.Append(Pop());
                         }

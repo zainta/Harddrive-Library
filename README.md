@@ -88,6 +88,7 @@ HDSL is a simple query language designed for the retrieval of files and director
    * Deletes exclusions for the given paths
    * e.g `include [win];` will remove the previous example.  Note that exclusions are not cascaded.
  * `--` creates a line comment.
+ * `/* some text */` creates a multi-line comment.
  * `watch [passive] [path[, path, path] - defaults to current];`
    * Creates a watch for each of the given paths.  
    * A watch performs an initial scan and then passively monitors location for activity, updating the database when any is detected.
