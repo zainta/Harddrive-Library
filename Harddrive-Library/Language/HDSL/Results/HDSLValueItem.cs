@@ -25,6 +25,16 @@ namespace HDDL.Language.HDSL.Results
         public string ColumnType { get; private set; }
 
         /// <summary>
+        /// Json support constructor
+        /// </summary>
+        public HDSLValueItem()
+        {
+            Column = null;
+            ColumnType = null;
+            Value = null;
+        }
+
+        /// <summary>
         /// Create an HDSLValueItem
         /// </summary>
         /// <param name="column"></param>

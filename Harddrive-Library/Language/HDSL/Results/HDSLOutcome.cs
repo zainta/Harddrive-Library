@@ -40,6 +40,17 @@ namespace HDDL.Language.HDSL.Results
         private ColumnHeaderSet _chs;
 
         /// <summary>
+        /// Default constructor to support Json
+        /// </summary>
+        public HDSLOutcome()
+        {
+            _chs = null;
+            Statement = null;
+            RecordType = null;
+            Columns = null;
+        }
+
+        /// <summary>
         /// Takes a column header set and a set of disk items and builds the results
         /// </summary>
         /// <param name="items">The records to return</param>

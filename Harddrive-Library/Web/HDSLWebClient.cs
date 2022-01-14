@@ -6,7 +6,7 @@ using HDDL.Language.HDSL.Results;
 using System;
 using System.IO;
 using System.Net;
-using System.Text.Json;
+using HDDL.Language.Json;
 
 namespace HDDL.Web
 {
@@ -45,12 +45,12 @@ namespace HDDL.Web
         /// <returns>The result instance</returns>
         public HDSLOutcomeSet Query(string code)
         {
-            WebRequest request = WebRequest.Create($"{_address}/q/{Uri.EscapeUriString(code)}");
+            WebRequest request = WebRequest.Create($"{_address}/f/{Uri.EscapeUriString(code)}");
             request.Method = "GET";
             WebResponse response = request.GetResponse();
 
             var json = ReadEntirety(response);
-            var result = JsonSerializer.Deserialize<HDSLOutcomeSet>(json);
+            var result = JsonConverter.GetObject<HDSLOutcomeSet>(json);
 
             return result;
         }
@@ -67,7 +67,7 @@ namespace HDDL.Web
                 WebRequest request = WebRequest.Create($"{address}/hi");
                 request.Method = "GET";
                 WebResponse response = request.GetResponse();
-                
+
                 return ReadEntirety(response).ToLower() == "hi";
             }
             catch

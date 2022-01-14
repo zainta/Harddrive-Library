@@ -155,12 +155,25 @@ namespace HDSL.ConsoleClient.Helpers
             var type = Type.GetType(cd.Type);
             if (type == typeof(long))
             {
-                var v = GetAs<long>(value);
-                switch (cd.Column)
+                if (value is int)
                 {
-                    case "Size":
-                        result = ShortenSize(v);
-                        break;
+                    var v = GetAs<int>(value);
+                    switch (cd.Column)
+                    {
+                        case "Size":
+                            result = ShortenSize(v);
+                            break;
+                    }
+                }
+                else if (value is long)
+                {
+                    var v = GetAs<long>(value);
+                    switch (cd.Column)
+                    {
+                        case "Size":
+                            result = ShortenSize(v);
+                            break;
+                    }
                 }
             }
             else if (type == typeof(DateTime))

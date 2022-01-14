@@ -33,6 +33,16 @@ namespace HDDL.Language.HDSL.Results
         public int Width { get; set; }
 
         /// <summary>
+        /// Json Constructor
+        /// </summary>
+        public ColumnDefinition()
+        {
+            Column = null;
+            Type = null;
+            Width = -1;
+        }
+
+        /// <summary>
         /// Creates a column definition from the provided mapping instance
         /// </summary>
         /// <param name="mapping">The mapping</param>

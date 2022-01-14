@@ -13,7 +13,7 @@ namespace HDDL.Language
     /// Base tokenizer class implementation to alleviate copy duplication across tokenizers
     /// </summary>
     /// <typeparam name="TokenType">The type of token produced and stored by the process (e.g the actual tokens)</typeparam>
-    class TokenizerBase<TokenType>
+    abstract class TokenizerBase<TokenType>
     {
         protected int Minimum_Column = 1;
         protected int Minimum_Row = 1;
@@ -239,18 +239,14 @@ namespace HDDL.Language
         /// <param name="start">The starting character</param>
         /// <param name="end">The ending character</param>
         /// <param name="escape">The character used to escape start and end to allow them inside of the run</param>
-        /// <param name="ignoreStart">If true, does not check for the start of the paired set</param>
         /// <returns>An array containing the literal of the paired set in the first slot and the encoded paired set with escapes in the second</returns>
-        protected string[] GetPairedSet(char start, char end, char? escape = null, bool ignoreStart = false)
+        protected string[] GetPairedSet(char start, char end, char? escape = null)
         {
             var literal = new StringBuilder();
             var encoded = new StringBuilder();
-            if (ignoreStart || (More() && Peek() == start))
+            if (More() && Peek() == start)
             {
-                if (!ignoreStart)
-                {
-                    encoded.Append(Pop());
-                }
+                encoded.Append(Pop());
 
                 bool done = false;
                 while (!done)
@@ -306,7 +302,7 @@ namespace HDDL.Language
             }
             else
             {
-                Outcome.Add(new LogItemBase(_col, _row, string.Format("Unexpected character found.  Expected '{1}'.", start)));
+                Outcome.Add(new LogItemBase(_col, _row, $"Unexpected character found.  Expected '{start}'."));
                 return null;
             }
         }

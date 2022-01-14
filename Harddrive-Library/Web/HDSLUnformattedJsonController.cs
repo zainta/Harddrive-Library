@@ -7,21 +7,22 @@ using HDDL.Language.HDSL;
 using HDDL.Language.HDSL.Permissions;
 using HDDL.IO.Settings;
 using Microsoft.AspNetCore.Mvc;
+using HDDL.Language.Json;
 
 namespace HDDL.Web
 {
     /// <summary>
     /// The HDSLWeb API controller
     /// </summary>
-    [Route("q")]
+    [Route("u")]
     [ApiController]
-    public class HDSLWebController : Controller
+    public class HDSLUnformattedJsonController : Controller
     {
         private IDataHandler _dh;
         private IInitializationFileManager _ini;
         private HDSLListManager _grayManager;
 
-        public HDSLWebController(IDataHandler dh, IInitializationFileManager ini)
+        public HDSLUnformattedJsonController(IDataHandler dh, IInitializationFileManager ini)
         {
             _dh = dh;
             _ini = ini;
@@ -36,8 +37,8 @@ namespace HDDL.Web
         [HttpGet("{code}")]
         public IActionResult Get(string code)
         {
-            IActionResult actionOutcome = Json(HDSLProvider.ExecuteCode(code, _dh as DataHandler, _grayManager));
-            return actionOutcome;
+            var result = HDSLProvider.ExecuteCode(code, _dh as DataHandler, _grayManager);
+            return Ok(JsonConverter.GetJson(result, false));
         }
 
         /// <summary>
@@ -48,8 +49,8 @@ namespace HDDL.Web
         [HttpPost("{code}")]
         public IActionResult Post(string code)
         {
-            IActionResult actionOutcome = Json(HDSLProvider.ExecuteCode(code, _dh as DataHandler, _grayManager));
-            return actionOutcome;
+            var result = HDSLProvider.ExecuteCode(code, _dh as DataHandler, _grayManager);
+            return Ok(JsonConverter.GetJson(result, false));
         }
     }
 }

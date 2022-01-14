@@ -13,17 +13,10 @@ namespace HDDL.Language.HDSL.Results
     /// </summary>
     public class HDSLOutcomeSet
     {
-        private List<HDSLOutcome> _results;
         /// <summary>
         /// A set of all query results from the script
         /// </summary>
-        public IReadOnlyList<HDSLOutcome> Results
-        {
-            get
-            {
-                return _results.AsReadOnly();
-            }
-        }
+        public List<HDSLOutcome> Results { get; private set; }
 
         /// <summary>
         /// Any errors encountered during the process
@@ -36,7 +29,7 @@ namespace HDDL.Language.HDSL.Results
         /// <param name="paths">The records matching the query</param>
         public HDSLOutcomeSet(IEnumerable<HDSLOutcome> results)
         {
-            _results = new List<HDSLOutcome>(results);
+            Results = new List<HDSLOutcome>(results);
             Errors = new LogItemBase[] { };
         }
 
@@ -45,7 +38,7 @@ namespace HDDL.Language.HDSL.Results
         /// </summary>
         public HDSLOutcomeSet()
         {
-            _results = new List<HDSLOutcome>();
+            Results = new List<HDSLOutcome>();
             Errors = new LogItemBase[] { };
         }
 
@@ -55,7 +48,7 @@ namespace HDDL.Language.HDSL.Results
         /// <param name="errors">The errors encountered during execution</param>
         public HDSLOutcomeSet(IEnumerable<LogItemBase> errors)
         {
-            _results = new List<HDSLOutcome>();
+            Results = new List<HDSLOutcome>();
             Errors = errors.ToArray();
         }
 
@@ -65,7 +58,7 @@ namespace HDDL.Language.HDSL.Results
         /// <param name="result">The result set to add</param>
         public void Add(HDSLOutcome result)
         {
-            _results.Add(result);
+            Results.Add(result);
         }
     }
 }

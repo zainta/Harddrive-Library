@@ -2,12 +2,6 @@
 // Licensed under the MIT License, (the "License"); you may not use this file except in compliance with the License. 
 // You may obtain a copy of the License at https://mit-license.org/
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 namespace HDDL.Language.Json.Conversion
 {
     /// <summary>
@@ -66,8 +60,8 @@ namespace HDDL.Language.Json.Conversion
         RealNumber,
 
         /// <summary>
-        /// any kind of whitespace
+        /// Represents the end of the json
         /// </summary>
-        Whitespace
+        EndOfJSON
     }
 }

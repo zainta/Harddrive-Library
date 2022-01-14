@@ -3,6 +3,7 @@
 // You may obtain a copy of the License at https://mit-license.org/
 
 using HDDL.Data;
+using HDDL.Language.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,6 +13,7 @@ namespace HDDL.Language.HDSL.Results
     /// <summary>
     /// Used to pass query results around with their column header set
     /// </summary>
+    [JsonIgnore]
     public class HDSLResultBag
     {
         /// <summary>
