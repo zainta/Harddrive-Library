@@ -11,6 +11,7 @@ using System.Data.SQLite;
 using System.IO;
 using System.Linq;
 using System.Text;
+using HDDL.Language.HDSL;
 
 namespace HDDL.Data
 {
@@ -197,7 +198,7 @@ namespace HDDL.Data
                         Alias = p.Name,
                         IsActive = true,
                         HostType = type.FullName,
-                        IsDefault = false,
+                        IsDefault = p.Name.ToLower() == "path" || p.Name.ToLower() == "size" || p.Name.ToLower() == "id",
                         DisplayWidth = GetWidthByType(p.PropertyType)
                     });
 
@@ -206,6 +207,70 @@ namespace HDDL.Data
             }
 
             return generated;
+        }
+
+        /// <summary>
+        /// Translates a FindQueryDetails instance into a set of SQL statements reflecting the specifications
+        /// </summary>
+        /// <param name="details">The details to translate</param>
+        /// <param name="depthSpecification">Any special additions to the where clause</param>
+        /// <param name="pathFilterClause">Specifies how to filter the path field</param>
+        /// <returns></returns>
+        private string[] BuildFindSqlStatements(FindQueryDetails details, string pathFilterClause, string depthSpecification)
+        {
+            List<string> sql = new List<string>();
+
+            foreach (var path in details.Paths)
+            {
+                var filterClause = details.FurtherDetails?.ToSQL();
+                if (!string.IsNullOrWhiteSpace(filterClause)) filterClause = $"{filterClause} and ";
+
+                if (details.TableContext == typeof(DiskItem))
+                {
+                    var depth = PathHelper.GetDependencyCount(new DiskItemType(path, false));
+                    depthSpecification = $"{depthSpecification} and ".Replace("[current]", depth.ToString());
+                }
+                else
+                {
+                    depthSpecification = string.Empty;
+                }
+
+                var statement =
+                       @$"select * from {details.GetContextTableName()}
+                       where 
+                       {pathFilterClause.Replace("[path]", path)} and
+                       {depthSpecification}
+                       {filterClause}
+                       id not in ( select id from {details.GetContextTableName()}
+                                   {details.GroupSortDetails.ToSQL()} limit {details.PageIndex * details.RecordsPerPage} )
+                       {details.GroupSortDetails.ToSQL()}  limit {details.RecordsPerPage}";
+
+                sql.Add(statement);
+            }
+
+            return sql.ToArray();
+        }
+
+        /// <summary>
+        /// Produces a Find SQL query from a set of FindQueryDetails and other parts
+        /// </summary>
+        /// <param name="details">The details to translate</param>
+        /// <param name="pathFilterClause">Specifies how to filter the path field</param>
+        /// <returns></returns>
+        private string BuildFindSqlStatement(FindQueryDetails details, string pathFilterClause)
+        {
+            var filterClause = details.FurtherDetails?.ToSQL();
+            if (!string.IsNullOrWhiteSpace(filterClause)) filterClause = $"{filterClause} and ";
+
+            var statement =
+                   @$"select * from {details.GetContextTableName()}
+                       where 
+                       {pathFilterClause}{filterClause}
+                       id not in ( select id from {details.GetContextTableName()}
+                                   {details.GroupSortDetails.ToSQL()} limit {details.PageIndex * details.RecordsPerPage} )
+                       {details.GroupSortDetails.ToSQL()}  limit {details.RecordsPerPage}";
+
+            return statement;
         }
 
         #endregion
@@ -481,7 +546,7 @@ namespace HDDL.Data
                 }
             }
 
-            return _columnNameMappingCache.Where(m => m.HostType  == forType.FullName).ToList();
+            return _columnNameMappingCache.Where(m => m.HostType == forType.FullName).ToList();
         }
 
         /// <summary>
@@ -623,29 +688,23 @@ namespace HDDL.Data
         /// <summary>
         /// Retrieves all hashlogs for records that match the criteria
         /// </summary>
-        /// <param name="whereDetail">The filtering detail provided through the Find statement's where clause</param>
-        /// <param name="sortGroupDetail">The sorting and grouping detail provided through the Find statement's appropriate clause</param>
-        /// <param name="paths">The paths to search</param>
+        /// <param name="details">The find query's details</param>
+        /// <param name="totalRecords">Reports the total number of records found</param>
         /// <returns>The matching DiskItems</returns>
-        internal IEnumerable<DiskItemHashLogItem> GetFilteredHashLogs(string whereDetail, string sortGroupDetail, IEnumerable<string> paths)
+        internal IEnumerable<DiskItemHashLogItem> GetFilteredHashLogs(FindQueryDetails details, out long totalRecords)
         {
-            if (paths.Any())
+            var pathListing = string.Join("','", details?.Paths);
+            var results = new List<DiskItemHashLogItem>();
+
+            var sql = BuildFindSqlStatement(details, string.IsNullOrWhiteSpace(pathListing) ? string.Empty : $"path in ('{pathListing}') and ");
+            var records = ExecuteReader(sql);
+            while (records.Read())
             {
-                var pathListing = string.Join("','", paths);
-                var results = new List<DiskItemHashLogItem>();
-
-                // retrieve all hashlogs for all retrieved records by parent id
-                var detailClause = string.IsNullOrWhiteSpace(whereDetail) ? string.Empty : $" and {whereDetail}";
-                var records = ExecuteReader($"select * from hashlog where path in ('{pathListing}'){detailClause}{sortGroupDetail}");
-                while (records.Read())
-                {
-                    results.Add(new DiskItemHashLogItem(records));
-                }
-
-                return results.ToArray();
+                results.Add(new DiskItemHashLogItem(records));
             }
 
-            return new DiskItemHashLogItem[] { };
+            totalRecords = ExecuteScalar<long>(sql.Replace("select *", "select count(id)"));
+            return results.ToArray();
         }
 
         /// <summary>
@@ -749,35 +808,29 @@ namespace HDDL.Data
         /// <summary>
         /// Retrieves all wards for the given paths and criteria
         /// </summary>
-        /// <param name="whereDetail">The filtering detail provided through the Find statement's where clause</param>
-        /// <param name="sortGroupDetail">The sorting and grouping detail provided through the Find statement's appropriate clause</param>
-        /// <param name="paths">The paths to search</param>
+        /// <param name="details">The find query's details</param>
+        /// <param name="totalRecords">Reports the total number of records found</param>
         /// <returns>The matching DiskItems</returns>
-        internal IEnumerable<WatchItem> GetFilteredWatches(string whereDetail, string sortGroupDetail, IEnumerable<string> paths)
+        internal IEnumerable<WatchItem> GetFilteredWatches(FindQueryDetails details, out long totalRecords)
         {
-            if (paths.Any())
+            var pathListing = string.Join("','", details?.Paths);
+            var results = new List<WatchItem>();
+
+            var sql = BuildFindSqlStatement(details, string.IsNullOrWhiteSpace(pathListing) ? string.Empty : $"path in ('{pathListing}') and ");
+            var records = ExecuteReader(sql);
+            while (records.Read())
             {
-                var pathListing = string.Join("','", paths);
-                var results = new List<WatchItem>();
-
-                // retrieve all hashlogs for all retrieved records by parent id
-                var detailClause = string.IsNullOrWhiteSpace(whereDetail) ? string.Empty : $" and {whereDetail}";
-                var records = ExecuteReader($"select * from watches where path in ('{pathListing}'){detailClause}{sortGroupDetail}");
-                while (records.Read())
+                DiskItem di = null;
+                if (!(records["path"] is DBNull))
                 {
-                    DiskItem di = null;
-                    if (!(records["path"] is DBNull))
-                    {
-                        di = GetDiskItemByPath(records.GetString("path"));
-                    }
-
-                    results.Add(new WatchItem(records, di));
+                    di = GetDiskItemByPath(records.GetString("path"));
                 }
 
-                return results.ToArray();
+                results.Add(new WatchItem(records, di));
             }
 
-            return new WatchItem[] { };
+            totalRecords = ExecuteScalar<long>(sql.Replace("select *", "select count(id)"));
+            return results.ToArray();
         }
 
         /// <summary>
@@ -852,12 +905,12 @@ namespace HDDL.Data
             foreach (var item in items)
             {
                 _watches.Inserts.Add(new WatchItem()
-                                    {
-                                        Id = Guid.NewGuid(),
-                                        InPassiveMode = false,
-                                        Path = item,
-                                        Target = null
-                                    });
+                {
+                    Id = Guid.NewGuid(),
+                    InPassiveMode = false,
+                    Path = item,
+                    Target = null
+                });
             }
         }
 
@@ -971,35 +1024,29 @@ namespace HDDL.Data
         /// <summary>
         /// Retrieves all wards for the given paths and criteria
         /// </summary>
-        /// <param name="whereDetail">The filtering detail provided through the Find statement's where clause</param>
-        /// <param name="sortGroupDetail">The sorting and grouping detail provided through the Find statement's appropriate clause</param>
-        /// <param name="paths">The paths to search</param>
+        /// <param name="details">The find query's details</param>
+        /// <param name="totalRecords">Reports the total number of records found</param>
         /// <returns>The matching DiskItems</returns>
-        internal IEnumerable<WardItem> GetFilteredWards(string whereDetail, string sortGroupDetail, IEnumerable<string> paths)
+        internal IEnumerable<WardItem> GetFilteredWards(FindQueryDetails details, out long totalRecords)
         {
-            if (paths.Any())
+            var pathListing = string.Join("','", details?.Paths);
+            var results = new List<WardItem>();
+
+            var sql = BuildFindSqlStatement(details, string.IsNullOrWhiteSpace(pathListing) ? string.Empty : $"path in ('{pathListing}') and ");
+            var records = ExecuteReader(sql);
+            while (records.Read())
             {
-                var pathListing = string.Join("','", paths);
-                var results = new List<WardItem>();
-
-                // retrieve all hashlogs for all retrieved records by parent id
-                var detailClause = string.IsNullOrWhiteSpace(whereDetail) ? string.Empty : $" and {whereDetail}";
-                var records = ExecuteReader($"select * from wards where path in ('{pathListing}'){detailClause}{sortGroupDetail}");
-                while (records.Read())
+                DiskItem di = null;
+                if (!(records["path"] is DBNull))
                 {
-                    DiskItem di = null;
-                    if (!(records["path"] is DBNull))
-                    {
-                        di = GetDiskItemByPath(records.GetString("path"));
-                    }
-
-                    results.Add(new WardItem(records, di));
+                    di = GetDiskItemByPath(records.GetString("path"));
                 }
 
-                return results.ToArray();
+                results.Add(new WardItem(records, di));
             }
 
-            return new WardItem[] { };
+            totalRecords = ExecuteScalar<long>(sql.Replace("select *", "select count(id)"));
+            return results.ToArray();
         }
 
         /// <summary>
@@ -1412,7 +1459,7 @@ namespace HDDL.Data
                         foreach (var insert in _bookmarks.Inserts)
                         {
                             ExecuteNonQuery(insert.ToInsertStatement());
-                            inserts++; 
+                            inserts++;
                         }
                         _bookmarks.Inserts.Clear();
                     }
@@ -1449,7 +1496,7 @@ namespace HDDL.Data
         }
 
         #endregion
-                
+
         #region DiskItem Related
 
         /// <summary>
@@ -1564,28 +1611,15 @@ namespace HDDL.Data
         /// <summary>
         /// Retrieves all records at the provided depths relative to the given path, obeying all defined criteria
         /// </summary>
-        /// <param name="whereDetail">The filtering detail provided through the Find statement's where clause</param>
-        /// <param name="sortGroupDetail">The sorting and grouping detail provided through the Find statement's appropriate clause</param>
-        /// <param name="paths">The paths to search</param>
+        /// <param name="details">The find query details instance specifying the query</param>
         /// <param name="depthSpecification">The depth criteria for the search</param>
+        /// <param name="totalRecords">Reports the total number of records found</param>
         /// <returns>The matching DiskItems</returns>
-        private IEnumerable<DiskItem> GetFilteredDiskItems(string whereDetail, string sortGroupDetail, IEnumerable<string> paths, string depthSpecification)
+        private IEnumerable<DiskItem> GetFilteredDiskItems(FindQueryDetails details, string depthSpecification, out long totalRecords)
         {
             var queries = new List<string>();
             var results = new List<DiskItem>();
-            foreach (var path in paths)
-            {
-                var depth = PathHelper.GetDependencyCount(new DiskItemType(path, false));
-                var query = $"select * from diskitems where path like '{path}%' and {depthSpecification}".Replace("[current]", depth.ToString());
-                if (!string.IsNullOrWhiteSpace(whereDetail))
-                {
-                    queries.Add($"{query} and ({whereDetail}){sortGroupDetail};");
-                }
-                else
-                {
-                    queries.Add($"{query}{sortGroupDetail};");
-                }
-            }
+            queries.AddRange(BuildFindSqlStatements(details, "path like '[path]%'", depthSpecification));
 
             var reader = ExecuteReader(string.Join('\n', queries));
             if (reader.HasRows)
@@ -1600,43 +1634,55 @@ namespace HDDL.Data
                 while (reader.NextResult());
             }
 
+            totalRecords = 0;
+            var totalCountQuery = string.Join('\n', from q in queries select q.Replace("select *", "select count(id)"));
+            reader = ExecuteReader(totalCountQuery);
+            if (reader.HasRows)
+            {
+                do
+                {
+                    while (reader.HasRows && reader.Read())
+                    {
+                        totalRecords += reader.GetInt64(0);
+                    }
+                }
+                while (reader.NextResult());
+            }
+
             return results;
         }
 
         /// <summary>
         /// Retrieves all records immediately inside of any of the provided paths, matching the given filter with the provided whereDetail
         /// </summary>
-        /// <param name="whereDetail">The filtering detail provided through the Find statement's where clause</param>
-        /// <param name="sortGroupDetail">The sorting and grouping detail provided through the Find statement's appropriate clause</param>
-        /// <param name="paths">The paths to search</param>
+        /// <param name="details">The find query details instance specifying the query</param>
+        /// <param name="totalRecords">Reports the total number of records found</param>
         /// <returns>The matching DiskItems</returns>
-        public IEnumerable<DiskItem> GetFilteredDiskItemsByIn(string whereDetail, string sortGroupDetail, IEnumerable<string> paths)
+        internal IEnumerable<DiskItem> GetFilteredDiskItemsByIn(FindQueryDetails details, out long totalRecords)
         {
-            return GetFilteredDiskItems(whereDetail, sortGroupDetail, paths, $"depth = ([current] + 1)");
+            return GetFilteredDiskItems(details, $"depth = ([current] + 1)", out totalRecords);
         }
 
         /// <summary>
         /// Retrieves all records located at any depth inside of any of the provided paths, matching the given filter with the provided whereDetail
         /// </summary>
-        /// <param name="whereDetail">The filtering detail provided through the Find statement's where clause</param>
-        /// <param name="sortGroupDetail">The sorting and grouping detail provided through the Find statement's appropriate clause</param>
-        /// <param name="paths">The paths to search</param>
+        /// <param name="details">The find query details instance specifying the query</param>
+        /// <param name="totalRecords">Reports the total number of records found</param>
         /// <returns>The matching DiskItems</returns>
-        public IEnumerable<DiskItem> GetFilteredDiskItemsByWithin(string whereDetail, string sortGroupDetail, IEnumerable<string> paths)
+        internal IEnumerable<DiskItem> GetFilteredDiskItemsByWithin(FindQueryDetails details, out long totalRecords)
         {
-            return GetFilteredDiskItems(whereDetail, sortGroupDetail, paths, $"depth > [current]");
+            return GetFilteredDiskItems(details, $"depth > [current]", out totalRecords);
         }
 
         /// <summary>
         /// Retrieves all records located within any subdirectories immediately inside of any of the provided paths, matching the given filter with the provided whereDetail
         /// </summary>
-        /// <param name="whereDetail">The filtering detail provided through the Find statement's where clause</param>
-        /// <param name="sortGroupDetail">The sorting and grouping detail provided through the Find statement's appropriate clause</param>
-        /// <param name="paths">The paths to search</param>
+        /// <param name="details">The find query details instance specifying the query</param>
+        /// <param name="totalRecords">Reports the total number of records found</param>
         /// <returns>The matching DiskItems</returns>
-        public IEnumerable<DiskItem> GetFilteredDiskItemsByUnder(string whereDetail, string sortGroupDetail, IEnumerable<string> paths)
+        internal IEnumerable<DiskItem> GetFilteredDiskItemsByUnder(FindQueryDetails details, out long totalRecords)
         {
-            return GetFilteredDiskItems(whereDetail, sortGroupDetail, paths, $"depth > ([current] + 1)");
+            return GetFilteredDiskItems(details, $"depth > ([current] + 1)", out totalRecords);
         }
 
         /// <summary>
@@ -1743,7 +1789,7 @@ namespace HDDL.Data
                         foreach (var insert in _diskItems.Inserts)
                         {
                             ExecuteNonQuery(insert.ToInsertStatement());
-                            inserts++; 
+                            inserts++;
                         }
                         _diskItems.Inserts.Clear();
                     }

@@ -3,6 +3,7 @@
 // You may obtain a copy of the License at https://mit-license.org/
 
 using HDDL.Data;
+using HDDL.Language.HDSL.Where.Exceptions;
 
 namespace HDDL.Language.HDSL.Where
 {
@@ -27,9 +28,16 @@ namespace HDDL.Language.HDSL.Where
         /// </summary>
         /// <param name="record">The DiskItem record to evaluate</param>
         /// <returns>The boolean result of the evaluation</returns>
-        public override bool Evaluate(DiskItem record)
+        public override bool Evaluate(HDDLRecordBase record)
         {
-            return record.Attributes.HasFlag(RightValue.Get<System.IO.FileAttributes>(record));
+            if (record is DiskItem)
+            {
+                return ((DiskItem)record).Attributes.HasFlag(RightValue.Get<System.IO.FileAttributes>(record));
+            }
+            else
+            {
+                throw new WhereClauseException(RightValue.Column, RightValue.Row, $"The Has (+) operator is only valid when querying the file system.", WhereClauseExceptionTypes.InvalidUseofHasOrHasNot);
+            }
         }
 
         /// <summary>

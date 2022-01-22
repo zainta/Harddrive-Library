@@ -125,6 +125,10 @@ namespace HDDL.Language.HDSL.Where
                                 throw new WhereClauseException(Column, Row, $"Unknown column type discovered '{mappingType.FullName}'.",  WhereClauseExceptionTypes.InvalidColumnTypeReferenced);
                             }
                         }
+                        else
+                        {
+                            throw new WhereClauseException(Column, Row, $"Column '{token.Code}' not found on type '{_cc.QueriedType}'.", WhereClauseExceptionTypes.InvalidColumnTypeReferenced);
+                        }
                         break;
                     case HDSLTokenTypes.Now:
                         ValueType = WhereValueTypes.DateTime;
@@ -150,7 +154,7 @@ namespace HDDL.Language.HDSL.Where
         /// <typeparam name="T">The type of the value</typeparam>
         /// <param name="item"></param>
         /// <returns></returns>
-        public T Get<T>(DiskItem item)
+        public T Get<T>(HDDLRecordBase item)
         {
             object result = null;
 

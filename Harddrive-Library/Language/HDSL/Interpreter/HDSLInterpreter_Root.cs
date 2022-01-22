@@ -29,7 +29,7 @@ namespace HDDL.Language.HDSL.Interpreter
         /// <summary>
         /// The list of errors
         /// </summary>
-        private List<LogItemBase> _errors;
+        private List<LogItemBase> _encounteredErrors;
 
         /// <summary>
         /// The currently in progress statement
@@ -45,7 +45,7 @@ namespace HDDL.Language.HDSL.Interpreter
         {
             _tokens = new ListStack<HDSLToken>(tokens.ToList());
             _dh = dh;
-            _errors = new List<LogItemBase>();
+            _encounteredErrors = new List<LogItemBase>();
         }
 
         /// <summary>
@@ -63,7 +63,7 @@ namespace HDDL.Language.HDSL.Interpreter
             {
                 var done = false;
 
-                while (!_tokens.Empty && _errors.Count == 0 && !done)
+                while (!_tokens.Empty && NoErrors() && !done)
                 {
                     _currentStatement.Clear();
 
@@ -81,7 +81,7 @@ namespace HDDL.Language.HDSL.Interpreter
                             break;
                         case HDSLTokenTypes.Find:
                             {
-                                var intermediate = HandleFindStatement();
+                                var intermediate = HandleFindStatement(true);
                                 if (intermediate != null)
                                 {
                                     successOutcome.Add(AddStatement(intermediate.AsOutcome()));
@@ -120,7 +120,7 @@ namespace HDDL.Language.HDSL.Interpreter
                             HandleResetStatement();
                             break;
                         default:
-                            _errors.Add(new LogItemBase(Peek().Column, Peek().Row, $"Unexpected token '{Peek().Code}'."));
+                            Report(new LogItemBase(Peek().Column, Peek().Row, $"Unexpected token '{Peek().Code}'."));
                             done = true;
                             break;
                     }
@@ -131,12 +131,12 @@ namespace HDDL.Language.HDSL.Interpreter
                 badOutcome = new HDSLOutcomeSet(new LogItemBase[] { new LogItemBase(-1, -1, $"Exception thrown: {ex}") });
             }
 
-            if (_errors.Count > 0)
+            if (!NoErrors())
             {
-                badOutcome = new HDSLOutcomeSet(_errors);
+                badOutcome = new HDSLOutcomeSet(_encounteredErrors);
             }
 
-            if (_errors.Count > 0)
+            if (!NoErrors())
             {
                 return badOutcome;
             }

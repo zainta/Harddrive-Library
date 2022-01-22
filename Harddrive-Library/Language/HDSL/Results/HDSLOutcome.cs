@@ -25,6 +25,21 @@ namespace HDDL.Language.HDSL.Results
         public HDSLRecord[] Records { get; private set; }
 
         /// <summary>
+        /// The total number of pages found by the query
+        /// </summary>
+        public long TotalPages { get; internal set; }
+
+        /// <summary>
+        /// The number of records returned per page
+        /// </summary>
+        public long RecordsPerPage { get; internal set; }
+
+        /// <summary>
+        /// The current page index returned
+        /// </summary>
+        public long PageIndex { get; internal set; }
+
+        /// <summary>
         /// The returned records' type
         /// </summary>
         public string RecordType { get; private set; }

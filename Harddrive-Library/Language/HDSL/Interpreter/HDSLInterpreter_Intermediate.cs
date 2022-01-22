@@ -17,6 +17,8 @@ namespace HDDL.Language.HDSL.Interpreter
     /// </summary>
     partial class HDSLInterpreter
     {
+        private const long Default_Page_Index = 0;
+
         /// <summary>
         /// Interprets and returns a single path
         /// </summary>
@@ -121,7 +123,7 @@ namespace HDDL.Language.HDSL.Interpreter
             {
                 if (first != null)
                 {
-                    _errors.Add(new LogItemBase(first.Column, first.Row, $"No valid paths found."));
+                    Report(new LogItemBase(first.Column, first.Row, $"No valid paths found."));
                 }
             }
             return results;
@@ -164,17 +166,18 @@ namespace HDDL.Language.HDSL.Interpreter
         /// Gathers the information required for a Find query and returns it
         /// 
         /// Syntax
-        /// [filesystem | wards | watches | hashlogs] [columns columnref[, columnref]] [in/within/under [path[, path, path]] - defaults to current] [where clause] [group clause] [order clause];
+        /// [filesystem | wards | watches | hashlogs] [columns columnref[, columnref]] [in/within/under [path[, path, path]] - defaults to current] [where clause] [group clause] [order clause] [paging clause];
         /// </summary>
         /// <param name="forcedTypeContext">Preassigns the type context, skipping that step</param>
+        /// <param name="allowPaging">If true, allows the use of the paging clause.</param>
         /// <returns></returns>
-        private FindQueryDetails GetFindDetails(Type? forcedTypeContext = null)
+        private FindQueryDetails GetFindDetails(bool allowPaging, Type? forcedTypeContext = null)
         {
             Type typeContext = GetTypeContext(forcedTypeContext);
 
             // the column header set is optional
             var columnHeaderSet = GetColumnHeaderSet(typeContext);
-            if (_errors.Count > 0)
+            if (!NoErrors())
             {
                 return new FindQueryDetails()
                 {
@@ -208,7 +211,7 @@ namespace HDDL.Language.HDSL.Interpreter
                 }
                 else
                 {
-                    _errors.Add(new LogItemBase(Peek().Column, Peek().Row, $"In, Within, and Under are only valid when querying the file system."));
+                    Report(new LogItemBase(Peek().Column, Peek().Row, $"In, Within, and Under are only valid when querying the file system."));
                     return new FindQueryDetails()
                     {
                         ResultsEmpty = true
@@ -220,7 +223,7 @@ namespace HDDL.Language.HDSL.Interpreter
                 (Peek().Type == HDSLTokenTypes.String || Peek().Type == HDSLTokenTypes.BookmarkReference))
             {
                 targetPaths = GetPathList();
-                if (_errors.Count > 0)
+                if (!NoErrors())
                 {
                     return new FindQueryDetails()
                     {
@@ -228,7 +231,7 @@ namespace HDDL.Language.HDSL.Interpreter
                     };
                 }
             }
-            else
+            else if (typeContext == typeof(DiskItem))
             {
                 targetPaths.Add(Environment.CurrentDirectory);
             }
@@ -244,22 +247,22 @@ namespace HDDL.Language.HDSL.Interpreter
                     queryDetail = OperatorBase.ConvertClause(_tokens, new ClauseContext(_dh, typeContext), _currentStatement);
                     if (queryDetail == null)
                     {
-                        _errors.Add(new LogItemBase(savePoint.Column, savePoint.Row, $"Bad where clause."));
+                        Report(new LogItemBase(savePoint.Column, savePoint.Row, $"Bad where clause."));
                     }
                     else
                     {
-                        ValidateWhereExpression(queryDetail);
+                        ValidateWhereExpression(queryDetail, GetTestRecord(typeContext));
                     }
                 }
                 catch (WhereClauseException ex)
                 {
-                    _errors.Add(ex.AsHDSLLog());
+                    Report(ex.AsHDSLLog());
                 }
             }
 
             // the grouping and sorting clauses are optional
             var groupingSortingData = GetGroupingSortingSet(typeContext);
-            if (_errors.Count > 0)
+            if (!NoErrors())
             {
                 return new FindQueryDetails()
                 {
@@ -267,6 +270,8 @@ namespace HDDL.Language.HDSL.Interpreter
                 };
             }
 
+            // the paging clause is optional
+            var pagingDetails = GetPagingDetails();
             return new FindQueryDetails()
             {
                 FurtherDetails = queryDetail,
@@ -275,7 +280,10 @@ namespace HDDL.Language.HDSL.Interpreter
                 ResultsEmpty = false,
                 Columns = columnHeaderSet,
                 TableContext = typeContext,
-                GroupSortDetails = groupingSortingData
+                GroupSortDetails = groupingSortingData,
+                PageIndex = pagingDetails[0],
+                RecordsPerPage = pagingDetails[1],
+                AllowPaging = allowPaging
             };
         }
 
@@ -342,7 +350,7 @@ namespace HDDL.Language.HDSL.Interpreter
                     case HDSLTokenTypes.Colon:
                         if (totalColons > Max_Colons)
                         {
-                            _errors.Add(new LogItemBase(Peek().Column, Peek().Row, $"Improper timespan format detected.  <days>:<hours>:<minutes>:<seconds> expected."));
+                            Report(new LogItemBase(Peek().Column, Peek().Row, $"Improper timespan format detected.  <days>:<hours>:<minutes>:<seconds> expected."));
                         }
                         numbers.Push(Pop());
                         totalColons++;
@@ -352,10 +360,10 @@ namespace HDDL.Language.HDSL.Interpreter
 
             if (numbers.Count == 0 && required)
             {
-                _errors.Add(new LogItemBase(Peek().Column, Peek().Row, $"Timespan expected."));
+                Report(new LogItemBase(Peek().Column, Peek().Row, $"Timespan expected."));
             }
 
-            if (_errors.Count == 0)
+            if (NoErrors())
             {
                 // we need to determine which components of the timespan were supplied,
                 // so that 5::30:10 will come out as 5 days, 0 hours, 30 minutes, 10 seconds and
@@ -375,11 +383,11 @@ namespace HDDL.Language.HDSL.Interpreter
                     }
                     else
                     {
-                        _errors.Add(new LogItemBase(numbers.Peek().Column, numbers.Peek().Row, $"Unknown token discovered. {numbers.Peek().Literal}"));
+                        Report(new LogItemBase(numbers.Peek().Column, numbers.Peek().Row, $"Unknown token discovered. {numbers.Peek().Literal}"));
                     }
                 }
 
-                if (_errors.Count == 0)
+                if (NoErrors())
                 {
                     ts = new TimeSpan(values[3], values[2], values[1], values[0]);
                 }
@@ -428,12 +436,12 @@ namespace HDDL.Language.HDSL.Interpreter
                          select t).ToArray();
 
                     var columnsEnding = missings.Length > 1 ? "s" : string.Empty;
-                    _errors.Add(new LogItemBase(Peek().Column, Peek().Row, $"Type '{forType.Name}' does not have column{columnsEnding} '{string.Join("', '", missings.Select(m => m.Code))}'."));
+                    Report(new LogItemBase(Peek().Column, Peek().Row, $"Type '{forType.Name}' does not have column{columnsEnding} '{string.Join("', '", missings.Select(m => m.Code))}'."));
                 }
             }
             else
             {
-                _errors.Add(new LogItemBase(Peek().Column, Peek().Row, $"Column name or alias expected."));
+                Report(new LogItemBase(Peek().Column, Peek().Row, $"Column name or alias expected."));
             }
 
             return new ColumnNameMappingItem[] { };
@@ -453,7 +461,7 @@ namespace HDDL.Language.HDSL.Interpreter
                 Pop();
 
                 var columns = GetColumnMappingsForTypeByTokenSet(forType);
-                if (columns.Length > 0 && _errors.Count == 0)
+                if (columns.Length > 0 && NoErrors())
                 {
                     return new ColumnHeaderSet(columns, forType);
                 }
@@ -475,7 +483,7 @@ namespace HDDL.Language.HDSL.Interpreter
             var result = new QueryGroupSortSet();
 
             while (
-                _errors.Count == 0 &&
+                NoErrors() &&
                 More() &&
                 (Peek().Type == HDSLTokenTypes.GroupBy ||
                 Peek().Type == HDSLTokenTypes.OrderBy))
@@ -503,12 +511,49 @@ namespace HDDL.Language.HDSL.Interpreter
                 }
             }
 
-            if (_errors.Count == 0)
+            // we always need to sort to allow for paging
+            // default sorting is on the path field
+            if (result.OrderBy.Count == 0)
+            {
+                var column = _dh.GetColumnNameMappings(forType).Where(cm => cm.Name.Equals("path", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
+                result.OrderBy.Add(column.Name);
+            }
+
+            if (NoErrors())
             {
                 return result;
             }
 
             return new QueryGroupSortSet();
+        }
+
+        /// <summary>
+        /// Gathers and returns the paging information (page index and records per page) as a long[]
+        /// 
+        /// Syntax:
+        /// Page (page index)
+        /// 
+        /// Page size is always fixed.
+        /// </summary>
+        /// <returns></returns>
+        private long[] GetPagingDetails()
+        {
+            var result = new long[] { Default_Page_Index, HDSLConstants.Page_Size };
+            if (Peek().Type == HDSLTokenTypes.PageIndex)
+            {
+                Pop();
+
+                if (Peek().Type == HDSLTokenTypes.WholeNumber)
+                {
+                    result[0] = int.Parse(Pop().Literal);
+                }
+                else
+                {
+                    Report(new LogItemBase(Peek().Column, Peek().Row, $"Integer expected."));
+                }
+            }
+
+            return result;
         }
     }
 }

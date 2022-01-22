@@ -69,6 +69,26 @@ namespace HDDL.Language.HDSL.Interpreter
         }
 
         /// <summary>
+        /// Reports an error by storing it in the queue
+        /// </summary>
+        /// <param name="error">The error to report</param>
+        /// <returns>The current number of errors</returns>
+        private int Report(LogItemBase error)
+        {
+            _encounteredErrors.Add(error);
+            return _encounteredErrors.Count;
+        }
+
+        /// <summary>
+        /// Returns a value indicating if there are no errors
+        /// </summary>
+        /// <returns>True if none, false otherwise</returns>
+        private bool NoErrors()
+        {
+            return _encounteredErrors.Count == 0;
+        }
+
+        /// <summary>
         /// Attempts to convert a bookmark into its actual value
         /// </summary>
         /// <param name="bookmark">The text to convert</param>
@@ -78,7 +98,7 @@ namespace HDDL.Language.HDSL.Interpreter
             var result = _dh.ApplyBookmarks(bookmark.Code);
             if (bookmark.Code == result)
             {
-                _errors.Add(new LogItemBase(bookmark.Column, bookmark.Row, $"Unknown bookmark '{bookmark.Code}'."));
+                Report(new LogItemBase(bookmark.Column, bookmark.Row, $"Unknown bookmark '{bookmark.Code}'."));
             }
 
             return result;
@@ -94,7 +114,7 @@ namespace HDDL.Language.HDSL.Interpreter
             var result = _dh.ApplyBookmarks(bookmark);
             if (bookmark == result)
             {
-                _errors.Add(new LogItemBase(Peek().Column, Peek().Row, $"Unknown bookmark '{bookmark}'."));
+                Report(new LogItemBase(Peek().Column, Peek().Row, $"Unknown bookmark '{bookmark}'."));
             }
 
             return result;
@@ -104,28 +124,10 @@ namespace HDDL.Language.HDSL.Interpreter
         /// Evaluates the operator base to ensure that it is valid
         /// </summary>
         /// <param name="queryDetail">The operator to evaluate</param>
-        private void ValidateWhereExpression(OperatorBase queryDetail)
+        /// <param name="testItem">The testing record</param>
+        private void ValidateWhereExpression(OperatorBase queryDetail, HDDLRecordBase testItem)
         {
-            queryDetail.Evaluate(new DiskItem()
-            {
-                Id = Guid.NewGuid(),
-                Path = @"c:\fakefile.txt",
-                CreationDate = DateTime.Now,
-                Extension = ".txt",
-                FirstScanned = DateTime.Now,
-                LastScanned = DateTime.Now,
-                FileHash = null,
-                HashTimestamp = DateTime.Now,
-                Attributes = FileAttributes.Normal,
-                IsFile = true,
-                ItemName = "fakefile.txt",
-                Size = 1024,
-                LastAccessed = DateTime.Now,
-                LastWritten = DateTime.Now,
-                MachineUNCName = "C:",
-                ParentId = null,
-                Depth = 2
-            });
+            queryDetail.Evaluate(testItem);
         }
 
         /// <summary>
@@ -169,10 +171,81 @@ namespace HDDL.Language.HDSL.Interpreter
             }
             else
             {
-                _errors.Add(new LogItemBase(Peek().Column, Peek().Row, $"';' or end of file expected."));
+                Report(new LogItemBase(Peek().Column, Peek().Row, $"';' or end of file expected."));
             }
 
             return outcome;
+        }
+
+        /// <summary>
+        /// Generates and returns an HDDLRecordBase
+        /// </summary>
+        /// <param name="typeContext">The type to generate</param>
+        /// <exception cref="ArgumentException">Thrown if the type isn't one of the four accepted types</exception>
+        /// <returns>An instance of the record</returns>
+        private HDDLRecordBase GetTestRecord(Type typeContext)
+        {
+            HDDLRecordBase result = null;
+            if (typeContext == typeof(DiskItem))
+            {
+                result = new DiskItem()
+                {
+                    Id = Guid.NewGuid(),
+                    Path = @"c:\fakefile.txt",
+                    CreationDate = DateTime.Now,
+                    Extension = ".txt",
+                    FirstScanned = DateTime.Now,
+                    LastScanned = DateTime.Now,
+                    FileHash = null,
+                    HashTimestamp = DateTime.Now,
+                    Attributes = FileAttributes.Normal,
+                    IsFile = true,
+                    ItemName = "fakefile.txt",
+                    Size = 1024,
+                    LastAccessed = DateTime.Now,
+                    LastWritten = DateTime.Now,
+                    MachineUNCName = "C:",
+                    ParentId = null,
+                    Depth = 2
+                };
+            }
+            else if (typeContext == typeof(WatchItem))
+            {
+                result = new WatchItem()
+                {
+                    Id = Guid.NewGuid(),
+                    Path = @"c:\fakefile.txt",
+                    InPassiveMode = false,
+                    Target = null
+                };
+            }
+            else if (typeContext == typeof(WardItem))
+            {
+                result = new WardItem()
+                {
+                    Id = Guid.NewGuid(),
+                    HDSL = @"find [dev] where extension = '.obj';",
+                    Interval = new TimeSpan(2, 0, 0),
+                    Path = @"C:\Development",
+                    NextScan = DateTime.Now,
+                    Target =  null
+                };
+            }
+            else if (typeContext == typeof(DiskItemHashLogItem))
+            {
+                result = new DiskItemHashLogItem()
+                {
+                    Id = Guid.NewGuid(),
+                    MachineUNCName = @"\\C\",
+                    NewFileHash = "DSFSDGFDFGDFGHDFGDFGFGHGJKYTUJGHJGHJ",
+                    Occurred = DateTime.Now,
+                    OldFileHash = "SDFGDFGDGH#RFEHTTIKHJKGHJGFHDFGDFG",
+                    ParentId = Guid.NewGuid(),
+                    Path = "fakefile.txt"
+                };
+            }
+
+            return result;
         }
     }
 }

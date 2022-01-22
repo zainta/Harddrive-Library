@@ -42,10 +42,12 @@ namespace HDDL.Web
         /// Executes a query remotely via the service
         /// </summary>
         /// <param name="code">The HDSL code to execute</param>
+        /// <param name="formatted">Request formatted or unformatted json</param>
         /// <returns>The result instance</returns>
-        public HDSLOutcomeSet Query(string code)
+        public HDSLOutcomeSet Query(string code, bool formatted = true)
         {
-            WebRequest request = WebRequest.Create($"{_address}/f/{Uri.EscapeUriString(code)}");
+            var formattingType = formatted ? "f" : "u";
+            WebRequest request = WebRequest.Create($"{_address}/{formattingType}/{Uri.EscapeUriString(code)}");
             request.Method = "GET";
             WebResponse response = request.GetResponse();
 

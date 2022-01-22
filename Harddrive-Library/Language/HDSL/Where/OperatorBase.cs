@@ -63,7 +63,7 @@ namespace HDDL.Language.HDSL.Where
         /// </summary>
         /// <param name="record">The record to evaluate</param>
         /// <returns>Returns the resulting outcome</returns>
-        public virtual bool Evaluate(DiskItem record)
+        public virtual bool Evaluate(HDDLRecordBase record)
         {
             throw new NotImplementedException();
         }
@@ -82,7 +82,7 @@ namespace HDDL.Language.HDSL.Where
 
             if (tokens.Peek().Type == HDSLTokenTypes.Where)
             {
-                tokens.Pop();
+                HDSLInterpreter.AppendStatementPiece(currentStatement, tokens.Pop());
             }
 
             // We build the structure using reverse token order due to how evaluation works

@@ -558,7 +558,7 @@ namespace HDDL.Language.HDSL
                 {
                     token = new HDSLToken(HDSLTokenTypes.HashLogs, keyword.ToString(), _row, _col, text);
                 }
-                else if (text == "_columns")
+                else if (text == "columns")
                 {
                     token = new HDSLToken(HDSLTokenTypes.Columns, keyword.ToString(), _row, _col, text);
                 }
@@ -570,7 +570,7 @@ namespace HDDL.Language.HDSL
                 {
                     token = new HDSLToken(HDSLTokenTypes.OrderBy, keyword.ToString(), _row, _col, text);
                 }
-                else if (text == "_columnmappings")
+                else if (text == "columnmappings")
                 {
                     token = new HDSLToken(HDSLTokenTypes.ColumnMappings, keyword.ToString(), _row, _col, text);
                 }
@@ -589,6 +589,10 @@ namespace HDDL.Language.HDSL
                 else if (text == "default")
                 {
                     token = new HDSLToken(HDSLTokenTypes.Default, keyword.ToString(), _row, _col, text);
+                }
+                else if (text == "page")
+                {
+                    token = new HDSLToken(HDSLTokenTypes.PageIndex, keyword.ToString(), _row, _col, text);
                 }
                 else if (IsDiskAttributeName(text))
                 {

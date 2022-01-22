@@ -61,6 +61,7 @@ namespace HDDL.Language.HDSL
         Alias,
         Span,
         Default,
+        PageIndex,
 
         // value keywords
         Now,

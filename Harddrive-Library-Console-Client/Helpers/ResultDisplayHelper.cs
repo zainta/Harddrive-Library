@@ -8,6 +8,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Text;
+using HDDL.Language.HDSL;
 
 namespace HDSL.ConsoleClient.Helpers
 {
@@ -51,7 +52,7 @@ namespace HDSL.ConsoleClient.Helpers
                     int rowsDisplayed = 0;
                     foreach (var row in result.Records)
                     {
-                        if (rowsDisplayed == 0 || (rowsDisplayed % 25) == 0)
+                        if (rowsDisplayed == 0 || (rowsDisplayed % HDSLConstants.Page_Size) == 0)
                         {
                             DisplayRow(result, row, false, embelish);
                         }
