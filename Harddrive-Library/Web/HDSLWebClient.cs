@@ -44,7 +44,7 @@ namespace HDDL.Web
         /// <param name="code">The HDSL code to execute</param>
         /// <param name="formatted">Request formatted or unformatted json</param>
         /// <returns>The result instance</returns>
-        public HDSLOutcomeSet Query(string code, bool formatted = true)
+        public HDSLOutcomeSet Query(string code, bool formatted = false)
         {
             var formattingType = formatted ? "f" : "u";
             WebRequest request = WebRequest.Create($"{_address}/{formattingType}/{Uri.EscapeUriString(code)}");

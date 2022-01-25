@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Harddrive-Library-Console-Client": {
+      "commandName": "Project",
+      "commandLineArgs": " -run: \"find columns id, path, size within @'E:\\HDSL Test Bed' where isfile = 1 order extension, size desc page 3;\" -r"
+    }
+  }
+}

@@ -905,7 +905,7 @@ namespace HDDL.Language.HDSL.Interpreter
             }
 
             var details = GetFindDetails(allowPaging, forcedTypeContext);
-            long totalPages = -1;
+            long totalRecords = -1;
             if (NoErrors() && !details.ResultsEmpty)
             {
                 HDSLResultBag result = null;
@@ -918,13 +918,13 @@ namespace HDDL.Language.HDSL.Interpreter
                         switch (details.Method)
                         {
                             case FindQueryDepths.In:
-                                results.AddRange(_dh.GetFilteredDiskItemsByIn(details, out totalPages));
+                                results.AddRange(_dh.GetFilteredDiskItemsByIn(details, out totalRecords));
                                 break;
                             case FindQueryDepths.Within:
-                                results.AddRange(_dh.GetFilteredDiskItemsByWithin(details, out totalPages));
+                                results.AddRange(_dh.GetFilteredDiskItemsByWithin(details, out totalRecords));
                                 break;
                             case FindQueryDepths.Under:
-                                results.AddRange(_dh.GetFilteredDiskItemsByUnder(details, out totalPages));
+                                results.AddRange(_dh.GetFilteredDiskItemsByUnder(details, out totalRecords));
                                 break;
                         }
                     }
@@ -934,25 +934,25 @@ namespace HDDL.Language.HDSL.Interpreter
                     }
 
                     // Done
-                    result = new HDSLResultBag(results, details.Columns, details.TableContext, _currentStatement.ToString(), totalPages, details.RecordsPerPage, details.PageIndex);
+                    result = new HDSLResultBag(results, details.Columns, details.TableContext, _currentStatement.ToString(), totalRecords, details.RecordsPerPage, details.PageIndex);
                 }
                 else if (details.TableContext == typeof(WardItem))
                 {
                     var results = new List<WardItem>();
-                    results.AddRange(_dh.GetFilteredWards(details, out totalPages));
-                    result = new HDSLResultBag(results, details.Columns, details.TableContext, _currentStatement.ToString(), totalPages, details.RecordsPerPage, details.PageIndex);
+                    results.AddRange(_dh.GetFilteredWards(details, out totalRecords));
+                    result = new HDSLResultBag(results, details.Columns, details.TableContext, _currentStatement.ToString(), totalRecords, details.RecordsPerPage, details.PageIndex);
                 }
                 else if (details.TableContext == typeof(WatchItem))
                 {
                     var results = new List<WatchItem>();
-                    results.AddRange(_dh.GetFilteredWatches(details, out totalPages));
-                    result = new HDSLResultBag(results, details.Columns, details.TableContext, _currentStatement.ToString(), totalPages, details.RecordsPerPage, details.PageIndex);
+                    results.AddRange(_dh.GetFilteredWatches(details, out totalRecords));
+                    result = new HDSLResultBag(results, details.Columns, details.TableContext, _currentStatement.ToString(), totalRecords, details.RecordsPerPage, details.PageIndex);
                 }
                 else if (details.TableContext == typeof(DiskItemHashLogItem))
                 {
                     var results = new List<DiskItemHashLogItem>();
-                    results.AddRange(_dh.GetFilteredHashLogs(details, out totalPages));
-                    result = new HDSLResultBag(results, details.Columns, details.TableContext, _currentStatement.ToString(), totalPages, details.RecordsPerPage, details.PageIndex);
+                    results.AddRange(_dh.GetFilteredHashLogs(details, out totalRecords));
+                    result = new HDSLResultBag(results, details.Columns, details.TableContext, _currentStatement.ToString(), totalRecords, details.RecordsPerPage, details.PageIndex);
                 }
 
                 // check for EoF / EoL

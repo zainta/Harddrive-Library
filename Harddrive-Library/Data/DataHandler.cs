@@ -215,15 +215,17 @@ namespace HDDL.Data
         /// <param name="details">The details to translate</param>
         /// <param name="depthSpecification">Any special additions to the where clause</param>
         /// <param name="pathFilterClause">Specifies how to filter the path field</param>
+        /// <param name="limitClauses">Contains the limiting clauses for paging</param>
         /// <returns></returns>
-        private string[] BuildFindSqlStatements(FindQueryDetails details, string pathFilterClause, string depthSpecification)
+        private string[] BuildFindSqlStatements(FindQueryDetails details, string pathFilterClause, string depthSpecification, out List<string> limitClauses)
         {
             List<string> sql = new List<string>();
+            limitClauses = new List<string>();
 
             foreach (var path in details.Paths)
             {
                 var filterClause = details.FurtherDetails?.ToSQL();
-                if (!string.IsNullOrWhiteSpace(filterClause)) filterClause = $"{filterClause} and ";
+                //if (!string.IsNullOrWhiteSpace(filterClause)) filterClause = $"{filterClause} and ";
 
                 if (details.TableContext == typeof(DiskItem))
                 {
@@ -238,12 +240,11 @@ namespace HDDL.Data
                 var statement =
                        @$"select * from {details.GetContextTableName()}
                        where 
-                       {pathFilterClause.Replace("[path]", path)} and
-                       {depthSpecification}
-                       {filterClause}
-                       id not in ( select id from {details.GetContextTableName()}
-                                   {details.GroupSortDetails.ToSQL()} limit {details.PageIndex * details.RecordsPerPage} )
-                       {details.GroupSortDetails.ToSQL()}  limit {details.RecordsPerPage}";
+                           {pathFilterClause.Replace("[path]", path)} and
+                           {depthSpecification}
+                           {filterClause}
+                       {details.GroupSortDetails.ToSQL()} ";
+                limitClauses.Add($"limit {details.RecordsPerPage} offset {details.PageIndex * details.RecordsPerPage}");
 
                 sql.Add(statement);
             }
@@ -256,8 +257,9 @@ namespace HDDL.Data
         /// </summary>
         /// <param name="details">The details to translate</param>
         /// <param name="pathFilterClause">Specifies how to filter the path field</param>
+        /// <param name="limitClause">Contains the limiting clauses for paging</param>
         /// <returns></returns>
-        private string BuildFindSqlStatement(FindQueryDetails details, string pathFilterClause)
+        private string BuildFindSqlStatement(FindQueryDetails details, string pathFilterClause, out string limitClause)
         {
             var filterClause = details.FurtherDetails?.ToSQL();
             if (!string.IsNullOrWhiteSpace(filterClause)) filterClause = $"{filterClause} and ";
@@ -265,10 +267,10 @@ namespace HDDL.Data
             var statement =
                    @$"select * from {details.GetContextTableName()}
                        where 
-                       {pathFilterClause}{filterClause}
-                       id not in ( select id from {details.GetContextTableName()}
-                                   {details.GroupSortDetails.ToSQL()} limit {details.PageIndex * details.RecordsPerPage} )
-                       {details.GroupSortDetails.ToSQL()}  limit {details.RecordsPerPage}";
+                           {pathFilterClause}
+                           {filterClause}
+                       {details.GroupSortDetails.ToSQL()} "; 
+            limitClause = $"limit {details.RecordsPerPage} offset {details.PageIndex * details.RecordsPerPage}";
 
             return statement;
         }
@@ -696,8 +698,8 @@ namespace HDDL.Data
             var pathListing = string.Join("','", details?.Paths);
             var results = new List<DiskItemHashLogItem>();
 
-            var sql = BuildFindSqlStatement(details, string.IsNullOrWhiteSpace(pathListing) ? string.Empty : $"path in ('{pathListing}') and ");
-            var records = ExecuteReader(sql);
+            var sql = BuildFindSqlStatement(details, string.IsNullOrWhiteSpace(pathListing) ? string.Empty : $"path in ('{pathListing}') and ", out string limitClause);
+            var records = ExecuteReader(sql + limitClause);
             while (records.Read())
             {
                 results.Add(new DiskItemHashLogItem(records));
@@ -816,8 +818,8 @@ namespace HDDL.Data
             var pathListing = string.Join("','", details?.Paths);
             var results = new List<WatchItem>();
 
-            var sql = BuildFindSqlStatement(details, string.IsNullOrWhiteSpace(pathListing) ? string.Empty : $"path in ('{pathListing}') and ");
-            var records = ExecuteReader(sql);
+            var sql = BuildFindSqlStatement(details, string.IsNullOrWhiteSpace(pathListing) ? string.Empty : $"path in ('{pathListing}') and ", out string limitClause);
+            var records = ExecuteReader(sql + limitClause);
             while (records.Read())
             {
                 DiskItem di = null;
@@ -1032,8 +1034,8 @@ namespace HDDL.Data
             var pathListing = string.Join("','", details?.Paths);
             var results = new List<WardItem>();
 
-            var sql = BuildFindSqlStatement(details, string.IsNullOrWhiteSpace(pathListing) ? string.Empty : $"path in ('{pathListing}') and ");
-            var records = ExecuteReader(sql);
+            var sql = BuildFindSqlStatement(details, string.IsNullOrWhiteSpace(pathListing) ? string.Empty : $"path in ('{pathListing}') and ", out string limitClause);
+            var records = ExecuteReader(sql + limitClause);
             while (records.Read())
             {
                 DiskItem di = null;
@@ -1619,9 +1621,9 @@ namespace HDDL.Data
         {
             var queries = new List<string>();
             var results = new List<DiskItem>();
-            queries.AddRange(BuildFindSqlStatements(details, "path like '[path]%'", depthSpecification));
+            queries.AddRange(BuildFindSqlStatements(details, "path like '[path]%'", depthSpecification, out List<string> limitClauses));
 
-            var reader = ExecuteReader(string.Join('\n', queries));
+            var reader = ExecuteReader(string.Join('\n', from q in queries select q + limitClauses[queries.IndexOf(q)]));
             if (reader.HasRows)
             {
                 do

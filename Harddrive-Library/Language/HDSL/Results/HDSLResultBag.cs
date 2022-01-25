@@ -37,9 +37,9 @@ namespace HDDL.Language.HDSL.Results
         public string Statement { get; private set; }
 
         /// <summary>
-        /// The total number of pages found by the query
+        /// The total number of records found by the query
         /// </summary>
-        public long TotalPages { get; internal set; }
+        public long TotalRecords { get; internal set; }
 
         /// <summary>
         /// The number of records returned per page
@@ -60,14 +60,14 @@ namespace HDDL.Language.HDSL.Results
         /// <param name="statement">The HDSL statement that produced these results</param>
         /// <param name="pageIndex">The current page index returned</param>
         /// <param name="recordsPerPage">The number of records returned per page</param>
-        /// <param name="totalPages">The total number of pages found by the query</param>
-        public HDSLResultBag(IEnumerable<HDDLRecordBase> records, ColumnHeaderSet columns, Type type, string statement, long totalPages, long recordsPerPage, long pageIndex)
+        /// <param name="totalRecords">The total number of records found by the query</param>
+        public HDSLResultBag(IEnumerable<HDDLRecordBase> records, ColumnHeaderSet columns, Type type, string statement, long totalRecords, long recordsPerPage, long pageIndex)
         {
             RecordType = type;
             Columns = columns;
             Records = records.ToArray();
             Statement = statement;
-            TotalPages = totalPages;
+            TotalRecords = totalRecords;
             RecordsPerPage = recordsPerPage;
             PageIndex = pageIndex;
         }
@@ -82,7 +82,7 @@ namespace HDDL.Language.HDSL.Results
             {
                 PageIndex = PageIndex,
                 RecordsPerPage = RecordsPerPage,
-                TotalPages = TotalPages
+                TotalRecords = TotalRecords
             };
         }
     }
