@@ -59,8 +59,8 @@ HDSL offers a shorthand parameter alternative format that, while less legible, a
 
 ## The Hard Drive Search Language
 HDSL is a simple query language designed for the retrieval of files and directories based on their locations and characteristics.  The system currently implements the following statements:
- * `find [filesystem - default] [columns columnref[, columnref]] [in/within/under [path[, path, path]]] [where clause] [group clause] [order clause];` or
-   `find [wards | watches | hashlogs] [columns columnref[, columnref]] [path[, path, path]] [where clause] [group clause] [order clause];`
+ * `find [filesystem - default] [columns columnref[, columnref]] [in/within/under [path[, path, path]]] [where clause] [group clause] [order clause] [paging clause];` or
+   `find [wards | watches | hashlogs] [columns columnref[, columnref]] [path[, path, path]] [where clause] [group clause] [order clause] [paging clause];`
    * Retrieves the items that match the query and displays them.
    * The following statements all do the same thing -- they search for .dll files in C:\Windows\System32 that are under 1mb in size.
      * e.g `find in 'C:\Windows\System32' where Size < 1024000 and Extension = '.dll';`

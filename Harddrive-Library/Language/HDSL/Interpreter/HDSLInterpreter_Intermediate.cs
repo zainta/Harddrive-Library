@@ -17,7 +17,7 @@ namespace HDDL.Language.HDSL.Interpreter
     /// </summary>
     partial class HDSLInterpreter
     {
-        private const long Default_Page_Index = 0;
+        private const long Default_Page_Index = -1;
 
         /// <summary>
         /// Interprets and returns a single path

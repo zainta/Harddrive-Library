@@ -43,7 +43,14 @@ namespace HDSL.ConsoleClient.Helpers
                         Console.WriteLine();
                         Console.WriteLine($"Results for '{result.Statement}':");
                         Console.WriteLine();
-                        Console.WriteLine($"Displaying Page {result.PageIndex + 1} of {(result.TotalRecords / result.RecordsPerPage) + 1} total.  {result.TotalRecords} Records.");
+                        if (result.PageIndex >= 0)
+                        {
+                            Console.WriteLine($"Displaying Page {result.PageIndex + 1} of {(result.TotalRecords / result.RecordsPerPage) + 1} total.  {result.TotalRecords} Records.");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Displaying {result.TotalRecords} Records.");
+                        }
                     }
                     else
                     {

@@ -248,7 +248,14 @@ namespace HDDL.Data
                            {depthSpecification}
                            {filterClause}
                        {details.GroupSortDetails.ToSQL()} ";
-                limitClauses.Add($"limit {details.RecordsPerPage} offset {details.PageIndex * details.RecordsPerPage}");
+                if (details.PageIndex >= 0)
+                {
+                    limitClauses.Add($"limit {details.RecordsPerPage} offset {details.PageIndex * details.RecordsPerPage}");
+                }
+                else
+                {
+                    limitClauses.Add(string.Empty);
+                }
 
                 sql.Add(statement);
             }
@@ -274,7 +281,14 @@ namespace HDDL.Data
                            {pathFilterClause}
                            {filterClause}
                        {details.GroupSortDetails.ToSQL()} "; 
-            limitClause = $"limit {details.RecordsPerPage} offset {details.PageIndex * details.RecordsPerPage}";
+            if (details.PageIndex >= 0)
+            {
+                limitClause = $"limit {details.RecordsPerPage} offset {details.PageIndex * details.RecordsPerPage}";
+            }
+            else
+            {
+                limitClause = string.Empty;
+            }
 
             return statement;
         }
