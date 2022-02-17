@@ -18,6 +18,25 @@ namespace HDDL.Language.HDSL
     public class HDSLProvider
     {
         /// <summary>
+        /// Tokenizes the provided HDSL and returns the resulting tokens
+        /// </summary>
+        /// <param name="code">The code to execute</param>
+        /// <param name="dbPath">The file index database to use</param>
+        /// <param name="tokenPermissions">An optional list instance defining which tokens can be generated</param>
+        /// <returns>The resulting tokens</returns>
+        public static ListStack<HDSLToken> Tokenize(string code, string dbPath, HDSLListManager tokenPermissions = null)
+        {
+            HDSLTokenizer t = null;
+            using (var dh = DataHandler.Get(dbPath))
+            {
+                t = new HDSLTokenizer(true, dh.GetAllColumnNameMappings());
+                var logs = t.Tokenize(code, tokenPermissions);
+            }
+
+            return t.Tokens;
+        }
+
+        /// <summary>
         /// Runs a chunk of code as a query against the indexed files in the database
         /// </summary>
         /// <param name="code">The code to execute</param>
@@ -29,7 +48,7 @@ namespace HDDL.Language.HDSL
             HDSLOutcomeSet result;
             using (var dh = DataHandler.Get(dbPath))
             {
-                var t = new HDSLTokenizer(true, dh);
+                var t = new HDSLTokenizer(true, dh.GetAllColumnNameMappings());
                 var logs = t.Tokenize(code, tokenPermissions);
                 if (logs.Length == 0)
                 {
@@ -54,7 +73,7 @@ namespace HDDL.Language.HDSL
         public static HDSLOutcomeSet ExecuteCode(string code, DataHandler dh, HDSLListManager tokenPermissions = null)
         {
             HDSLOutcomeSet result;
-            var t = new HDSLTokenizer(true, dh);
+            var t = new HDSLTokenizer(true, dh.GetAllColumnNameMappings());
             var logs = t.Tokenize(code, tokenPermissions);
             if (logs.Length == 0)
             {

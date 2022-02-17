@@ -23,6 +23,16 @@ namespace HDDL.Data
         /// </summary>
         public string ConnectionString { get; }
 
+        #region Column Name Mapping Related
+
+        /// <summary>
+        /// Retrieves and returns the ColumnNameMappings
+        /// </summary>
+        /// <returns></returns>
+        public List<ColumnNameMappingItem> GetAllColumnNameMappings();
+
+        #endregion
+
         #region DiskItemHashLog Related
 
         /// <summary>

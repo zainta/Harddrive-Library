@@ -20,6 +20,21 @@ namespace HDDL.Language.Json.Conversion
         }
 
         /// <summary>
+        /// Checks a sub-section of a given string against a regular expression
+        /// </summary>
+        /// <param name="str">The string to check</param>
+        /// <param name="pattern">The pattern to use</param>
+        /// <param name="startSkip">The number of characters at the start to skip</param>
+        /// <param name="endIgnore">The number of characters at the end to ignore</param>
+        /// <returns>True upon match, false otherwise</returns>
+        private bool IsMatch(string str, string pattern, int startSkip = 1, int endIgnore = 1)
+        {
+            return System.Text.RegularExpressions.Regex.IsMatch(
+                str.Substring(startSkip, str.Length - endIgnore),
+                pattern);
+        }
+
+        /// <summary>
         /// The tokenize the json
         /// </summary>
         /// <param name="json">The json string to tokenize</param>
@@ -119,26 +134,33 @@ namespace HDDL.Language.Json.Conversion
         /// <returns>Whether or not a token was generated (if not, implies an error)</returns>
         bool GetString()
         {
-            string[] str;
+            string[] str = null;
             switch (Peek())
             {
                 case '\'':
                     str = GetPairedSet('\'', '\'', null);
-                    if (str != null)
-                    {
-                        Tokens.Add(new JsonToken(JsonTokenTypes.String, str[1], str[0], _row, _col));
-                        return true;
-                    }
                     break;
                 case '"':
                     str = GetPairedSet('"', '"', null);
-                    if (str != null)
-                    {
-                        Tokens.Add(new JsonToken(JsonTokenTypes.String, str[1], str[0], _row, _col));
-                        return true;
-                    }
                     break;
             }
+
+            if (str != null)
+            {
+                // check what kind of string it is
+                // for now, we'll just check for boolean and *anything else*
+                if (IsMatch(str[0], "[Tt][Rr][Uu][Ee]") || IsMatch(str[0], "[Ff][Aa][Ll][Ss][Ee]"))
+                {
+                    Tokens.Add(new JsonToken(JsonTokenTypes.Boolean, str[1], str[0], _row, _col));
+                    return true;
+                }
+                else
+                {
+                    Tokens.Add(new JsonToken(JsonTokenTypes.String, str[1], str[0], _row, _col));
+                    return true;
+                }
+            }
+
             return false;
         }
 
@@ -177,6 +199,15 @@ namespace HDDL.Language.Json.Conversion
             var number = new StringBuilder();
             var done = false;
             var decimaled = false;
+
+            // check if this is a negative number
+            if (More(1) && Peek() == '-' &&
+                    char.IsDigit(Peek(1)))
+            {
+                number.Append("-");
+                Pop();
+            }
+
             while (!done)
             {
                 if (More() && !char.IsDigit(Peek()))

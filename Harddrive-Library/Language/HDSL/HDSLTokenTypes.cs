@@ -7,7 +7,7 @@ namespace HDDL.Language.HDSL
     /// <summary>
     /// Defines the types of tokens used by Hard Drive Search Language (HDSL)
     /// </summary>
-    enum HDSLTokenTypes
+    public enum HDSLTokenTypes
     {
         // Data Types
 

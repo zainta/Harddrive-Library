@@ -7,7 +7,7 @@ namespace HDDL.Language.HDSL
     /// <summary>
     /// Defines the general families all token types belong to
     /// </summary>
-    enum HDSLTokenFamilies
+    public enum HDSLTokenFamilies
     {
         Unknown,
         DataTypes,

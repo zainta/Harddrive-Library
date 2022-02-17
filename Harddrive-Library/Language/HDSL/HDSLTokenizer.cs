@@ -5,6 +5,7 @@
 using HDDL.Data;
 using HDDL.Language.HDSL.Permissions;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -29,17 +30,17 @@ namespace HDDL.Language.HDSL
         /// <summary>
         /// Used for _column header tokens
         /// </summary>
-        private DataHandler _dh;
+        private ColumnNameMappingItem[] _mappings;
 
         /// <summary>
         /// Create a tokenizer for use
         /// </summary>
         /// <param name="ignoreWhitespace">Whether or not to generate whitespace tokens</param>
-        /// <param name="dh">The datahandler to use</param>
-        public HDSLTokenizer(bool ignoreWhitespace, DataHandler dh) : base()
+        /// <param name="mappings">The column name mappings to use for tokenization</param>
+        public HDSLTokenizer(bool ignoreWhitespace, IEnumerable<ColumnNameMappingItem> mappings) : base()
         {
             this.ignoreWhitespace = ignoreWhitespace;
-            _dh = dh;
+            _mappings = mappings.ToArray();
             PermittedTokenTypes = null;
         }
 
@@ -99,7 +100,11 @@ namespace HDDL.Language.HDSL
                     Add(new HDSLToken(HDSLTokenTypes.Colon, Pop(), _row, _col, ":"));
                     continue;
                 }
-                else if (More() && char.IsDigit(Peek()) && GetNumbers()) // Whole and real numbers
+                else if (
+                    (
+                        (More() && char.IsDigit(Peek())) ||
+                        (More(1) && Peek() == '-' && char.IsDigit(Peek(1)))
+                    ) && GetNumbers()) // Whole and real numbers
                 {
                     continue;
                 }
@@ -160,7 +165,7 @@ namespace HDDL.Language.HDSL
         /// <returns>The _columnNameMappingItem instance, if found, or null</returns>
         private ColumnNameMappingItem Get_columnNameOrAlias(string text)
         {
-            var matches = (from mapping in _dh.GetAllColumnNameMappings()
+            var matches = (from mapping in _mappings
                            where
                                 mapping.Name.Equals(text, StringComparison.InvariantCultureIgnoreCase) ||
                                 mapping.Alias.Equals(text, StringComparison.InvariantCultureIgnoreCase)
@@ -260,6 +265,15 @@ namespace HDDL.Language.HDSL
             var number = new StringBuilder();
             var done = false;
             var decimaled = false;
+
+            // check if this is a negative number
+            if (More(1) && Peek() == '-' &&
+                    char.IsDigit(Peek(1)))
+            {
+                number.Append("-");
+                Pop();
+            }
+
             while (!done)
             {
                 if (More() && !char.IsDigit(Peek()))

@@ -7,6 +7,7 @@ using System;
 using System.IO;
 using System.Net;
 using HDDL.Language.Json;
+using HDDL.Data;
 
 namespace HDDL.Web
 {
@@ -53,6 +54,22 @@ namespace HDDL.Web
 
             var json = ReadEntirety(response);
             var result = JsonConverter.GetObject<HDSLOutcomeSet>(json);
+
+            return result;
+        }
+
+        /// <summary>
+        /// Remotely retrieves and returns the defined column mappings
+        /// </summary>
+        /// <returns>The column mappings array</returns>
+        public ColumnNameMappingItem[] GetMappings()
+        {
+            WebRequest request = WebRequest.Create($"{_address}/mappings");
+            request.Method = "GET";
+            WebResponse response = request.GetResponse();
+
+            var json = ReadEntirety(response);
+            var result = JsonConverter.GetObject<ColumnNameMappingItem[]>(json);
 
             return result;
         }

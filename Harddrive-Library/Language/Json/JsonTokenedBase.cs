@@ -25,8 +25,7 @@ namespace HDDL.Language.Json
         /// <returns>Any issues encountered along the way</returns>
         protected LogItemBase[] Process(string json)
         {
-            _jt.Tokenize(json);
-            return _jt.Outcome.ToArray();
+            return _jt.Tokenize(json);
         }
 
         /// <summary>

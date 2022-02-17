@@ -80,7 +80,7 @@ namespace HDDL.Language.Json.Conversion
 
         public override string ToString()
         {
-            if (Value is string || Value is Guid)
+            if (Value is string || Value is Guid || Value is bool)
             {
                 return $"{Value.GetType().Name}, '{Value}'";
             }

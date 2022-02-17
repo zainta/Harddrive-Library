@@ -230,7 +230,11 @@ namespace HDDL.Data
                 if (details.TableContext == typeof(DiskItem))
                 {
                     var depth = PathHelper.GetDependencyCount(new DiskItemType(path, false));
-                    depthSpecification = $"{depthSpecification} and ".Replace("[current]", depth.ToString());
+                    depthSpecification = $"{depthSpecification} ".Replace("[current]", depth.ToString());
+                    if (!string.IsNullOrWhiteSpace(filterClause))
+                    {
+                        depthSpecification = $"{depthSpecification}and ";
+                    }
                 }
                 else
                 {

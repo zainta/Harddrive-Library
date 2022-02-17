@@ -7,7 +7,7 @@ namespace HDDL.Language.HDSL
     /// <summary>
     /// Represents a piece of HDSL code
     /// </summary>
-    class HDSLToken
+    public class HDSLToken
     {
         private HDSLTokenTypes type;
         /// <summary>
@@ -152,7 +152,7 @@ namespace HDDL.Language.HDSL
         /// <param name="row">The starting row</param>
         /// <param name="column">The starting column</param>
         /// <param name="literal">The text's rendered equivalent</param>
-        public HDSLToken(HDSLTokenTypes type, string code, int row, int column, string literal)
+        internal HDSLToken(HDSLTokenTypes type, string code, int row, int column, string literal)
         {
             Type = type;
             Code = code;
@@ -169,7 +169,7 @@ namespace HDDL.Language.HDSL
         /// <param name="row">The starting row</param>
         /// <param name="column">The starting column</param>
         /// <param name="literal">The text's rendered equivalent</param>
-        public HDSLToken(HDSLTokenTypes type, char code, int row, int column, string literal)
+        internal HDSLToken(HDSLTokenTypes type, char code, int row, int column, string literal)
         {
             Type = type;
             Code = code.ToString();

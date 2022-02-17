@@ -5,10 +5,13 @@
 using HDDL.Collections;
 using HDDL.Language.Json.Reflection;
 using System;
+using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
+using System.Collections.Concurrent;
+using System.Threading.Tasks;
 
 namespace HDDL.Language.Json.Conversion
 {
@@ -124,9 +127,8 @@ namespace HDDL.Language.Json.Conversion
         /// Converts the provided object into json
         /// </summary>
         /// <param name="obj">The json to convert</param>
-        /// <param name="includeFields">Whether or not to include fields, defaults to false</param>
         /// <returns>The resulting json string</returns>
-        public static string GetJson(object obj, bool includeFields = false)
+        public static string GetJson(object obj)
         {
             if (obj is null)
             {
@@ -134,11 +136,11 @@ namespace HDDL.Language.Json.Conversion
             }
             else if (obj is IConvertible || obj is Guid)
             {
-                return GetSingleJson(obj, includeFields);
+                return GetSingleJson(obj);
             }
-            else if (obj is IEnumerable)
+            else if (obj is IList)
             {
-                return GetArrayJson((IEnumerable)obj);
+                return GetArrayJson((IList)obj);
             }
             else
             {
@@ -152,7 +154,7 @@ namespace HDDL.Language.Json.Conversion
         /// <param name="o">The value to convert</param>
         /// <param name="includeFields">Whether or not to include fields, defaults to false</param>
         /// <returns>Returns a json string for a single item array</returns>
-        private static string GetSingleJson(object o, bool includefields)
+        private static string GetSingleJson(object o)
         {
             return GetArrayJson(new object[] { o });
         }
@@ -162,25 +164,21 @@ namespace HDDL.Language.Json.Conversion
         /// </summary>
         /// <param name="o">The IEnumerable instance to convert</param>
         /// <returns>The resulting json string</returns>
-        private static string GetArrayJson(IEnumerable o)
+        private static string GetArrayJson(IList o)
         {
-            var ja = GetAsArray(o);
             var result = new StringBuilder("[");
-
-            var first = true;
-            foreach (var obj in o)
-            {
-                if (first)
+            ConcurrentBag<OrderedJSONCarriage> items = new ConcurrentBag<OrderedJSONCarriage>();
+            Parallel.For(0, o.Count, 
+                (index) =>
                 {
-                    first = false;
-                }
-                else
-                {
-                    result.Append(",");
-                }
-
-                result.Append(GetItemJson(obj));
-            }
+                    items.Add(new OrderedJSONCarriage(index, GetItemJson(o[index])));
+                });
+            
+            result.Append(
+                string.Join(",", (from item in items
+                                  orderby item.Index ascending
+                                  select item.Json).ToArray())
+                );
             result.Append("]");
 
             return result.ToString();
@@ -227,7 +225,7 @@ namespace HDDL.Language.Json.Conversion
             var result = new StringBuilder();
             if (o is IConvertible)
             {
-                if (o is string)
+                if (o is string || o is bool)
                 {
                     result.Append($"\"{o}\"");
                 }
@@ -236,9 +234,9 @@ namespace HDDL.Language.Json.Conversion
                     result.Append(o.ToString());
                 }
             }
-            else if (o is IEnumerable)
+            else if (o is IList)
             {
-                result.Append(GetArrayJson((IEnumerable)o));
+                result.Append(GetArrayJson((IList)o));
             }
             else if (o is Guid)
             {
