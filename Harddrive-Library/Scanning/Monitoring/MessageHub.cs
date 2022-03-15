@@ -110,7 +110,7 @@ namespace HDDL.Scanning.Monitoring
 
                 if (focus == null)
                 {
-                    Task.Delay(1000).Wait();
+                    Task.Delay(100).Wait();
                 }
                 else
                 {

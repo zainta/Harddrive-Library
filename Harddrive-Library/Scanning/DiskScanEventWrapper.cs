@@ -386,6 +386,15 @@ namespace HDDL.Scanning
         private void Scanner_ScanDatabaseActivityCompleted(DiskScan scanner, long additions, long updates, long deletions)
         {
             Result = new HDSLScanOutcome(new DiskItem[] { }, additions, updates, deletions, null, _columnHeaders, null);
+            if (Result.TotalRecords == 0)
+            {
+                Result.TotalRecords = additions + updates;
+            }
+
+            if (Result.RecordsPerPage == 0)
+            {
+                Result.RecordsPerPage = Result.TotalRecords;
+            }
         }
 
         private void Scanner_DeletionsOccurred(DiskScan scanner, long total)

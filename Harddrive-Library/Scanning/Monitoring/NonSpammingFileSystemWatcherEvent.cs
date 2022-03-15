@@ -42,6 +42,7 @@ namespace HDDL.Scanning.Monitoring
         {
             EventType = NonSpammingFileSystemWatcherEventTypes.DiskEvent;
             Nature = nature;
+            DiskEventDetails = e;
         }
 
         /// <summary>

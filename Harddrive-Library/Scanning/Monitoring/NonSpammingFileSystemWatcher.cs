@@ -48,11 +48,6 @@ namespace HDDL.Scanning.Monitoring
         private IEnumerable<string> _exclusions;
 
         /// <summary>
-        /// The non-spamming file system watcher's backlog of events
-        /// </summary>
-        public ConcurrentQueue<NonSpammingFileSystemWatcherEvent> Events { get; private set; }
-
-        /// <summary>
         /// Creates a non-spamming file system watcher to monitor the given location
         /// </summary>
         /// <param name="path">The path to monitor</param>
@@ -61,7 +56,6 @@ namespace HDDL.Scanning.Monitoring
         /// <param name="exclusions">A list of files and directories to ignore modifications to</param>
         public NonSpammingFileSystemWatcher(string path, MessagingModes messenging, IEnumerable<string> exclusions = null, string filter = "*.*") : base(messenging)
         {
-            Events = new ConcurrentQueue<NonSpammingFileSystemWatcherEvent>();
             _exclusions = exclusions == null ? new string[] { } : exclusions;
             _path = path;
             _watcher = new FileSystemWatcher();
