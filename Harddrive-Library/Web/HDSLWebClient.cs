@@ -47,13 +47,32 @@ namespace HDDL.Web
         /// <returns>The result instance</returns>
         public HDSLOutcomeSet Query(string code, bool formatted = false)
         {
-            var formattingType = formatted ? "f" : "u";
+            var formattingType = formatted ? "qf" : "qu";
             WebRequest request = WebRequest.Create($"{_address}/{formattingType}/{Uri.EscapeUriString(code)}");
             request.Method = "GET";
             WebResponse response = request.GetResponse();
 
             var json = ReadEntirety(response);
             var result = JsonConverter.GetObject<HDSLOutcomeSet>(json);
+
+            return result;
+        }
+
+        /// <summary>
+        /// Executes a WideSearch remotely via the service
+        /// </summary>
+        /// <param name="query">The query text to send</param>
+        /// <param name="formatted">Request formatted or unformatted json</param>
+        /// <returns>The result instance</returns>
+        public HDDLRecordBase[] Search(string query, bool formatted = false)
+        {
+            var formattingType = formatted ? "sf" : "su";
+            WebRequest request = WebRequest.Create($"{_address}/{formattingType}/{Uri.EscapeUriString(query)}");
+            request.Method = "GET";
+            WebResponse response = request.GetResponse();
+
+            var json = ReadEntirety(response);
+            var result = JsonConverter.GetObject<HDDLRecordBase[]>(json);
 
             return result;
         }
@@ -83,7 +102,7 @@ namespace HDDL.Web
         {
             try
             {
-                WebRequest request = WebRequest.Create($"{address}/hi");
+                WebRequest request = WebRequest.Create($"{address}{(address.EndsWith('/') ? string.Empty : "/")}hi");
                 request.Method = "GET";
                 WebResponse response = request.GetResponse();
 

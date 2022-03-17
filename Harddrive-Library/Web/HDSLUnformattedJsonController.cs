@@ -14,7 +14,7 @@ namespace HDDL.Web
     /// <summary>
     /// The HDSLWeb API controller
     /// </summary>
-    [Route("u")]
+    [Route("qu")]
     [ApiController]
     public class HDSLUnformattedJsonController : Controller
     {

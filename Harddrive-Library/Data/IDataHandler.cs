@@ -23,6 +23,13 @@ namespace HDDL.Data
         /// </summary>
         public string ConnectionString { get; }
 
+        /// <summary>
+        /// Performs a primary field (path, name, etc) contains text search against all indicated record types
+        /// </summary>
+        /// <param name="text">The query text</param>
+        /// <returns>The query's results</returns>
+        public HDDLRecordBase[] WideSearch(string text);
+
         #region Column Name Mapping Related
 
         /// <summary>

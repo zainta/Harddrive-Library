@@ -483,6 +483,34 @@ namespace HDDL.Data
             }
         }
 
+        /// <summary>
+        /// Performs a primary field (path, name, etc) contains text search against all indicated record types
+        /// </summary>
+        /// <param name="text">The query text</param>
+        /// <returns>The query's results</returns>
+        public HDDLRecordBase[] WideSearch(string text)
+        {
+            List<HDDLRecordBase> results = new List<HDDLRecordBase>();
+
+            using (var diskitems = ExecuteReader($"select * from diskitems where path like '%{text}%'"))
+            {
+                while (diskitems.Read())
+                {
+                    results.Add(new DiskItem(diskitems));
+                }
+            }
+
+            using (var bookmarks = ExecuteReader($"select * from bookmarks where itemName like '%{text}%'"))
+            {
+                while (bookmarks.Read())
+                {
+                    results.Add(new BookmarkItem(bookmarks));
+                }
+            }
+
+            return results.ToArray();
+        }
+
         #endregion
 
         #region Column Name Mappings

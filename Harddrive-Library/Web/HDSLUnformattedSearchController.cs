@@ -14,15 +14,15 @@ namespace HDDL.Web
     /// <summary>
     /// The HDSLWeb API controller
     /// </summary>
-    [Route("qf")]
+    [Route("su")]
     [ApiController]
-    public class HDSLFormattedJsonController : Controller
+    public class HDSLUnformattedSearchController : Controller
     {
         private IDataHandler _dh;
         private IInitializationFileManager _ini;
         private HDSLListManager _grayManager;
 
-        public HDSLFormattedJsonController(IDataHandler dh, IInitializationFileManager ini)
+        public HDSLUnformattedSearchController(IDataHandler dh, IInitializationFileManager ini)
         {
             _dh = dh;
             _ini = ini;
@@ -30,27 +30,27 @@ namespace HDDL.Web
         }
 
         /// <summary>
-        /// Executes an HDSL statement against the database
+        /// Performs a wide query against all disk items and bookmarks
         /// </summary>
-        /// <param name="code">The code to execute</param>
+        /// <param name="text">The search text</param>
         /// <returns></returns>
-        [HttpGet("{code}")]
-        public IActionResult Get(string code)
+        [HttpGet("{text}")]
+        public IActionResult Get(string text)
         {
-            var result = HDSLProvider.ExecuteCode(code, _dh as DataHandler, _grayManager);
-            return Ok(JsonConverter.GetJson(result, true));
+            var result = _dh.WideSearch(text);
+            return Ok(JsonConverter.GetJson(result, false));
         }
 
         /// <summary>
-        /// Executes an HDSL statement against the database
+        /// Performs a wide query against all disk items and bookmarks
         /// </summary>
-        /// <param name="code">The code to execute</param>
+        /// <param name="text">The search text</param>
         /// <returns></returns>
-        [HttpPost("{code}")]
-        public IActionResult Post(string code)
+        [HttpPost("{text}")]
+        public IActionResult Post(string text)
         {
-            var result = HDSLProvider.ExecuteCode(code, _dh as DataHandler, _grayManager);
-            return Ok(JsonConverter.GetJson(result, true));
+            var result = _dh.WideSearch(text);
+            return Ok(JsonConverter.GetJson(result, false));
         }
     }
 }
