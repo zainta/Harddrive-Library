@@ -305,7 +305,7 @@ namespace HDDL.Scanning
             DiskItem record = null;
             try
             {
-                var parentId = GetParentDirectoryId(item);
+                Guid? parentId = GetParentDirectoryId(item);
                 var fullName = item.IsFile ? item.FInfo.FullName : item.DInfo.FullName;
                 // see if the record exists
                 record = _dh.GetDiskItemByPath(fullName);
@@ -453,13 +453,14 @@ namespace HDDL.Scanning
 
             if (parent != null)
             {
-                if (_lookupTable.ContainsKey(parent.FullName))
+                var p = PathHelper.EnsurePath(parent.FullName);
+                if (_lookupTable.ContainsKey(p))
                 {
-                    return _lookupTable[parent.FullName];
+                    return _lookupTable[p];
                 }
                 else
                 {
-                    var record = _dh.GetDiskItemByPath(parent.FullName);
+                    var record = _dh.GetDiskItemByPath(p);
                     if (record != null)
                     {
                         AddRecordToLookup(record);
