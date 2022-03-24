@@ -34,10 +34,10 @@ namespace HDDL.Web
         /// </summary>
         /// <param name="text">The search text</param>
         /// <returns></returns>
-        [HttpGet("{text}")]
-        public IActionResult Get(string text)
+        [HttpGet("{pageIndex}/{text}")]
+        public IActionResult Get(string text, int pageIndex = 0)
         {
-            var result = _dh.WideSearch(text);
+            var result = _dh.WideSearch(text, pageIndex, 300);
             return Ok(JsonConverter.GetJson(result, false));
         }
 
@@ -46,10 +46,10 @@ namespace HDDL.Web
         /// </summary>
         /// <param name="text">The search text</param>
         /// <returns></returns>
-        [HttpPost("{text}")]
-        public IActionResult Post(string text)
+        [HttpPost("{pageIndex}/{text}")]
+        public IActionResult Post(string text, int pageIndex = 0)
         {
-            var result = _dh.WideSearch(text);
+            var result = _dh.WideSearch(text, pageIndex, 300);
             return Ok(JsonConverter.GetJson(result, false));
         }
     }

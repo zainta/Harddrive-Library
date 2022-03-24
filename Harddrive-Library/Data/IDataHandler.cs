@@ -27,8 +27,10 @@ namespace HDDL.Data
         /// Performs a primary field (path, name, etc) contains text search against all indicated record types
         /// </summary>
         /// <param name="text">The query text</param>
+        /// <param name="pageIndex">The page index to return</param>
+        /// <param name="recordsPerPage">The number of records to count as a page</param>
         /// <returns>The query's results</returns>
-        public HDDLRecordBase[] WideSearch(string text);
+        public HDDLRecordBase[] WideSearch(string text, int pageIndex, int recordsPerPage);
 
         #region Column Name Mapping Related
 

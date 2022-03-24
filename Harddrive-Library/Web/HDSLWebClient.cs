@@ -62,12 +62,13 @@ namespace HDDL.Web
         /// Executes a WideSearch remotely via the service
         /// </summary>
         /// <param name="query">The query text to send</param>
+        /// <param name="pageIndex">The query result page to return</param>
         /// <param name="formatted">Request formatted or unformatted json</param>
         /// <returns>The result instance</returns>
-        public HDDLRecordBase[] Search(string query, bool formatted = false)
+        public HDDLRecordBase[] Search(string query, int pageIndex = 0, bool formatted = false)
         {
             var formattingType = formatted ? "sf" : "su";
-            WebRequest request = WebRequest.Create($"{_address}/{formattingType}/{Uri.EscapeUriString(query)}");
+            WebRequest request = WebRequest.Create($"{_address}/{formattingType}/{pageIndex}/{Uri.EscapeUriString(query)}");
             request.Method = "GET";
             WebResponse response = request.GetResponse();
 

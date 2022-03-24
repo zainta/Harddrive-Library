@@ -487,12 +487,15 @@ namespace HDDL.Data
         /// Performs a primary field (path, name, etc) contains text search against all indicated record types
         /// </summary>
         /// <param name="text">The query text</param>
+        /// <param name="pageIndex">The page index to return</param>
+        /// <param name="recordsPerPage">The number of records to count as a page</param>
         /// <returns>The query's results</returns>
-        public HDDLRecordBase[] WideSearch(string text)
+        public HDDLRecordBase[] WideSearch(string text, int pageIndex, int recordsPerPage)
         {
             List<HDDLRecordBase> results = new List<HDDLRecordBase>();
 
-            using (var diskitems = ExecuteReader($"select * from diskitems where path like '%{text}%'"))
+            // get the records for the page
+            using (var diskitems = ExecuteReader($"select * from diskitems where path like '%{text}%' limit {recordsPerPage} offset {pageIndex * recordsPerPage}"))
             {
                 while (diskitems.Read())
                 {
@@ -500,13 +503,18 @@ namespace HDDL.Data
                 }
             }
 
-            using (var bookmarks = ExecuteReader($"select * from bookmarks where itemName like '%{text}%'"))
+            using (var bookmarks = ExecuteReader($"select * from bookmarks where itemName like '%{text}%' limit {recordsPerPage} offset {pageIndex * recordsPerPage}"))
             {
                 while (bookmarks.Read())
                 {
                     results.Add(new BookmarkItem(bookmarks));
                 }
             }
+
+            // get the counts
+            var diskItemCount = ExecuteScalar<long>($"select count(*) from diskitems where path like '%{text}%'");
+            var bookmarkCount = ExecuteScalar<long>($"select count(*) from bookmarks where itemName like '%{text}%'");
+            results.Insert(0, new DataHandlerPagingInformation(recordsPerPage, diskItemCount + bookmarkCount, pageIndex));
 
             return results.ToArray();
         }
