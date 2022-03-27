@@ -12,6 +12,8 @@ namespace HDDL.Language.Json.Conversion
     /// </summary>
     class JsonTokenizer : TokenizerBase<JsonToken>
     {
+        private bool _alterStringEscapes;
+
         /// <summary>
         /// Create a JsonTokenizer
         /// </summary>
@@ -20,26 +22,12 @@ namespace HDDL.Language.Json.Conversion
         }
 
         /// <summary>
-        /// Checks a sub-section of a given string against a regular expression
-        /// </summary>
-        /// <param name="str">The string to check</param>
-        /// <param name="pattern">The pattern to use</param>
-        /// <param name="startSkip">The number of characters at the start to skip</param>
-        /// <param name="endIgnore">The number of characters at the end to ignore</param>
-        /// <returns>True upon match, false otherwise</returns>
-        private bool IsMatch(string str, string pattern, int startSkip = 1, int endIgnore = 1)
-        {
-            return System.Text.RegularExpressions.Regex.IsMatch(
-                str.Substring(startSkip, str.Length - endIgnore),
-                pattern);
-        }
-
-        /// <summary>
         /// The tokenize the json
         /// </summary>
         /// <param name="json">The json string to tokenize</param>
+        /// <param name="alterStringEscapes">If true, removes backslash escapes, otherwise leaves them alone</param>
         /// <returns></returns>
-        public LogItemBase[] Tokenize(string json)
+        public LogItemBase[] Tokenize(string json, bool alterStringEscapes)
         {
             Tokens.Clear();
             Outcome.Clear();
@@ -47,6 +35,7 @@ namespace HDDL.Language.Json.Conversion
             _buffer.AddRange(json);
             _col = Minimum_Column;
             _row = Minimum_Row;
+            _alterStringEscapes = alterStringEscapes;
 
             // Loop through the code and pick out the tokens one by one, in order of discovery
             while (!_buffer.Empty)
@@ -79,6 +68,23 @@ namespace HDDL.Language.Json.Conversion
         }
 
         /// <summary>
+        /// Checks a sub-section of a given string against a regular expression
+        /// </summary>
+        /// <param name="str">The string to check</param>
+        /// <param name="pattern">The pattern to use</param>
+        /// <param name="startSkip">The number of characters at the start to skip</param>
+        /// <param name="endIgnore">The number of characters at the end to ignore</param>
+        /// <returns>True upon match, false otherwise</returns>
+        private bool IsMatch(string str, string pattern, int startSkip = 1, int endIgnore = 1)
+        {
+            if ((str.Length < (str.Length - endIgnore)) || startSkip >= str.Length) return false;
+
+            return System.Text.RegularExpressions.Regex.IsMatch(
+                str.Substring(startSkip, str.Length - endIgnore),
+                pattern);
+        }
+
+        /// <summary>
         /// Retrieves all Json framing (characters that describe the structure of the document and now what's in it)
         /// </summary>
         /// <returns></returns>
@@ -108,17 +114,21 @@ namespace HDDL.Language.Json.Conversion
             {
                 Tokens.Add(new JsonToken(JsonTokenTypes.Comma, Peek(), Pop(), _col, _row));
             }
+            else if (More(4) && PeekStr(length: 4).ToLower() == "null" )
+            {
+                Tokens.Add(new JsonToken(JsonTokenTypes.Null, PeekStr(length: 4), PopStr(length: 4), _col, _row));
+            }
             else if (char.IsWhiteSpace(Peek()))
             {
-                StringBuilder sb = new StringBuilder();
+                // We don't care about whitespace.
+                // This is JSON and we aren't expected to reproduce the exact formatting here.
+                // that's the formatter's job
+                // just trash it.
+
                 while (char.IsWhiteSpace(Peek()))
                 {
-                    sb.Append(Pop());
+                    Pop();
                 }
-
-                // We don't care about whitespace.
-                // This is JSON and we aren't expected to reproduce the exact formatting.
-                // just trash it.
             }
             else
             {
@@ -147,9 +157,16 @@ namespace HDDL.Language.Json.Conversion
 
             if (str != null)
             {
+                if (_alterStringEscapes)
+                {
+                    // when json strings are sent out, backslashes are escaped "\".  We will undo that here.
+                    str[0] = str[0].Replace("\\\\", "\\");
+                    str[1] = str[1].Replace("\\\\", "\\");
+                }
+
                 // check what kind of string it is
                 // for now, we'll just check for boolean and *anything else*
-                if (IsMatch(str[0], "[Tt][Rr][Uu][Ee]") || IsMatch(str[0], "[Ff][Aa][Ll][Ss][Ee]"))
+                if (IsMatch(str[1], "[Tt][Rr][Uu][Ee]") || IsMatch(str[1], "[Ff][Aa][Ll][Ss][Ee]"))
                 {
                     Tokens.Add(new JsonToken(JsonTokenTypes.Boolean, str[1], str[0], _row, _col));
                     return true;

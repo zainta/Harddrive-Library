@@ -49,11 +49,20 @@ namespace HDDL.Language.Json.Conversion
         }
 
         /// <summary>
-        /// Attempts to determine the type of the JsonBase derivation
+        /// Determines the appropriate type to convert the derivation into
         /// </summary>
-        /// <returns>True upon complete success, false otherwise</returns>
-        /// <exception cref="JsonConversionException"></exception>
-        public virtual bool DetermineType()
+        /// <returns></returns>
+        public virtual bool Evaluate()
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Takes a type and determines if it is a potential match for the derived type
+        /// </summary>
+        /// <param name="type">The type to evaluate</param>
+        /// <returns></returns>
+        public virtual bool Evaluate(Type type)
         {
             throw new NotImplementedException();
         }

@@ -59,11 +59,10 @@ namespace HDDL.Language.Json.Conversion
         }
 
         /// <summary>
-        /// Attempts to determine the type of the JsonBase derivation
+        /// Determines the appropriate type to convert the derivation into
         /// </summary>
-        /// <returns>True upon complete success, false otherwise</returns>
-        /// <exception cref="JsonConversionException"></exception>
-        public override bool DetermineType()
+        /// <returns></returns>
+        public override bool Evaluate()
         {
             var result = false;
 
@@ -71,7 +70,7 @@ namespace HDDL.Language.Json.Conversion
             var childSuccesses = new List<bool>();
             foreach (var jb in Values)
             {
-                var r = jb.DetermineType();
+                var r = jb.Evaluate();
                 childSuccesses.Add(r);
                 if (!r)
                 {
@@ -89,6 +88,47 @@ namespace HDDL.Language.Json.Conversion
                 var type = Array.CreateInstance(averageContentType, 0).GetType();
                 SetType(type);
                 result = true;
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Takes a type and determines if it is a potential match for the derived type
+        /// </summary>
+        /// <param name="type">The type to evaluate</param>
+        /// <returns></returns>
+        public override bool Evaluate(Type type)
+        {
+            var result = false;
+
+            // evaluate children first
+            var childSuccesses = new List<bool>();
+            foreach (var jb in Values)
+            {
+                var r = jb.Evaluate();
+                childSuccesses.Add(r);
+                if (!r)
+                {
+                    break;
+                }
+            }
+
+            // only continue the type assessment if all children successfully assessed themselves
+            if (!childSuccesses.Where(cs => !cs).Any())
+            {
+                // get the common base type for all of this JsonArray's content
+                var contentTypes = (from jb in Values select jb.ConvertTarget).ToArray();
+                Type averageContentType = contentTypes.Length == 0 ? typeof(object) : TypeHelper.GetAverageType(contentTypes);
+                var arrayType = Array.CreateInstance(averageContentType, 0).GetType();
+
+                // rather than blindly use the average type, 
+                // check to see if the average type can contain the desired type
+                if (arrayType.IsAssignableTo(type))
+                {
+                    SetType(arrayType);
+                    result = true;
+                }
             }
 
             return result;

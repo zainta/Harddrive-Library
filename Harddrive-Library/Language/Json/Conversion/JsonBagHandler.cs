@@ -26,9 +26,8 @@ namespace HDDL.Language.Json.Conversion
         /// Generates and returns the appropriate json container type (JsonArray or JsonBag)
         /// </summary>
         /// <param name="obj">The object to represent</param>
-        /// <param name="incluldeFields">Whether or not a JsonBag should contain fields</param>
         /// <returns>A JsonBase derived type, or null</returns>
-        public static JsonBase GetAppropriateJsonContainer(object obj, bool incluldeFields)
+        public static JsonBase GetAppropriateJsonContainer(object obj)
         {
             if (obj is null)
             {
@@ -75,9 +74,8 @@ namespace HDDL.Language.Json.Conversion
         /// Generates a JsonArray representation of an IEnumerable implementation
         /// </summary>
         /// <param name="obj">The IEnumerable to represent</param>
-        /// <param name="incluldeFields">Whether or not a JsonBag should contain fields</param>
         /// <returns></returns>
-        private static JsonArray GetAsArray(IEnumerable obj, bool incluldeFields = false)
+        private static JsonArray GetAsArray(IEnumerable obj)
         {
             if (obj == null) return null;
             if (obj is JsonArray) return (JsonArray)obj;
@@ -85,7 +83,7 @@ namespace HDDL.Language.Json.Conversion
             var ja = new JsonArray();
             foreach (var o in  obj)
             {
-                ja.Values.Add(GetAppropriateJsonContainer(o, incluldeFields));
+                ja.Values.Add(GetAppropriateJsonContainer(o));
             }
 
             return ja;
@@ -103,7 +101,7 @@ namespace HDDL.Language.Json.Conversion
             var props = GetValidProperties(obj);
             foreach (var prop in props)
             {
-                jb.Values.Add(prop.Name, new ValueTypeQuantity(prop.GetValue(obj)));
+                jb.Values.Add(prop.Name, new ValueTypeQuantity(prop, obj));
             }
 
             return jb;
@@ -212,7 +210,7 @@ namespace HDDL.Language.Json.Conversion
                 return result.ToString();
             }
 
-            return null;
+            return "null";
         }
 
         /// <summary>
@@ -225,22 +223,31 @@ namespace HDDL.Language.Json.Conversion
             var result = new StringBuilder();
             if (o is IConvertible)
             {
-                if (o is string || o is bool)
+                if (o is string)
+                {
+                    var str = (string)o;
+                    result.Append($"\"{str.Replace("\\", "\\\\")}\"");
+                }
+                else if (o is bool || o is DateTime || o is TimeSpan)
                 {
                     result.Append($"\"{o}\"");
                 }
+                else if (o is Enum)
+                {
+                    result.Append((int)o);
+                }
                 else
                 {
-                    result.Append(o.ToString());
+                    result.Append(o);
                 }
-            }
-            else if (o is IList)
-            {
-                result.Append(GetArrayJson((IList)o));
             }
             else if (o is Guid)
             {
                 result.Append($"\"{o}\"");
+            }
+            else if (o is IList)
+            {
+                result.Append(GetArrayJson((IList)o));
             }
             else
             {
@@ -264,7 +271,7 @@ namespace HDDL.Language.Json.Conversion
         public static JsonBase GetIntermediate(string json, out LogItemBase[] errors)
         {
             JsonTokenizer jt = new JsonTokenizer();
-            jt.Tokenize(json);
+            jt.Tokenize(json, true);
             JsonBase result = null;
 
             if (jt.Outcome.Count == 0)
@@ -509,6 +516,11 @@ namespace HDDL.Language.Json.Conversion
                 {
                     issues.Add(new LogItemBase(tokens.Peek().Column, tokens.Peek().Row, $"Failed to convert whole number '{numText}'."));
                 }
+            }
+            else if (tokens.Peek().Type == JsonTokenTypes.Null)
+            {
+                tokens.Pop();
+                result = null;
             }
             else if (tokens.Peek().Type == JsonTokenTypes.CurlyOpen)
             {

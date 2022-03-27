@@ -167,5 +167,60 @@ namespace HDDL.Language.Json.Reflection
 
             return count;
         }
+
+        /// <summary>
+        /// Checks to see if the given value can be converted to the given type
+        /// </summary>
+        /// <param name="value">The value to attempt conversion on</param>
+        /// <param name="type">The target type</param>
+        /// <returns>True if successful, false otherwise</returns>
+        public static bool TryConvertTo(object? value, Type type)
+        {
+            if (value == null &&
+                (!type.IsValueType || Nullable.GetUnderlyingType(type) != null)) return true;
+
+            try
+            {
+                if (type.IsEnum)
+                {
+                    Enum.ToObject(type, value);
+                }
+                else
+                {
+                    Convert.ChangeType(value, type);
+                }
+                
+            }
+            catch (Exception ex)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Checks to see if the given value can be converted to the given type
+        /// </summary>
+        /// <param name="value">The value to attempt conversion on</param>
+        /// <param name="type">The target type</param>
+        /// <returns>True if successful, false otherwise</returns>
+        public static object? ConvertTo(object? value, Type type)
+        {
+            if (value == null &&
+                (!type.IsValueType || Nullable.GetUnderlyingType(type) != null)) return true;
+
+            object? result = null;
+            if (type.IsEnum)
+            {
+                result = Enum.ToObject(type, value);
+            }
+            else
+            {
+                result = Convert.ChangeType(value, type);
+            }
+
+            return result;
+        }
     }
 }

@@ -32,6 +32,14 @@ namespace HDDL.Data
         public long PageIndex { get; private set; }
 
         /// <summary>
+        /// Constructor for Json
+        /// </summary>
+        public DataHandlerPagingInformation()
+        {
+
+        }
+
+        /// <summary>
         /// Creates a paging information record
         /// </summary>
         /// <param name="rpp">The number of records per page</param>

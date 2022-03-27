@@ -57,8 +57,7 @@ namespace HDDL.Language.Json
             {
                 throw new JsonConversionException("An error occurred during conversion.", issues);
             }
-            //else if (obj.Matches(typeof(T)))
-            else if (obj.DetermineType())
+            else if (obj.Evaluate(typeof(T)))
             {
                 return (T)Convert(obj);
             }
@@ -86,8 +85,7 @@ namespace HDDL.Language.Json
             else
             {
                 // determine what type to use
-                //if (JsonBaseTypeResolver.Resolve(obj, out Type suggestion, out issues))
-                if (obj.DetermineType())
+                if (obj.Evaluate())
                 {
                     return Convert(obj);
                 }

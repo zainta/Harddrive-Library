@@ -60,6 +60,11 @@ namespace HDDL.Language.Json.Conversion
         RealNumber,
 
         /// <summary>
+        /// Represents a null value
+        /// </summary>
+        Null,
+
+        /// <summary>
         /// Represents the end of the json
         /// </summary>
         EndOfJSON

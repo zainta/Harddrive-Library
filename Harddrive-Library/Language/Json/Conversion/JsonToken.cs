@@ -40,6 +40,7 @@ namespace HDDL.Language.Json.Conversion
                     case JsonTokenTypes.RealNumber:
                     case JsonTokenTypes.String:
                     case JsonTokenTypes.WholeNumber:
+                    case JsonTokenTypes.Null:
                         Family = JsonTokenFamilies.Value;
                         break;
                     case JsonTokenTypes.Comma:

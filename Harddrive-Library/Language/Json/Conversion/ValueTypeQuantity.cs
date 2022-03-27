@@ -2,7 +2,9 @@
 // Licensed under the MIT License, (the "License"); you may not use this file except in compliance with the License. 
 // You may obtain a copy of the License at https://mit-license.org/
 
+using HDDL.Language.Json.Reflection;
 using System;
+using System.Reflection;
 
 namespace HDDL.Language.Json.Conversion
 {
@@ -28,11 +30,21 @@ namespace HDDL.Language.Json.Conversion
         /// <exception cref="ArgumentException" />
         public ValueTypeQuantity(object obj)
         {
-            if (obj == null) throw new ArgumentException("Cannot pass null");
-
             JsonContainerName = "ValueTypeQuantity";
             Value = obj;
-            Kind = obj.GetType();
+            Kind = obj?.GetType();
+        }
+
+        /// <summary>
+        /// Create an intance
+        /// </summary>
+        /// <param name="prop">The property meta object</param>
+        /// <param name="obj">The instance of the object the property should be pulled from</param>
+        public ValueTypeQuantity(PropertyInfo prop, object obj)
+        {
+            JsonContainerName = "ValueTypeQuantity";
+            Value = prop.GetValue(obj);
+            Kind = prop.PropertyType;
         }
 
         /// <summary>
@@ -43,7 +55,7 @@ namespace HDDL.Language.Json.Conversion
         /// <exception cref="ArgumentException" />
         public ValueTypeQuantity(object obj, Type type)
         {
-            if (obj.GetType() != type) throw new ArgumentException("Object parameter is not of type Type.");
+            if (obj.GetType() != type) throw new ArgumentException($"Object parameter is not of type '{type.FullName}'.");
 
             Value = obj;
             Kind = type;
@@ -59,14 +71,28 @@ namespace HDDL.Language.Json.Conversion
         }
 
         /// <summary>
-        /// Attempts to determine the type of the JsonBase derivation
+        /// Determines the appropriate type to convert the derivation into
         /// </summary>
-        /// <returns>True upon complete success, false otherwise</returns>
-        /// <exception cref="JsonConversionException"></exception>
-        public override bool DetermineType()
+        /// <returns></returns>
+        public override bool Evaluate()
         {
-            SetType(Kind);
-            return true;
+            if (Kind != null)
+            {
+                SetType(Kind);
+                return true;
+            }
+            
+            return false;
+        }
+
+        /// <summary>
+        /// Takes a type and determines if it is a potential match for the derived type
+        /// </summary>
+        /// <param name="type">The type to evaluate</param>
+        /// <returns></returns>
+        public override bool Evaluate(Type type)
+        {
+            return type != null && Kind == type;
         }
 
         /// <summary>
@@ -75,7 +101,7 @@ namespace HDDL.Language.Json.Conversion
         /// <returns></returns>
         public override object AsObject()
         {
-            return Value;
+            return TypeHelper.ConvertTo(Value, Kind);
         }
 
         public override string ToString()
