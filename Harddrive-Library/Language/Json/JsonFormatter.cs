@@ -3,7 +3,6 @@
 // You may obtain a copy of the License at https://mit-license.org/
 
 using HDDL.Collections;
-using HDDL.Language.Json.Conversion;
 using System;
 using System.Linq;
 using System.Text;
@@ -18,6 +17,7 @@ namespace HDDL.Language.Json
         private static ListStack<char> _buffer;
         private static int _indentation;
         private static string _indentNotation;
+        private static char? _lastChar;
 
         /// <summary>
         /// Formats the json string for easy viewing
@@ -32,22 +32,41 @@ namespace HDDL.Language.Json
             _buffer = new ListStack<char>(json);
             var result = new StringBuilder();
             var lastWasStructure = false;
+            _lastChar = null;
 
             // loop through the string and break it down into formatted json in one pass
             while (More())
             {
 
-                if (Peek() == '[' || Peek() == '{')
+                if (Peek() == '[')
                 {
-                    if (!lastWasStructure)
+                    if (_lastChar == ':' && PeekNonWhiteSpace() != ']')
                     {
+                        result.Append("\n");
+                        result.Append(GetIndent());
+                    }
+                    result.Append(Pop());
+
+                    _indentation++;
+                    if (Peek() != ']' && PeekNonWhiteSpace() != ']')
+                    {
+                        result.Append("\n");
+                        result.Append(GetIndent());
+                    }
+
+                    lastWasStructure = true;
+                }
+                else if (Peek() == '{')
+                {
+                    if (_lastChar != ',' && _lastChar != '[' && _lastChar != null)
+                    {
+                        result.Append("\n");
                         result.Append(GetIndent());
                     }
                     result.Append(Pop());
 
                     _indentation++;
                     result.Append("\n");
-
                     result.Append(GetIndent());
 
                     lastWasStructure = true;
@@ -55,8 +74,11 @@ namespace HDDL.Language.Json
                 else if (Peek() == ']' || Peek() == '}')
                 {
                     _indentation--;
-                    result.Append("\n");
-                    result.Append(GetIndent());
+                    if (!(Peek() == ']' && _lastChar == '['))
+                    {
+                        result.Append("\n");
+                        result.Append(GetIndent());
+                    }
                     result.Append(Pop());
 
                     lastWasStructure = true;
@@ -122,12 +144,38 @@ namespace HDDL.Language.Json
         }
 
         /// <summary>
+        /// Returns the next non-whitespace character ahead of the current position, no matter how far
+        /// </summary>
+        /// <returns></returns>
+        private static char? PeekNonWhiteSpace()
+        {
+            char? result = null;
+            var index = 1;
+            while (More(index) && char.IsWhiteSpace(Peek(index)))
+            {
+                index++;
+            }
+
+            if (More(index) && !char.IsWhiteSpace(Peek(index)))
+            {
+                result = Peek(index);
+            }
+
+            return result;
+        }
+
+        /// <summary>
         /// Removes and retursn the next character
         /// </summary>
         /// <returns>The next character</returns>
         private static char Pop()
         {
-            return _buffer.Pop();
+            var c = _buffer.Pop();
+            if (!char.IsWhiteSpace(c))
+            {
+                _lastChar = c;
+            }
+            return c;
         }
 
         /// <summary>
@@ -165,6 +213,7 @@ namespace HDDL.Language.Json
                 sb.Append(_buffer.Pop());
             }
 
+            _lastChar = sb[sb.Length - 1];
             return sb.ToString();
         }
 
