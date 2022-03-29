@@ -2,14 +2,9 @@
 // Licensed under the MIT License, (the "License"); you may not use this file except in compliance with the License. 
 // You may obtain a copy of the License at https://mit-license.org/
 
-using HDDL.IO.Disk;
+using HDDL.Language.HDSL.Results;
 using System;
 using System.Collections.Generic;
-using System.Data;
-using System.Data.SQLite;
-using System.IO;
-using System.Linq;
-using System.Text;
 
 namespace HDDL.Data
 {
@@ -30,7 +25,7 @@ namespace HDDL.Data
         /// <param name="pageIndex">The page index to return</param>
         /// <param name="recordsPerPage">The number of records to count as a page</param>
         /// <returns>The query's results</returns>
-        public HDDLRecordBase[] WideSearch(string text, int pageIndex, int recordsPerPage);
+        public HDSLRecord[] WideSearch(string text, int pageIndex, int recordsPerPage);
 
         #region Column Name Mapping Related
 

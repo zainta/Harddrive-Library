@@ -65,7 +65,7 @@ namespace HDDL.Web
         /// <param name="pageIndex">The query result page to return</param>
         /// <param name="formatted">Request formatted or unformatted json</param>
         /// <returns>The result instance</returns>
-        public HDDLRecordBase[] Search(string query, int pageIndex = 0, bool formatted = false)
+        public HDSLRecord[] Search(string query, int pageIndex = 0, bool formatted = false)
         {
             var formattingType = formatted ? "sf" : "su";
             WebRequest request = WebRequest.Create($"{_address}/{formattingType}/{pageIndex}/{Uri.EscapeUriString(query)}");
@@ -73,7 +73,7 @@ namespace HDDL.Web
             WebResponse response = request.GetResponse();
 
             var json = ReadEntirety(response);
-            var result = JsonConverter.GetObject<HDDLRecordBase[]>(json);
+            var result = JsonConverter.GetObject<HDSLRecord[]>(json);
 
             return result;
         }

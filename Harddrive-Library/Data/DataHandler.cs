@@ -490,24 +490,26 @@ namespace HDDL.Data
         /// <param name="pageIndex">The page index to return</param>
         /// <param name="recordsPerPage">The number of records to count as a page</param>
         /// <returns>The query's results</returns>
-        public HDDLRecordBase[] WideSearch(string text, int pageIndex, int recordsPerPage)
+        public HDSLRecord[] WideSearch(string text, int pageIndex, int recordsPerPage)
         {
-            List<HDDLRecordBase> results = new List<HDDLRecordBase>();
+            List<HDSLRecord> results = new List<HDSLRecord>();
 
             // get the records for the page
             using (var diskitems = ExecuteReader($"select * from diskitems where path like '%{text}%' limit {recordsPerPage} offset {pageIndex * recordsPerPage}"))
             {
+                var dichs = new ColumnHeaderSet(this, typeof(DiskItem));
                 while (diskitems.Read())
                 {
-                    results.Add(new DiskItem(diskitems));
+                    results.Add(dichs.GetColumns(new DiskItem(diskitems)));
                 }
             }
 
             using (var bookmarks = ExecuteReader($"select * from bookmarks where itemName like '%{text}%' limit {recordsPerPage} offset {pageIndex * recordsPerPage}"))
             {
+                var bmchs = new ColumnHeaderSet(this, typeof(BookmarkItem));
                 while (bookmarks.Read())
                 {
-                    results.Add(new BookmarkItem(bookmarks));
+                    results.Add(bmchs.GetColumns(new BookmarkItem(bookmarks)));
                 }
             }
 
