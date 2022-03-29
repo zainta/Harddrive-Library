@@ -7,6 +7,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace HDDL.Language.Json.Conversion
 {
@@ -41,24 +42,44 @@ namespace HDDL.Language.Json.Conversion
         /// <summary>
         /// Determines the appropriate type to convert the derivation into
         /// </summary>
+        /// <param name="root">Indicates if this is the root call</param>
         /// <returns></returns>
-        public override bool Evaluate()
+        public override bool Evaluate(bool root = false)
         {
             var result = false;
 
             // evaluate children first
             var childSuccesses = new List<bool>();
-            foreach (var jb in Values.Values)
+            if (root)
             {
-                if (jb is JsonBag || jb is JsonArray)
+                Parallel.ForEach(Values.Values, (jb) =>
                 {
-                    var r = jb.Evaluate();
-                    childSuccesses.Add(r);
-                }
-                else if (jb is ValueTypeQuantity)
+                    if (jb is JsonBag || jb is JsonArray)
+                    {
+                        var r = jb.Evaluate();
+                        childSuccesses.Add(r);
+                    }
+                    else if (jb is ValueTypeQuantity)
+                    {
+                        // value type quantities are not evaluated, and so always succeed
+                        childSuccesses.Add(true);
+                    }
+                });
+            }
+            else
+            {
+                foreach (var jb in Values.Values)
                 {
-                    // value type quantities are not evaluated, and so always succeed
-                    childSuccesses.Add(true);
+                    if (jb is JsonBag || jb is JsonArray)
+                    {
+                        var r = jb.Evaluate();
+                        childSuccesses.Add(r);
+                    }
+                    else if (jb is ValueTypeQuantity)
+                    {
+                        // value type quantities are not evaluated, and so always succeed
+                        childSuccesses.Add(true);
+                    }
                 }
             }
 
@@ -168,24 +189,44 @@ namespace HDDL.Language.Json.Conversion
         /// Takes a type and determines if it is a potential match for the derived type
         /// </summary>
         /// <param name="type">The type to evaluate</param>
+        /// <param name="root">Indicates if this is the root call</param>
         /// <returns></returns>
-        public override bool Evaluate(Type type)
+        public override bool Evaluate(Type type, bool root = false)
         {
             var result = false;
 
             // evaluate children first
             var childSuccesses = new List<bool>();
-            foreach (var jb in Values.Values)
+            if (root)
             {
-                if (jb is JsonBag || jb is JsonArray)
+                Parallel.ForEach(Values.Values, (jb) =>
                 {
-                    var r = jb.Evaluate();
-                    childSuccesses.Add(r);
-                }
-                else if (jb is ValueTypeQuantity)
+                    if (jb is JsonBag || jb is JsonArray)
+                    {
+                        var r = jb.Evaluate();
+                        childSuccesses.Add(r);
+                    }
+                    else if (jb is ValueTypeQuantity)
+                    {
+                        // value type quantities are not evaluated, and so always succeed
+                        childSuccesses.Add(true);
+                    }
+                });
+            }
+            else
+            {
+                foreach (var jb in Values.Values)
                 {
-                    // value type quantities are not evaluated, and so always succeed
-                    childSuccesses.Add(true);
+                    if (jb is JsonBag || jb is JsonArray)
+                    {
+                        var r = jb.Evaluate();
+                        childSuccesses.Add(r);
+                    }
+                    else if (jb is ValueTypeQuantity)
+                    {
+                        // value type quantities are not evaluated, and so always succeed
+                        childSuccesses.Add(true);
+                    }
                 }
             }
 

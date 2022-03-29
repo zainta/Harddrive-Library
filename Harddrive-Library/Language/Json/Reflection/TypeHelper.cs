@@ -8,6 +8,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 
 namespace HDDL.Language.Json.Reflection
 {
@@ -17,13 +18,27 @@ namespace HDDL.Language.Json.Reflection
     abstract class TypeHelper
     {
         /// <summary>
+        /// Lookup table for property info instances for specific types
+        /// </summary>
+        private static Dictionary<Type, PropertyInfo[]> _propertyCache;
+
+        static TypeHelper()
+        {
+            _propertyCache = new Dictionary<Type, PropertyInfo[]>();
+            Task.Run(() =>
+            {
+                GetAllTypes();
+            });
+        }
+
+        /// <summary>
         /// Gets propertyinfo for each of the json serializable properties on a type
         /// </summary>
         /// <param name="t">The type</param>
         /// <returns>An array of elligible properties</returns>
         public static PropertyInfo[] GetValidProperties(Type t)
         {
-            return (from p in t.GetProperties()
+            return (from p in PropsOf(t)
                     where
                         p.CanWrite == true &&
                         p.GetCustomAttribute<JsonIgnoreAttribute>(true) == null
@@ -66,7 +81,7 @@ namespace HDDL.Language.Json.Reflection
                          !t.IsInterface &&
                          t.GetCustomAttribute<ObsoleteAttribute>() == null &&
                          t.GetCustomAttribute<JsonIgnoreAttribute>() == null &&
-                         (from p in t.GetProperties()
+                         (from p in PropsOf(t)
                           where
                               p.CanWrite == true &&
                               bag.Values.Keys.Contains(p.Name) &&
@@ -221,6 +236,21 @@ namespace HDDL.Language.Json.Reflection
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Returns the propertyinfo instances for the given type.  Favors the cache over a full call
+        /// </summary>
+        /// <param name="type">The type to retreive the properties for</param>
+        /// <returns></returns>
+        public static PropertyInfo[] PropsOf(Type type, bool refresh = false)
+        {
+            if (!_propertyCache.ContainsKey(type) || refresh)
+            {
+                _propertyCache[type] = type.GetProperties();
+            }
+
+            return _propertyCache[type];
         }
     }
 }

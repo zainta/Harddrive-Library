@@ -27,6 +27,16 @@ namespace HDDL.Language
         /// <summary>
         /// Create a log entry
         /// </summary>
+        public LogItemBase()
+        {
+            Message = string.Empty;
+            Column = 0;
+            Row = 0;
+        }
+
+        /// <summary>
+        /// Create a log entry
+        /// </summary>
         /// <param name="message">The error message</param>
         /// <param name="col">The column where the error occurred</param>
         /// <param name="row">The row where the error occurred</param>

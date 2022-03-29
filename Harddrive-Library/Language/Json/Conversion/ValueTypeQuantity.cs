@@ -73,8 +73,9 @@ namespace HDDL.Language.Json.Conversion
         /// <summary>
         /// Determines the appropriate type to convert the derivation into
         /// </summary>
+        /// <param name="root">Indicates if this is the root call</param>
         /// <returns></returns>
-        public override bool Evaluate()
+        public override bool Evaluate(bool root = false)
         {
             if (Kind != null)
             {
@@ -89,8 +90,9 @@ namespace HDDL.Language.Json.Conversion
         /// Takes a type and determines if it is a potential match for the derived type
         /// </summary>
         /// <param name="type">The type to evaluate</param>
+        /// <param name="root">Indicates if this is the root call</param>
         /// <returns></returns>
-        public override bool Evaluate(Type type)
+        public override bool Evaluate(Type type, bool root = false)
         {
             return type != null && Kind == type;
         }

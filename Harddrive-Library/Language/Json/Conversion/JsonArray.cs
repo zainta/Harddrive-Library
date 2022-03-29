@@ -8,6 +8,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace HDDL.Language.Json.Conversion
 {
@@ -61,20 +62,32 @@ namespace HDDL.Language.Json.Conversion
         /// <summary>
         /// Determines the appropriate type to convert the derivation into
         /// </summary>
+        /// <param name="root">Indicates if this is the root call</param>
         /// <returns></returns>
-        public override bool Evaluate()
+        public override bool Evaluate(bool root = false)
         {
             var result = false;
 
             // evaluate children first
             var childSuccesses = new List<bool>();
-            foreach (var jb in Values)
+            if (root)
             {
-                var r = jb.Evaluate();
-                childSuccesses.Add(r);
-                if (!r)
+                Parallel.ForEach(Values, (jb) =>
                 {
-                    break;
+                    var r = jb.Evaluate();
+                    childSuccesses.Add(r);
+                });
+            }
+            else
+            {
+                foreach (var jb in Values)
+                {
+                    var r = jb.Evaluate();
+                    childSuccesses.Add(r);
+                    if (!r)
+                    {
+                        break;
+                    }
                 }
             }
 
@@ -97,20 +110,32 @@ namespace HDDL.Language.Json.Conversion
         /// Takes a type and determines if it is a potential match for the derived type
         /// </summary>
         /// <param name="type">The type to evaluate</param>
+        /// <param name="root">Indicates if this is the root call</param>
         /// <returns></returns>
-        public override bool Evaluate(Type type)
+        public override bool Evaluate(Type type, bool root = false)
         {
             var result = false;
 
             // evaluate children first
             var childSuccesses = new List<bool>();
-            foreach (var jb in Values)
+            if (root)
             {
-                var r = jb.Evaluate();
-                childSuccesses.Add(r);
-                if (!r)
+                Parallel.ForEach(Values, (jb) =>
                 {
-                    break;
+                    var r = jb.Evaluate();
+                    childSuccesses.Add(r);
+                });
+            }
+            else
+            {
+                foreach (var jb in Values)
+                {
+                    var r = jb.Evaluate();
+                    childSuccesses.Add(r);
+                    if (!r)
+                    {
+                        break;
+                    }
                 }
             }
 

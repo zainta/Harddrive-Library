@@ -51,8 +51,9 @@ namespace HDDL.Language.Json.Conversion
         /// <summary>
         /// Determines the appropriate type to convert the derivation into
         /// </summary>
+        /// <param name="root">Indicates if this is the root call</param>
         /// <returns></returns>
-        public virtual bool Evaluate()
+        public virtual bool Evaluate(bool root = false)
         {
             throw new NotImplementedException();
         }
@@ -61,8 +62,9 @@ namespace HDDL.Language.Json.Conversion
         /// Takes a type and determines if it is a potential match for the derived type
         /// </summary>
         /// <param name="type">The type to evaluate</param>
+        /// <param name="root">Indicates if this is the root call</param>
         /// <returns></returns>
-        public virtual bool Evaluate(Type type)
+        public virtual bool Evaluate(Type type, bool root = false)
         {
             throw new NotImplementedException();
         }
