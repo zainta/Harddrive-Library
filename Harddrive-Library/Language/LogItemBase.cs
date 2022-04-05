@@ -40,7 +40,7 @@ namespace HDDL.Language
         /// <param name="message">The error message</param>
         /// <param name="col">The column where the error occurred</param>
         /// <param name="row">The row where the error occurred</param>
-        internal LogItemBase(int col, int row, string message)
+        public LogItemBase(int col, int row, string message)
         {
             Message = message;
             Column = col;

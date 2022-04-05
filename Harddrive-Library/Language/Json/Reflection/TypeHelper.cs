@@ -5,6 +5,7 @@
 using HDDL.Language.Json.Conversion;
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -20,11 +21,11 @@ namespace HDDL.Language.Json.Reflection
         /// <summary>
         /// Lookup table for property info instances for specific types
         /// </summary>
-        private static Dictionary<Type, PropertyInfo[]> _propertyCache;
+        private static ConcurrentDictionary<Type, PropertyInfo[]> _propertyCache;
 
         static TypeHelper()
         {
-            _propertyCache = new Dictionary<Type, PropertyInfo[]>();
+            _propertyCache = new ConcurrentDictionary<Type, PropertyInfo[]>();
             Task.Run(() =>
             {
                 GetAllTypes();
