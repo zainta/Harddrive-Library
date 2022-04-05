@@ -6,7 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 
-namespace Harddrive_Library_GUI_Client
+namespace HDDLC
 {
     /// <summary>
     /// Interaction logic for App.xaml

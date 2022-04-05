@@ -1,9 +1,9 @@
-﻿<Application x:Class="Harddrive_Library_GUI_Client.App"
+﻿<Application x:Class="HDDLC.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:Harddrive_Library_GUI_Client"
+             xmlns:local="clr-namespace:HDDLC"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-         
+
     </Application.Resources>
 </Application>

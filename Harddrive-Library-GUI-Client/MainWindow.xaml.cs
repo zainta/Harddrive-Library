@@ -13,7 +13,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-namespace Harddrive_Library_GUI_Client
+namespace HDDLC
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml

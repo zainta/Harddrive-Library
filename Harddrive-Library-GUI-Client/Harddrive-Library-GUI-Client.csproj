@@ -3,12 +3,20 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net5.0-windows</TargetFramework>
-    <RootNamespace>Harddrive_Library_GUI_Client</RootNamespace>
+    <RootNamespace>HDDLC</RootNamespace>
     <UseWPF>true</UseWPF>
+    <AssemblyName>HDSL-UI</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Harddrive-Library-UI\Harddrive-Library-UI.csproj" />
     <ProjectReference Include="..\Harddrive-Library\Harddrive-Library.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="db location.ini">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
