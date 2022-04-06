@@ -15,7 +15,7 @@
             <RowDefinition Height="3" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="3" />
-            <RowDefinition Height="Auto" MinHeight="100" />
+            <RowDefinition Height="*" />
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" />
@@ -64,7 +64,6 @@
             Grid.ColumnSpan="8"
             AlternatingRowBackground="Gainsboro"
             AlternationCount="2"
-            MinHeight="200"
             Visibility="{Binding ItemsSource.Count, Converter={StaticResource countToVisibilityConverter}, ConverterParameter=True, ElementName=dgData}"/>
 
         <TextBlock

@@ -59,23 +59,38 @@
             HorizontalAlignment="Stretch"
             Grid.ColumnSpan="2" />
 
-        <ScrollViewer
+        <TabControl
             Grid.Row="2" 
             Grid.Column="0"
-            Grid.ColumnSpan="2">
-            <ListView
-                Name="lvResults">
-                <ListView.ItemContainerStyle>
-                    <Style TargetType="ListViewItem">
-                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                    </Style>
-                </ListView.ItemContainerStyle>
-                <ListView.ItemTemplate>
-                    <DataTemplate>
-                        <ui:QueryViewPanelDisplay DataContext="{Binding}" />
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
-        </ScrollViewer>
+            Grid.ColumnSpan="2"
+            Name="lvResults">
+            <TabControl.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding SearchQuery}" />
+                </DataTemplate>
+            </TabControl.ItemTemplate>
+            <TabControl.ContentTemplate>
+                <DataTemplate>
+                    <ui:QueryViewPanelDisplay DataContext="{Binding}" />
+                </DataTemplate>
+            </TabControl.ContentTemplate>
+        </TabControl>
+        
+        <!--<ListBox
+            Grid.Row="2" 
+            Grid.Column="0"
+            Grid.ColumnSpan="2"
+            Name="lvResults">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                </Style>
+            </ListBox.ItemContainerStyle>
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <ui:QueryViewPanelDisplay DataContext="{Binding}" />
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>-->
     </Grid>
 </UserControl>

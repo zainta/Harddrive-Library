@@ -428,9 +428,9 @@ namespace HDDLC.Data
                 errorRecords.Add(new HDSLRecord(
                     new HDSLValueItem[]
                     {
-                                            new HDSLValueItem("Column", error.Column.GetType().ToString(), error.Column),
-                                            new HDSLValueItem("Row", error.Row.GetType().ToString(), error.Row),
-                                            new HDSLValueItem("Error", error.Message.GetType().ToString(), error.Message),
+                        new HDSLValueItem("Column", error.Column.GetType().ToString(), error.Column),
+                        new HDSLValueItem("Row", error.Row.GetType().ToString(), error.Row),
+                        new HDSLValueItem("Error", error.Message.GetType().ToString(), error.Message),
                     }));
             }
 

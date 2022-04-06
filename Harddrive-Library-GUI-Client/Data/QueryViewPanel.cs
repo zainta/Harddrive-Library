@@ -324,7 +324,7 @@ namespace HDDLC.Data
                 var first = records.First();
                 foreach (var colDef in first.Data)
                 {
-                    RecordTable.Columns.Add(new DataColumn(colDef.Column, Type.GetType(colDef.ColumnType)));
+                    RecordTable.Columns.Add(new DataColumn(colDef.Column, Type.GetType(colDef.ColumnType)) { ReadOnly = true });
                 }
             }
 
