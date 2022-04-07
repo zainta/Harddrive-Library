@@ -2,11 +2,13 @@
 // Licensed under the MIT License, (the "License"); you may not use this file except in compliance with the License. 
 // You may obtain a copy of the License at https://mit-license.org/
 
+using HDDL.IO.Settings;
 using HDDL.Web;
 using System;
 using System.ComponentModel;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Linq;
 
 namespace HDDLC.Data
 {
@@ -15,6 +17,30 @@ namespace HDDLC.Data
     /// </summary>
     public class HDSLConnection : DependencyObject, INotifyPropertyChanged
     {
+        #region Ini File Loading
+
+        private const string Ini_File_Location = "db location.ini";
+
+        /// <summary>
+        /// Searches through the available ini file and pre-creates all found connections
+        /// </summary>
+        /// <returns></returns>
+        public static HDSLConnection[] GetIniConnection()
+        {
+            var manager = IniFileManager.Explore(Ini_File_Location, true, false, false,
+                new IniSubsection("HDSL_Web", null,
+                    new IniValue("BroadcastSources", defaultValue: null)));
+
+            var addresses = manager[@"HDSL_Web>BroadcastSources"]?.Value?.Split(",")
+                    .Where(a => !string.IsNullOrWhiteSpace(a))
+                    .Select(a => a.Trim())
+                    .Select(a => new HDSLConnection() { ConnectionAddress = a });
+
+            return addresses.ToArray();
+        }
+
+        #endregion
+
         public delegate void WasDeletedDelegate(HDSLConnection target);
         /// <summary>
         /// Occurs when the HDSLConnection is deleted via the UI

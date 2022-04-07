@@ -103,6 +103,11 @@ namespace HDDLC.UI
         public HDSLConnectionManager()
         {
             InitializeComponent();
+
+            foreach (var c in HDSLConnection.GetIniConnection())
+            {
+                Connections.Add(c);
+            }
         }
 
         private void Add_Connection(object sender, RoutedEventArgs e)
