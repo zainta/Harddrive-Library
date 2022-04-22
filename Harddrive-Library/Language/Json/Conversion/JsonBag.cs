@@ -7,6 +7,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace HDDL.Language.Json.Conversion
@@ -356,6 +357,25 @@ namespace HDDL.Language.Json.Conversion
         public override string ToString()
         {
             return $"Count: {Values.Count}, Type: {ConvertTarget?.Name}";
+        }
+
+        /// <summary>
+        /// Returns a structure-derived string that should be identical across any record of the same type (not intended to be unique across all types)
+        /// </summary>
+        /// <returns></returns>
+        public string GetKeyString()
+        {
+            var sb = new StringBuilder();
+            foreach (var v in Values)
+            {
+                if (sb.Length > 0)
+                {
+                    sb.Append(",");
+                }
+                sb.Append(v.Key);
+            }
+
+            return $"[{sb}]";
         }
     }
 }

@@ -23,6 +23,11 @@ namespace HDDL.Language.Json.Reflection
         /// </summary>
         private static ConcurrentDictionary<Type, PropertyInfo[]> _propertyCache;
 
+        /// <summary>
+        /// Lookup table for property
+        /// </summary>
+        private static ExpiringCache<string, Type[]> _relevantTypeCache;
+
         static TypeHelper()
         {
             _propertyCache = new ConcurrentDictionary<Type, PropertyInfo[]>();
@@ -30,6 +35,8 @@ namespace HDDL.Language.Json.Reflection
             {
                 GetAllTypes();
             });
+
+            _relevantTypeCache = new ExpiringCache<string, Type[]>(500);
         }
 
         /// <summary>
@@ -58,6 +65,7 @@ namespace HDDL.Language.Json.Reflection
             return possibleTypes;
         }
 
+        //private static ConcurrentStack<double> _calls = new ConcurrentStack<double>();
         /// <summary>
         /// Based on the type of JsonBase, returns the relevant types for comparison
         /// </summary>
@@ -75,26 +83,34 @@ namespace HDDL.Language.Json.Reflection
             else if (jb is JsonBag)
             {
                 var bag = jb as JsonBag;
-                results =
-                    (from t in types
-                     where
-                         !t.IsAbstract &&
-                         !t.IsInterface &&
-                         t.GetCustomAttribute<ObsoleteAttribute>() == null &&
-                         t.GetCustomAttribute<JsonIgnoreAttribute>() == null &&
-                         (from p in PropsOf(t)
-                          where
-                              p.CanWrite == true &&
-                              bag.Values.Keys.Contains(p.Name) &&
-                              p.GetCustomAttribute<JsonIgnoreAttribute>(true) == null &&
-                              p.GetCustomAttribute<ObsoleteAttribute>() == null
-                          select p).Count() == bag.Values.Count
-                     select t).ToArray();
+                if (_relevantTypeCache.Has(bag.GetKeyString()))
+                {
+                    results = _relevantTypeCache[bag.GetKeyString()];
+                }
+                else
+                {
+                    results =
+                        (from t in types.AsParallel()
+                         where
+                             !t.IsAbstract &&
+                             !t.IsInterface &&
+                             t.GetCustomAttribute<ObsoleteAttribute>() == null &&
+                             t.GetCustomAttribute<JsonIgnoreAttribute>() == null &&
+                             (from p in PropsOf(t)
+                              where
+                                  p.CanWrite == true &&
+                                  bag.Values.Keys.Contains(p.Name) &&
+                                  p.GetCustomAttribute<JsonIgnoreAttribute>(true) == null &&
+                                  p.GetCustomAttribute<ObsoleteAttribute>() == null
+                              select p).Count() == bag.Values.Count
+                         select t).ToArray();
+                    _relevantTypeCache[bag.GetKeyString()] = results;
+                }
             }
             else if (jb is JsonArray)
             {
                 results =
-                    (from t in types
+                    (from t in types.AsParallel()
                      where
                         t.GetInterfaces().Where(t => t == typeof(IEnumerable)).Any() &&
                         t.GetCustomAttribute<ObsoleteAttribute>() == null &&
