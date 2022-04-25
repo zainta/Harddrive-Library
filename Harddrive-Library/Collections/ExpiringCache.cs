@@ -7,7 +7,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace HDDL.Language.Json.Reflection
+namespace HDDL.Collections
 {
     /// <summary>
     /// Implements a caching system where items can expire and will automatically be disposed of when they do
