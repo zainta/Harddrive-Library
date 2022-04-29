@@ -9,6 +9,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using HDDL.Language.HDSL;
+using HDDL.IO;
 
 namespace HDSL.ConsoleClient.Helpers
 {
@@ -177,7 +178,7 @@ namespace HDSL.ConsoleClient.Helpers
                     switch (cd.Column)
                     {
                         case "Size":
-                            result = ShortenSize(v);
+                            result = DiskHelper.ShortenSize(v);
                             break;
                     }
                 }
@@ -187,7 +188,7 @@ namespace HDSL.ConsoleClient.Helpers
                     switch (cd.Column)
                     {
                         case "Size":
-                            result = ShortenSize(v);
+                            result = DiskHelper.ShortenSize(v);
                             break;
                     }
                 }
@@ -325,36 +326,6 @@ namespace HDSL.ConsoleClient.Helpers
             while (pulse.Length > maxLength);
 
             return pulse;
-        }
-
-        /// <summary>
-        /// Takes in a numerical value and reduces it to a textual representation (e.g 1.1mb)
-        /// </summary>
-        /// <param name="value">The value to shorten</param>
-        /// <returns></returns>
-        private static string ShortenSize(long? value)
-        {
-            if (value.HasValue)
-            {
-                var abbreviations = new string[] { "B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB", "XB", "SB", "DB" };
-                var degrees = 1;
-                long denomination = 1024;
-                while (value > denomination)
-                {
-                    degrees++;
-                    denomination *= 1024;
-                }
-                degrees--;
-                denomination /= 1024;
-
-                var displayValue = Math.Truncate(100 * ((double)value) / denomination) / 100;
-                var result = $"{displayValue}{abbreviations[degrees]}";
-                return result;
-            }
-            else
-            {
-                return "0B";
-            }
         }
 
         /// <summary>
