@@ -469,7 +469,15 @@ namespace HDDL.Language.Json.Conversion
             // now determine what kind of property it is
             if (tokens.Peek().Type == JsonTokenTypes.Boolean)
             {
-                result = bool.Parse(tokens.Pop().Literal);
+                var str = tokens.Pop().Literal;
+                if (bool.TryParse(str, out bool r))
+                {
+                    result = r;
+                }
+                else
+                {
+                    result = str;
+                }
             }
             else if (tokens.Peek().Type == JsonTokenTypes.String)
             {
