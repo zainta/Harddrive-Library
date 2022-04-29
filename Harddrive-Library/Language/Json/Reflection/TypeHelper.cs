@@ -27,7 +27,7 @@ namespace HDDL.Language.Json.Reflection
         /// <summary>
         /// Lookup table for property
         /// </summary>
-        private static ExpiringCache<string, Type[]> _relevantTypeCache;
+        private static ExpiringCache<string, Tuple<bool, Type[]>> _relevantTypeCache;
 
         static TypeHelper()
         {
@@ -37,7 +37,7 @@ namespace HDDL.Language.Json.Reflection
                 GetAllTypes();
             });
 
-            _relevantTypeCache = new ExpiringCache<string, Type[]>(500);
+            _relevantTypeCache = new ExpiringCache<string, Tuple<bool, Type[]>>(500);
         }
 
         /// <summary>
@@ -86,7 +86,7 @@ namespace HDDL.Language.Json.Reflection
                 var bag = jb as JsonBag;
                 if (_relevantTypeCache.Has(bag.GetKeyString()))
                 {
-                    results = _relevantTypeCache[bag.GetKeyString()];
+                    results = _relevantTypeCache[bag.GetKeyString()].Item2;
                 }
                 else
                 {
@@ -105,7 +105,7 @@ namespace HDDL.Language.Json.Reflection
                                   p.GetCustomAttribute<ObsoleteAttribute>() == null
                               select p).Count() == bag.Values.Count
                          select t).ToArray();
-                    _relevantTypeCache[bag.GetKeyString()] = results;
+                    _relevantTypeCache[bag.GetKeyString()] = new Tuple<bool, Type[]>(false, results);
                 }
             }
             else if (jb is JsonArray)
@@ -122,6 +122,56 @@ namespace HDDL.Language.Json.Reflection
             }
 
             return results;
+        }
+
+        /// <summary>
+        /// Updates (will throw an exception if key does not exist) an existing key with a single, assured target
+        /// </summary>
+        /// <param name="types">The new set of types</param>
+        /// <param name="key">The JsonBag key to update</param>
+        /// <exception cref="InvalidOperationException" />
+        public static void SetBagKeyCache(IEnumerable<Type> types, string key)
+        {
+            if (_relevantTypeCache.Has(key))
+            {
+                _relevantTypeCache[key] = new Tuple<bool, Type[]>(true, types.ToArray());
+            }
+            else
+            {
+                throw new InvalidOperationException("JsonBag key not found");
+            }
+        }
+
+        /// <summary>
+        /// Checks to see if the given key has been assured via call to SetBagKeyCache
+        /// </summary>
+        /// <param name="key">The key to check</param>
+        /// <returns></returns>
+        public static bool IsAssured(string key)
+        {
+            if (_relevantTypeCache.Has(key))
+            {
+                return _relevantTypeCache[key].Item1;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Returns the key string's associated assured type
+        /// </summary>
+        /// <param name="key">The key to retrieve</param>
+        /// <returns></returns>
+        /// <exception cref="InvalidOperationException" />
+        public static Type GetAssuredType(string key)
+        {
+            if (_relevantTypeCache.Has(key) &&
+                _relevantTypeCache[key].Item2.Length == 1)
+            {
+                return _relevantTypeCache[key].Item2.Single();
+            }
+
+            throw new InvalidOperationException("JsonBag key not found or contains multiple entries.");
         }
 
         private static Type[] _allTypes;

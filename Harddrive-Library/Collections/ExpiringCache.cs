@@ -117,8 +117,8 @@ namespace HDDL.Collections
         /// <param name="value">The value to referernce</param>
         public void Set(KeyType key, ContentType value)
         {
-            _lastAccessed.GetOrAdd(key, DateTime.Now);
-            _cache.GetOrAdd(key, value);
+            _lastAccessed[key] = DateTime.Now;
+            _cache[key] = value;
         }
 
         /// <summary>

@@ -87,73 +87,84 @@ namespace HDDL.Language.Json.Conversion
             // only continue the type assessment if the majority of children successfully assessed themselves
             if (childSuccesses.Where(csResult => !csResult).Count() < childSuccesses.Count)
             {
-                // assess every relevant type and keep the one(s) that match(es)
-                // for a type to match, it must:
-                //      the names must match
-                //      all properties must be accounted for
-                //      all property types must be assignable or null(and the target property be nullable)
                 var potentials = new List<Type>();
-                var relevant = TypeHelper.GetRelevantTypes(this);
-                foreach (var type in relevant)
+
+                // check to see if this type key has been assured.
+                // If it has, use the single entry without question
+                if (TypeHelper.IsAssured(GetKeyString()))
                 {
-                    // for the given type, assess whether its properties match a property on the JsonBag and has an assignable type
-
-                    // to do that,
-                    // compare all of the potential type's properties to all of the JsonBag's properties to see if they match
-                    // * (a match being either a one to one match on property type and name, or a name match with a null value on a nullable property)
-                    // then take the number that match and check it against the total number of the JsonBag's properties to make sure that they *all* match
-                    // if they do then that's a potential (it's a full match, really)
-
-                    // note that if the value is a JsonArray then it is ignored because all JsonArray automatically assume they will be arrays.
-                    // this means they can be passed as the initialization parameter to the actual target enumeration
-                    var validProps = TypeHelper.GetValidProperties(type);
-
-                    // vp = valid prop
-                    // pp = potential prop
-                    var matchingProperties =
-                        (
-                            from vp in validProps
-                            from pp in Values
-                            where
-                                // names match
-                                pp.Key.Equals(vp.Name, StringComparison.InvariantCultureIgnoreCase) &&
-                                // for JsonBag and JsonArray properties
-                                (
-                                    ((pp.Value is JsonArray || pp.Value is JsonBag) &&
-                                    (
-                                        // if potential prop is null and valid prop is nullable
-                                        (
-                                            pp.Value.ConvertTarget == null &&
-                                            !vp.PropertyType.IsValueType || (Nullable.GetUnderlyingType(vp.PropertyType) != null)
-                                        ) ||
-                                        // or the potential prop can be assigned to the valid prop
-                                        pp.Value.ConvertTarget.IsAssignableTo(vp.PropertyType) ||
-                                        // or the potential prop is a jsonarray
-                                        pp.Value is JsonArray
-                                    )) ||
-                                    (pp.Value is ValueTypeQuantity &&
-                                    (
-                                        // if potential prop is null and valid prop is nullable
-                                        (
-                                            pp.Value.ConvertTarget == null &&
-                                            !vp.PropertyType.IsValueType || (Nullable.GetUnderlyingType(vp.PropertyType) != null)
-                                        ) ||
-                                        // or the potential prop can be converted to the valid prop's type
-                                        TypeHelper.TryConvertTo(((ValueTypeQuantity)pp.Value).Value, vp.PropertyType)
-                                    ))
-                                )
-                            select pp
-                        );
-
-                    if (matchingProperties.Count() == validProps.Length)
+                    potentials.Add(TypeHelper.GetAssuredType(GetKeyString()));
+                }
+                else
+                {
+                    // assess every relevant type and keep the one(s) that match(es)
+                    // for a type to match, it must:
+                    //      the names must match
+                    //      all properties must be accounted for
+                    //      all property types must be assignable or null(and the target property be nullable)
+                    var relevant = TypeHelper.GetRelevantTypes(this);
+                    foreach (var type in relevant)
                     {
-                        potentials.Add(type);
+                        // for the given type, assess whether its properties match a property on the JsonBag and has an assignable type
+
+                        // to do that,
+                        // compare all of the potential type's properties to all of the JsonBag's properties to see if they match
+                        // * (a match being either a one to one match on property type and name, or a name match with a null value on a nullable property)
+                        // then take the number that match and check it against the total number of the JsonBag's properties to make sure that they *all* match
+                        // if they do then that's a potential (it's a full match, really)
+
+                        // note that if the value is a JsonArray then it is ignored because all JsonArray automatically assume they will be arrays.
+                        // this means they can be passed as the initialization parameter to the actual target enumeration
+                        var validProps = TypeHelper.GetValidProperties(type);
+
+                        // vp = valid prop
+                        // pp = potential prop
+                        var matchingProperties =
+                            (
+                                from vp in validProps
+                                from pp in Values
+                                where
+                                    // names match
+                                    pp.Key.Equals(vp.Name, StringComparison.InvariantCultureIgnoreCase) &&
+                                    // for JsonBag and JsonArray properties
+                                    (
+                                        ((pp.Value is JsonArray || pp.Value is JsonBag) &&
+                                        (
+                                            // if potential prop is null and valid prop is nullable
+                                            (
+                                                pp.Value.ConvertTarget == null &&
+                                                !vp.PropertyType.IsValueType || (Nullable.GetUnderlyingType(vp.PropertyType) != null)
+                                            ) ||
+                                            // or the potential prop can be assigned to the valid prop
+                                            pp.Value.ConvertTarget.IsAssignableTo(vp.PropertyType) ||
+                                            // or the potential prop is a jsonarray
+                                            pp.Value is JsonArray
+                                        )) ||
+                                        (pp.Value is ValueTypeQuantity &&
+                                        (
+                                            // if potential prop is null and valid prop is nullable
+                                            (
+                                                pp.Value.ConvertTarget == null &&
+                                                !vp.PropertyType.IsValueType || (Nullable.GetUnderlyingType(vp.PropertyType) != null)
+                                            ) ||
+                                            // or the potential prop can be converted to the valid prop's type
+                                            TypeHelper.TryConvertTo(((ValueTypeQuantity)pp.Value).Value, vp.PropertyType)
+                                        ))
+                                    )
+                                select pp
+                            );
+
+                        if (matchingProperties.Count() == validProps.Length)
+                        {
+                            potentials.Add(type);
+                        }
                     }
                 }
 
                 if (potentials.Count == 1)
                 {
                     SetType(potentials.First());
+                    TypeHelper.SetBagKeyCache(new Type[] { potentials.First() }, GetKeyString());
                     result = true;
                 }
                 else if (potentials.Count == 0)
