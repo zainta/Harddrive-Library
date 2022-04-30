@@ -34,7 +34,7 @@ namespace HDDLC.Data
             var addresses = manager[@"HDSL_Web>BroadcastSources"]?.Value?.Split(",")
                     .Where(a => !string.IsNullOrWhiteSpace(a))
                     .Select(a => a.Trim())
-                    .Select(a => new HDSLConnection() { ConnectionAddress = a });
+                    .Select(a => new HDSLConnection() { ConnectionAddress = a, IsFromIniFile = true });
 
             return addresses.ToArray();
         }
@@ -130,6 +130,7 @@ namespace HDDLC.Data
         /// </summary>
         protected virtual void OnIsValidChanged(bool? oldIsValid, bool? newIsValid)
         {
+            OnPropertyChanged("IsValid");
         }
 
         #endregion
@@ -170,6 +171,45 @@ namespace HDDLC.Data
         protected virtual void OnNeedsValidationChanged(bool oldNeedsValidation, bool newNeedsValidation)
         {
             
+        }
+
+        #endregion
+
+        #region IsFromIniFile
+
+        /// <summary>
+        /// IsFromIniFile Dependency Property
+        /// </summary>
+        public static readonly DependencyProperty IsFromIniFileProperty =
+            DependencyProperty.Register("IsFromIniFile", typeof(bool), typeof(HDSLConnection),
+                new FrameworkPropertyMetadata((bool)false,
+                    new PropertyChangedCallback(OnIsFromIniFileChanged)));
+
+        /// <summary>
+        /// Whether or not this connection is from the ini file
+        /// </summary>
+        public bool IsFromIniFile
+        {
+            get { return (bool)GetValue(IsFromIniFileProperty); }
+            set { SetValue(IsFromIniFileProperty, value); }
+        }
+
+        /// <summary>
+        /// Handles changes to the IsFromIniFile property.
+        /// </summary>
+        private static void OnIsFromIniFileChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            HDSLConnection target = (HDSLConnection)d;
+            bool oldIsFromIniFile = (bool)e.OldValue;
+            bool newIsFromIniFile = target.IsFromIniFile;
+            target.OnIsFromIniFileChanged(oldIsFromIniFile, newIsFromIniFile);
+        }
+
+        /// <summary>
+        /// Provides derived classes an opportunity to handle changes to the IsFromIniFile property.
+        /// </summary>
+        protected virtual void OnIsFromIniFileChanged(bool oldIsFromIniFile, bool newIsFromIniFile)
+        {
         }
 
         #endregion

@@ -64,7 +64,7 @@
             Grid.ColumnSpan="8"
             AlternatingRowBackground="Gainsboro"
             AlternationCount="2"
-            Visibility="{Binding ItemsSource.Count, Converter={StaticResource countToVisibilityConverter}, ConverterParameter=True, ElementName=dgData}"/>
+            Visibility="{Binding ItemsSource.Count, Converter={StaticResource countToVisibilityConverter}, ConverterParameter=True, ElementName=dgData}" />
 
         <TextBlock
             Grid.Column="0"

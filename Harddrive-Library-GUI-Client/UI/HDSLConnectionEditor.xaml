@@ -9,6 +9,7 @@
     <UserControl.Resources>
         <converters:ValidationStateToColorBrushConverter x:Key="validationStateToColorBrushConverter"/>
         <converters:BooleanInversionConverter x:Key="booleanInversionConverter"/>
+        <converters:BooleanToVisibilityConverter x:Key="booleanToVisibilityConverter" />
     </UserControl.Resources>
     
     <Grid>
@@ -56,6 +57,7 @@
             Width="20" 
             Height="20" 
             IsEnabled="{Binding ElementName=tbLock, Path=IsChecked, Converter={StaticResource booleanInversionConverter}}" 
+            Visibility="{Binding Path=IsFromIniFile, Converter={StaticResource booleanToVisibilityConverter}, ConverterParameter=True}"
             Click="DeleteHDSLConnection">X</Button>
     </Grid>
 </UserControl>

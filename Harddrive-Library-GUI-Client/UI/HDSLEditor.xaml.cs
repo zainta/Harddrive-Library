@@ -1,4 +1,5 @@
-﻿using HDDL.Web;
+﻿using HDDL.UI.WPF.Converters;
+using HDDL.Web;
 using HDDLC.Data;
 using System;
 using System.Collections.Generic;
@@ -102,12 +103,39 @@ namespace HDDLC.UI
             b.UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged;
             BindingOperations.SetBinding(btnInitiateAdvancedSearch, Button.IsEnabledProperty, b);
 
+            // bind the panels property to the busy pane's visibility
+            b = new Binding("IsBusy");
+            b.Source = _viewer;
+            b.UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged;
+            b.Converter = new HDDL.UI.WPF.Converters.BooleanToVisibilityConverter();
+            BindingOperations.SetBinding(bpBusy, UserControl.VisibilityProperty, b);
+
+            // bind the panels property to the basic editor's enabled property
+            b = new Binding("IsBusy");
+            b.Source = _viewer;
+            b.UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged;
+            b.Converter = new BooleanInversionConverter();
+            BindingOperations.SetBinding(txtBasicSearchText, UserControl.IsEnabledProperty, b);
+
+            // bind the panels property to the basic editor's enabled property
+            b = new Binding("IsBusy");
+            b.Source = _viewer;
+            b.UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged;
+            b.Converter = new BooleanInversionConverter();
+            BindingOperations.SetBinding(khtAdvancedSearchText, UserControl.IsEnabledProperty, b);
+            
+            _viewer.Panels.CollectionChanged += Panels_CollectionChanged;
+
             DataContextChanged += HDSLEditor_DataContextChanged;
         }
 
-        private void HDSLEditor_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+        /// <summary>
+        /// Updates the QueryViewer's connection
+        /// </summary>
+        private void UpdateConnectionValidationState()
         {
             var connection = DataContext as HDSLConnection;
+            connection.PropertyChanged += Connection_PropertyChanged;
             if (connection?.IsValid == true)
             {
                 _viewer.Connection = connection;
@@ -116,6 +144,22 @@ namespace HDDLC.UI
             {
                 _viewer.Connection = null;
             }
+        }
+
+        private void HDSLEditor_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if (e.OldValue != null && e.OldValue is HDSLConnection)
+            {
+                HDSLConnection conn = e.OldValue as HDSLConnection;
+                conn.PropertyChanged -= Connection_PropertyChanged;
+            }
+
+            UpdateConnectionValidationState();
+        }
+
+        private void Connection_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            UpdateConnectionValidationState();
         }
 
         private void OnAdvancedSearchChanged(object sender, TextChangedEventArgs e)
@@ -138,6 +182,11 @@ namespace HDDLC.UI
         private void InitiateAdvancedSearch_Click(object sender, RoutedEventArgs e)
         {
             _viewer.ExecuteQuery();
+        }
+
+        private void Panels_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            lvResults.SelectedIndex = 0;
         }
     }
 }

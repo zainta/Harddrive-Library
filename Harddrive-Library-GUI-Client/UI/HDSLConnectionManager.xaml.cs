@@ -104,6 +104,30 @@ namespace HDDLC.UI
         {
             InitializeComponent();
 
+            Loaded += HDSLConnectionManager_Loaded;
+            Connections.CollectionChanged += Connections_CollectionChanged;
+        }
+
+        private void Connections_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
+            {
+                HDSLConnection mostRecent = null;
+                foreach (HDSLConnection c in e.NewItems)
+                {
+                    mostRecent = c;
+                }
+
+                SelectedConnection = mostRecent;
+            }
+            else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove)
+            {
+                SelectedConnection = Connections.LastOrDefault();
+            }
+        }
+
+        private void HDSLConnectionManager_Loaded(object sender, RoutedEventArgs e)
+        {
             foreach (var c in HDSLConnection.GetIniConnection())
             {
                 Connections.Add(c);

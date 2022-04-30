@@ -58,7 +58,7 @@
             Grid.Row="1" 
             HorizontalAlignment="Stretch"
             Grid.ColumnSpan="2" />
-
+        
         <TabControl
             Grid.Row="2" 
             Grid.Column="0"
@@ -66,7 +66,7 @@
             Name="lvResults">
             <TabControl.ItemTemplate>
                 <DataTemplate>
-                    <TextBlock Text="{Binding SearchQuery}" />
+                    <TextBlock Text="{Binding SearchQuery}" MinWidth="100" />
                 </DataTemplate>
             </TabControl.ItemTemplate>
             <TabControl.ContentTemplate>
@@ -75,22 +75,11 @@
                 </DataTemplate>
             </TabControl.ContentTemplate>
         </TabControl>
-        
-        <!--<ListBox
+
+        <ui:BusyPane
             Grid.Row="2" 
             Grid.Column="0"
             Grid.ColumnSpan="2"
-            Name="lvResults">
-            <ListBox.ItemContainerStyle>
-                <Style TargetType="ListBoxItem">
-                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                </Style>
-            </ListBox.ItemContainerStyle>
-            <ListBox.ItemTemplate>
-                <DataTemplate>
-                    <ui:QueryViewPanelDisplay DataContext="{Binding}" />
-                </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>-->
+            x:Name="bpBusy"/>
     </Grid>
 </UserControl>
