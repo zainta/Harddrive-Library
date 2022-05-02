@@ -28,41 +28,61 @@ namespace HDDLC.UI
         {
             InitializeComponent();
 
-            //DataContextChanged += OnDataContextChanged;
+            DataContextChanged += OnDataContextChanged;
         }
 
         private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
-            //if (e.OldValue != null)
-            //{
-            //    (e.OldValue as ObservableCollection<HDSLRecord>).CollectionChanged -= DataRefreshed;
-            //}
+            if (e.OldValue != null)
+            {
+                var oldPanel = e.OldValue as QueryViewPanel;
+                if (oldPanel != null)
+                {
+                    oldPanel.Refreshed -= DataRefreshed;
+                }
+            }
 
-            //var records = (DataContext as QueryViewPanel)?.Records;
-            //if (records != null)
-            //{
-            //    // generate the columns and bind to the event
-            //    dgData.Columns.Clear();
-            //    var first = records.FirstOrDefault();
-            //    if (first != null)
-            //    {
-            //        foreach (var colItem in first.Data)
-            //        {
-            //            // Create Bound Columns
-            //            var col = new DataGridTextColumn();
-            //            col.Header = colItem.Column;
-            //            col.Binding = new Binding("Data");
-            //            dgData.Columns.Add(col);
-            //        }
-            //    }
-
-            //    records.CollectionChanged += DataRefreshed;
-            //}
+            var panel = DataContext as QueryViewPanel;
+            if (panel != null)
+            {
+                panel.Refreshed += DataRefreshed;
+                udJumpPage.Value = Convert.ToInt32(panel.CurrentPageIndex);
+            }
         }
 
-        private void DataRefreshed(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        private void DataRefreshed(QueryViewPanel sender)
         {
-            
+            udJumpPage.Value = Convert.ToInt32(sender.CurrentPageIndex);
+        }
+
+        private void btnGo_Click(object sender, RoutedEventArgs e)
+        {
+            var panel = DataContext as QueryViewPanel;
+            if (panel != null)
+            {
+                if (udJumpPage.Value.HasValue)
+                {
+                    panel.SetPage(udJumpPage.Value.Value);
+                }
+            }
+        }
+
+        private void btnPrev_Click(object sender, RoutedEventArgs e)
+        {
+            var panel = DataContext as QueryViewPanel;
+            if (panel != null)
+            {
+                panel.PreviousPage();
+            }
+        }
+
+        private void btnNext_Click(object sender, RoutedEventArgs e)
+        {
+            var panel = DataContext as QueryViewPanel;
+            if (panel != null)
+            {
+                panel.NextPage();
+            }
         }
     }
 }

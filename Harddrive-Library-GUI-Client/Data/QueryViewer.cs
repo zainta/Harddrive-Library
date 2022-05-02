@@ -6,6 +6,7 @@ using HDDL.Data;
 using HDDL.Language;
 using HDDL.Language.HDSL.Results;
 using HDDL.Web;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -437,6 +438,7 @@ namespace HDDLC.Data
                 Panels.Clear();
                 Panels.Add(
                     new QueryViewPanel(
+                        this,
                         0,
                         0,
                         0,
@@ -448,6 +450,96 @@ namespace HDDLC.Data
                 _client = null;
                 IsBusy = false;
             });
+        }
+
+        /// <summary>
+        /// Updates the given requester with the new page
+        /// </summary>
+        /// <param name="requester">The requesting QueryViewPanel</param>
+        /// <param name="requestedIndex">The desired page index for the current query</param>
+        public void GetPageIndex(QueryViewPanel requester, long requestedIndex)
+        {
+            IsBusy = true;
+            _client = Connection.AsConnection();
+
+            if (IsAdvancedQuery == true)
+            {
+                var query = $"{StripPaging(requester.SearchQuery)} page {requestedIndex};";
+                Task<HDSLOutcomeSet>.Factory.StartNew(() => _client.Query(query))
+                .ContinueWith((tsk) =>
+                {
+                    if (tsk.Result.Errors.Length == 0)
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            // add new and update existing panels
+                            if (tsk.Result.Results.Count == 1)
+                            {
+                                var r = tsk.Result.Results.Single();
+                                requester.Set(r.Records, r.PageIndex);
+                            }
+                            else
+                            {
+                                ProcessErrors(new LogItemBase[]
+                                {
+                                    new LogItemBase(-1, -1, "Multiple result sets returned for single query.")
+                                }); ;
+                            }
+
+                            _client = null;
+                            IsBusy = false;
+                        });
+                    }
+                    else
+                    {
+                        ProcessErrors(tsk.Result.Errors);
+                    }
+                });
+            }
+            else
+            {
+                var query = requester.SearchQuery;
+                var work = Task<HDSLRecord[]>.Factory.StartNew(() => _client.Search(query, Convert.ToInt32(requestedIndex)))
+                    .ContinueWith((tsk) =>
+                    {
+                        var paging = tsk.Result.Where(r => r is DataHandlerPagingInformation).SingleOrDefault() as DataHandlerPagingInformation;
+                        if (paging == null)
+                        {
+                            ProcessErrors(new LogItemBase[] { new LogItemBase(-1, -1, $"Failed to query system for '{query}'.") });
+                        }
+                        else
+                        {
+                            Dispatcher.Invoke(() =>
+                            {
+                                var existing = (from p in Panels where p.SearchQuery == query select p).SingleOrDefault();
+                                if (existing == null)
+                                {
+                                    Panels.Clear();
+                                    Panels.Add(
+                                        new QueryViewPanel(
+                                            this,
+                                            paging.RecordsPerPage,
+                                            paging.TotalRecords,
+                                            paging.TotalPages,
+                                            paging.PageIndex,
+                                            query,
+                                            tsk.Result.Where(r => !(r is DataHandlerPagingInformation))
+                                        ));
+
+                                    _client = null;
+                                    IsBusy = false;
+                                }
+                                else
+                                {
+                                    existing.Set(tsk.Result.Where(r => !(r is DataHandlerPagingInformation)), paging.PageIndex);
+                                }
+
+                                _client = null;
+                                IsBusy = false;
+                            });
+                        }
+                    });
+            }
         }
 
         /// <summary>
@@ -480,6 +572,7 @@ namespace HDDLC.Data
                                         {
                                             Panels.Add(
                                                 new QueryViewPanel(
+                                                    this,
                                                     r.RecordsPerPage,
                                                     r.TotalRecords,
                                                     r.TotalRecords / r.RecordsPerPage,
@@ -537,6 +630,7 @@ namespace HDDLC.Data
                                         Panels.Clear();
                                         Panels.Add(
                                             new QueryViewPanel(
+                                                this,
                                                 paging.RecordsPerPage,
                                                 paging.TotalRecords,
                                                 paging.TotalPages,

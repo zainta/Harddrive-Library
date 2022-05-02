@@ -171,7 +171,7 @@ namespace HDDL.Language.Json.Reflection
                 return _relevantTypeCache[key].Item2.Single();
             }
 
-            throw new InvalidOperationException("JsonBag key not found or contains multiple entries.");
+            return null;
         }
 
         private static Type[] _allTypes;

@@ -20,6 +20,12 @@ namespace HDDLC.Data
     /// </summary>
     class QueryViewPanel : DependencyObject
     {
+        public delegate void QueryViewPanelDataTableUpdated(QueryViewPanel sender);
+        /// <summary>
+        /// Occurs when the QueryViewPanel's data content is updated
+        /// </summary>
+        public event QueryViewPanelDataTableUpdated Refreshed;
+
         #region TotalRecords
 
         /// <summary>
@@ -136,6 +142,7 @@ namespace HDDLC.Data
         protected virtual void OnTotalPagesChanged(long oldTotalPages, long newTotalPages)
         {
             UpdatePagingMessage();
+            UpdateCanProperties();
         }
 
         #endregion
@@ -176,6 +183,7 @@ namespace HDDLC.Data
         protected virtual void OnCurrentPageIndexChanged(long oldCurrentPageIndex, long newCurrentPageIndex)
         {
             UpdatePagingMessage();
+            UpdateCanProperties();
         }
 
         #endregion
@@ -297,6 +305,89 @@ namespace HDDLC.Data
 
         #endregion
 
+        #region CanNext
+
+        /// <summary>
+        /// CanNext Dependency Property
+        /// </summary>
+        public static readonly DependencyProperty CanNextProperty =
+            DependencyProperty.Register("CanNext", typeof(bool), typeof(QueryViewPanel),
+                new FrameworkPropertyMetadata((bool)false,
+                    new PropertyChangedCallback(OnCanNextChanged)));
+
+        /// <summary>
+        /// Whether or not a next page is available
+        /// </summary>
+        public bool CanNext
+        {
+            get { return (bool)GetValue(CanNextProperty); }
+            set { SetValue(CanNextProperty, value); }
+        }
+
+        /// <summary>
+        /// Handles changes to the CanNext property.
+        /// </summary>
+        private static void OnCanNextChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            QueryViewPanel target = (QueryViewPanel)d;
+            bool oldCanNext = (bool)e.OldValue;
+            bool newCanNext = target.CanNext;
+            target.OnCanNextChanged(oldCanNext, newCanNext);
+        }
+
+        /// <summary>
+        /// Provides derived classes an opportunity to handle changes to the CanNext property.
+        /// </summary>
+        protected virtual void OnCanNextChanged(bool oldCanNext, bool newCanNext)
+        {
+        }
+
+        #endregion
+
+        #region CanPrevious
+
+        /// <summary>
+        /// CanPrevious Dependency Property
+        /// </summary>
+        public static readonly DependencyProperty CanPreviousProperty =
+            DependencyProperty.Register("CanPrevious", typeof(bool), typeof(QueryViewPanel),
+                new FrameworkPropertyMetadata((bool)false,
+                    new PropertyChangedCallback(OnCanPreviousChanged)));
+
+        /// <summary>
+        /// Whether or not a previous page is available
+        /// </summary>
+        public bool CanPrevious
+        {
+            get { return (bool)GetValue(CanPreviousProperty); }
+            set { SetValue(CanPreviousProperty, value); }
+        }
+
+        /// <summary>
+        /// Handles changes to the CanPrevious property.
+        /// </summary>
+        private static void OnCanPreviousChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            QueryViewPanel target = (QueryViewPanel)d;
+            bool oldCanPrevious = (bool)e.OldValue;
+            bool newCanPrevious = target.CanPrevious;
+            target.OnCanPreviousChanged(oldCanPrevious, newCanPrevious);
+        }
+
+        /// <summary>
+        /// Provides derived classes an opportunity to handle changes to the CanPrevious property.
+        /// </summary>
+        protected virtual void OnCanPreviousChanged(bool oldCanPrevious, bool newCanPrevious)
+        {
+        }
+
+        #endregion
+
+        /// <summary>
+        /// The containing QueryViewer
+        /// </summary>
+        private QueryViewer _parent;
+
         /// <summary>
         /// The bindable datatable
         /// </summary>
@@ -305,14 +396,16 @@ namespace HDDLC.Data
         /// <summary>
         /// Creates a query view panel
         /// </summary>
+        /// <param name="parent">The parent QueryViewer instance</param>
         /// <param name="rpp">The number of records returned per page</param>
         /// <param name="tr">The total number of records</param>
         /// <param name="tp">The total number of pages of records</param>
         /// <param name="cpi">The current page index</param>
         /// <param name="query">The query used to retrieve the current records</param>
         /// <param name="records">The current records</param>
-        public QueryViewPanel(long rpp, long tr, long tp, long cpi, string query, IEnumerable<HDSLRecord> records)
+        public QueryViewPanel(QueryViewer parent, long rpp, long tr, long tp, long cpi, string query, IEnumerable<HDSLRecord> records)
         {
+            _parent = parent;
             RecordsPerPage = rpp;
             TotalRecords = tr;
             TotalPages = tp;
@@ -329,6 +422,57 @@ namespace HDDLC.Data
             }
 
             Set(records, cpi);
+        }
+
+        /// <summary>
+        /// Updates CanNext and CanPrevious
+        /// </summary>
+        private void UpdateCanProperties()
+        {
+            CanNext = CurrentPageIndex < TotalPages;
+            CanPrevious = CurrentPageIndex > 0;
+        }
+
+        /// <summary>
+        /// Attempts to display the next page index
+        /// </summary>
+        public void NextPage()
+        {
+            if (CanNext)
+            {
+                _parent.GetPageIndex(this, CurrentPageIndex + 1);
+            }
+        }
+
+        /// <summary>
+        /// Attempts to display the previous page index
+        /// </summary>
+        public void PreviousPage()
+        {
+            if (CanPrevious)
+            {
+                _parent.GetPageIndex(this, CurrentPageIndex - 1);
+            }
+        }
+
+        /// <summary>
+        /// Attempts to display the given page index
+        /// </summary>
+        /// <param name="index">The page index to display</param>
+        public void SetPage(long index)
+        {
+            if (index == CurrentPageIndex)
+            {
+                return;
+            }
+            else if (index < CurrentPageIndex && index >= 0)
+            {
+                _parent.GetPageIndex(this, index);
+            }
+            else if (index > CurrentPageIndex && index <= TotalPages)
+            {
+                _parent.GetPageIndex(this, index);
+            }
         }
 
         /// <summary>
@@ -350,6 +494,7 @@ namespace HDDLC.Data
                 RecordTable.Rows.Add(dr);
             }
             RecordTable.AcceptChanges();
+            Refreshed?.Invoke(this);
         }
 
         /// <summary>

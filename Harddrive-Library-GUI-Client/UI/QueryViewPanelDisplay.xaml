@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
              xmlns:converters="clr-namespace:HDDL.UI.WPF.Converters;assembly=HDDLUI"
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800">
@@ -55,6 +56,48 @@
             Grid.Row="2" 
             Grid.ColumnSpan="8"
             Text="{Binding SearchQuery}" />
+
+        <Grid
+            HorizontalAlignment="Right"
+            Grid.Column="8"
+            Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="3" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="3" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="3" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Button
+                Grid.Column="0"
+                Width="50"
+                Name="btnPrev"
+                IsEnabled="{Binding CanPrevious}"
+                Click="btnPrev_Click">Prev</Button>
+
+            <xctk:IntegerUpDown 
+                Grid.Column="2"
+                Width="50"
+                Maximum="{Binding TotalPages}"
+                Minimum="0"
+                Name="udJumpPage"/>
+
+            <Button
+                Grid.Column="4"
+                Width="30"
+                Name="btnGo"
+                Click="btnGo_Click">Go</Button>
+
+            <Button
+                Grid.Column="6"
+                Width="50"
+                Name="btnNext"
+                IsEnabled="{Binding CanNext}"
+                Click="btnNext_Click">Next</Button>
+        </Grid>
 
         <DataGrid 
             ItemsSource="{Binding RecordTable}"

@@ -91,9 +91,11 @@ namespace HDDL.Language.Json.Conversion
 
                 // check to see if this type key has been assured.
                 // If it has, use the single entry without question
-                if (TypeHelper.IsAssured(GetKeyString()))
+                Type assured = null;
+                if (TypeHelper.IsAssured(GetKeyString()) &&
+                    (assured = TypeHelper.GetAssuredType(GetKeyString())) != null)
                 {
-                    potentials.Add(TypeHelper.GetAssuredType(GetKeyString()));
+                    potentials.Add(assured);
                 }
                 else
                 {
