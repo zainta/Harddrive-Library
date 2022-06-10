@@ -57,13 +57,10 @@ namespace HDDL.Language.Json
             {
                 throw new JsonConversionException("An error occurred during conversion.", issues);
             }
-            else if (obj.Evaluate(typeof(T), true))
-            {
-                return (T)Convert(obj);
-            }
             else
             {
-                throw new JsonConversionException("Target type does not match json.", Array.Empty<LogItemBase>());
+                var jr = new JsonReconstitutor(true, 4, 50);
+                return jr.Convert<T>(obj);
             }
         }
 
@@ -84,15 +81,8 @@ namespace HDDL.Language.Json
             }
             else
             {
-                // determine what type to use
-                if (obj.Evaluate(true))
-                {
-                    return Convert(obj);
-                }
-                else
-                {
-                    throw new JsonConversionException("Deserialization failed.  See Issues property for further information.", issues);
-                }
+                var jr = new JsonReconstitutor(true, 4, 50);
+                return jr.Convert(obj);
             }
         }
 

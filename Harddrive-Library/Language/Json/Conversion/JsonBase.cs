@@ -43,30 +43,9 @@ namespace HDDL.Language.Json.Conversion
         /// Assigns the JsonBase derivation a type to convert into
         /// </summary>
         /// <param name="typeTarget">The type the JsonBase derivation will convert into</param>
-        public void SetType(Type typeTarget)
+        public virtual void SetType(Type typeTarget)
         {
             ConvertTarget = typeTarget;
-        }
-
-        /// <summary>
-        /// Determines the appropriate type to convert the derivation into
-        /// </summary>
-        /// <param name="root">Indicates if this is the root call</param>
-        /// <returns></returns>
-        public virtual bool Evaluate(bool root = false)
-        {
-            throw new NotImplementedException();
-        }
-
-        /// <summary>
-        /// Takes a type and determines if it is a potential match for the derived type
-        /// </summary>
-        /// <param name="type">The type to evaluate</param>
-        /// <param name="root">Indicates if this is the root call</param>
-        /// <returns></returns>
-        public virtual bool Evaluate(Type type, bool root = false)
-        {
-            throw new NotImplementedException();
         }
 
         /// <summary>
@@ -76,6 +55,15 @@ namespace HDDL.Language.Json.Conversion
         protected virtual object GetInstance()
         {
             return Activator.CreateInstance(ConvertTarget);
+        }
+
+        /// <summary>
+        /// Returns a structure-derived string that should be identical across any record of the same type (not intended to be unique across all types)
+        /// </summary>
+        /// <returns></returns>
+        public virtual string GetKeyString()
+        {
+            throw new NotImplementedException();
         }
     }
 }

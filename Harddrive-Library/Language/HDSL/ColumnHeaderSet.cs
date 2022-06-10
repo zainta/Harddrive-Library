@@ -91,7 +91,8 @@ namespace HDDL.Language.HDSL
         {
             var results = new List<HDSLValueItem>();
 
-            var props = record.GetType().GetProperties();
+            var t = record.GetType();
+            var props = t.GetProperties();
             foreach (var column in Columns)
             {
                 var prop = (from p in props where p.Name.Equals(column, StringComparison.InvariantCultureIgnoreCase) select p).SingleOrDefault();
@@ -101,7 +102,7 @@ namespace HDDL.Language.HDSL
                 }
             }
 
-            return new HDSLRecord(results);
+            return new HDSLRecord(results, t.FullName);
         }
 
         /// <summary>

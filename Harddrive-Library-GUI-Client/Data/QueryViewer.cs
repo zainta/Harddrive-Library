@@ -430,7 +430,8 @@ namespace HDDLC.Data
                         new HDSLValueItem("Column", error.Column.GetType().ToString(), error.Column),
                         new HDSLValueItem("Row", error.Row.GetType().ToString(), error.Row),
                         new HDSLValueItem("Error", error.Message.GetType().ToString(), error.Message),
-                    }));
+                    },
+                    "Error"));
             }
 
             Dispatcher.Invoke(() =>
@@ -559,54 +560,64 @@ namespace HDDLC.Data
                     Task<HDSLOutcomeSet>.Factory.StartNew(() => _client.Query(query))
                         .ContinueWith((tsk) =>
                         {
-                            if (tsk.Result.Errors.Length == 0)
+                            if (tsk.Status == TaskStatus.RanToCompletion)
                             {
-                                Dispatcher.Invoke(() =>
+                                if (tsk.Result.Errors.Length == 0)
                                 {
+                                    Dispatcher.Invoke(() =>
+                                    {
                                     // add new and update existing panels
                                     foreach (var r in tsk.Result.Results)
-                                    {
-                                        var q = StripPaging(r.Statement);
-                                        var existing = (from p in Panels where p.SearchQuery == q select p).SingleOrDefault();
-                                        if (existing == null)
                                         {
-                                            Panels.Add(
-                                                new QueryViewPanel(
-                                                    this,
-                                                    r.RecordsPerPage,
-                                                    r.TotalRecords,
-                                                    r.TotalRecords / r.RecordsPerPage,
-                                                    r.PageIndex,
-                                                    q,
-                                                    r.Records
-                                                ));
+                                            var q = StripPaging(r.Statement);
+                                            var existing = (from p in Panels where p.SearchQuery == q select p).SingleOrDefault();
+                                            if (existing == null)
+                                            {
+                                                Panels.Add(
+                                                    new QueryViewPanel(
+                                                        this,
+                                                        r.RecordsPerPage,
+                                                        r.TotalRecords,
+                                                        r.TotalRecords / r.RecordsPerPage,
+                                                        r.PageIndex,
+                                                        q,
+                                                        r.Records
+                                                    ));
+                                            }
+                                            else
+                                            {
+                                                existing.Set(r.Records, r.PageIndex);
+                                            }
                                         }
-                                        else
-                                        {
-                                            existing.Set(r.Records, r.PageIndex);
-                                        }
-                                    }
 
                                     // check all panels against the query results
                                     // panels that are not present in the results are removed
                                     var removals = new List<QueryViewPanel>();
-                                    foreach (var p in Panels)
-                                    {
-                                        var remove = !(from r in tsk.Result.Results where StripPaging(r.Statement) == p.SearchQuery select r).Any();
-                                        if (remove)
+                                        foreach (var p in Panels)
                                         {
-                                            removals.Add(p);
+                                            var remove = !(from r in tsk.Result.Results where StripPaging(r.Statement) == p.SearchQuery select r).Any();
+                                            if (remove)
+                                            {
+                                                removals.Add(p);
+                                            }
                                         }
-                                    }
-                                    removals.ForEach(r => Panels.Remove(r));
+                                        removals.ForEach(r => Panels.Remove(r));
 
-                                    _client = null;
-                                    IsBusy = false;
-                                });
+                                        _client = null;
+                                        IsBusy = false;
+                                    });
+                                }
+                                else
+                                {
+                                    ProcessErrors(tsk.Result.Errors);
+                                }
                             }
                             else
                             {
-                                ProcessErrors(tsk.Result.Errors);
+                                ProcessErrors(new LogItemBase[]
+                                    {
+                                        new LogItemBase(-1, -1, "An error occurred during execution.  Please check syntax and try again.")
+                                    });
                             }
                         });
                 }
@@ -615,38 +626,48 @@ namespace HDDLC.Data
                     var work = Task<HDSLRecord[]>.Factory.StartNew(() => _client.Search(query, 0))
                         .ContinueWith((tsk) =>
                         {
-                            var paging = tsk.Result.Where(r => r is DataHandlerPagingInformation).SingleOrDefault() as DataHandlerPagingInformation;
-                            if (paging == null)
+                            if (tsk.Status == TaskStatus.RanToCompletion)
                             {
-                                ProcessErrors(new LogItemBase[] { new LogItemBase(-1, -1, $"Failed to query system for '{query}'.") });
+                                var paging = tsk.Result.Where(r => r is DataHandlerPagingInformation).SingleOrDefault() as DataHandlerPagingInformation;
+                                if (paging == null)
+                                {
+                                    ProcessErrors(new LogItemBase[] { new LogItemBase(-1, -1, $"Failed to query system for '{query}'.") });
+                                }
+                                else
+                                {
+                                    Dispatcher.Invoke(() =>
+                                    {
+                                        var existing = (from p in Panels where p.SearchQuery == query select p).SingleOrDefault();
+                                        if (existing == null)
+                                        {
+                                            Panels.Clear();
+                                            Panels.Add(
+                                                new QueryViewPanel(
+                                                    this,
+                                                    paging.RecordsPerPage,
+                                                    paging.TotalRecords,
+                                                    paging.TotalPages,
+                                                    paging.PageIndex,
+                                                    query,
+                                                    tsk.Result.Where(r => !(r is DataHandlerPagingInformation))
+                                                ));
+
+                                            _client = null;
+                                            IsBusy = false;
+                                        }
+                                        else
+                                        {
+                                            existing.Set(tsk.Result.Where(r => !(r is DataHandlerPagingInformation)), paging.PageIndex);
+                                        }
+                                    });
+                                }
                             }
                             else
                             {
-                                Dispatcher.Invoke(() =>
-                                {
-                                    var existing = (from p in Panels where p.SearchQuery == query select p).SingleOrDefault();
-                                    if (existing == null)
+                                ProcessErrors(new LogItemBase[]
                                     {
-                                        Panels.Clear();
-                                        Panels.Add(
-                                            new QueryViewPanel(
-                                                this,
-                                                paging.RecordsPerPage,
-                                                paging.TotalRecords,
-                                                paging.TotalPages,
-                                                paging.PageIndex,
-                                                query,
-                                                tsk.Result.Where(r => !(r is DataHandlerPagingInformation))
-                                            ));
-
-                                        _client = null;
-                                        IsBusy = false;
-                                    }
-                                    else
-                                    {
-                                        existing.Set(tsk.Result.Where(r => !(r is DataHandlerPagingInformation)), paging.PageIndex);
-                                    }
-                                });
+                                        new LogItemBase(-1, -1, "An error occurred during execution.  Please check syntax and try again.")
+                                    });
                             }
                         });
                 }

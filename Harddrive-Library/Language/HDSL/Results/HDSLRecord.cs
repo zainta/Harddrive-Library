@@ -20,6 +20,11 @@ namespace HDDL.Language.HDSL.Results
         public HDSLValueItem[] Data { get; private set; }
 
         /// <summary>
+        /// The type of database record represented
+        /// </summary>
+        public string Type { get; private set; }
+
+        /// <summary>
         /// The columns represented in the data
         /// </summary>
         [JsonIgnore]
@@ -51,15 +56,18 @@ namespace HDDL.Language.HDSL.Results
         public HDSLRecord()
         {
             Data = null;
+            Type = string.Empty;
         }
 
         /// <summary>
         /// Creates an HDSLRecord
         /// </summary>
         /// <param name="content"></param>
-        public HDSLRecord(IEnumerable<HDSLValueItem> content)
+        /// <param name="type"></param>
+        public HDSLRecord(IEnumerable<HDSLValueItem> content, string type)
         {
             Data = content.ToArray();
+            Type = type;
         }
     }
 }

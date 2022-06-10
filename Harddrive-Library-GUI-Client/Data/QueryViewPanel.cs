@@ -3,15 +3,12 @@
 // You may obtain a copy of the License at https://mit-license.org/
 
 using HDDL.Data;
+using HDDL.Language.HDSL.Results;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
-using HDDL.Language.HDSL.Results;
 using System.Data;
+using System.Linq;
+using System.Windows;
 
 namespace HDDLC.Data
 {
@@ -389,6 +386,16 @@ namespace HDDLC.Data
         private QueryViewer _parent;
 
         /// <summary>
+        /// The database item type returned in the query
+        /// </summary>
+        private string _recordType;
+
+        /// <summary>
+        /// The mappings important for the expected results
+        /// </summary>
+        public ColumnNameMappingItem[] RelevantMappings { get; private set; }
+
+        /// <summary>
         /// The bindable datatable
         /// </summary>
         public DataTable RecordTable { get; private set; }
@@ -415,6 +422,13 @@ namespace HDDLC.Data
             if (records.Any())
             {
                 var first = records.First();
+                _recordType = records.Count() > 0 ? records.First()?.Type : null;
+                RelevantMappings = (from m in _parent.Connection.Mappings
+                                    where
+                                        m.HostType == _recordType &&
+                                        first.Columns.Contains(m.Alias)
+                                    select m).ToArray();
+                
                 foreach (var colDef in first.Data)
                 {
                     RecordTable.Columns.Add(new DataColumn(colDef.Column, Type.GetType(colDef.ColumnType)) { ReadOnly = true });
@@ -495,6 +509,8 @@ namespace HDDLC.Data
             }
             RecordTable.AcceptChanges();
             Refreshed?.Invoke(this);
+
+            UpdateTotalMessage();
         }
 
         /// <summary>
@@ -517,14 +533,13 @@ namespace HDDLC.Data
         /// </summary>
         private void UpdateTotalMessage()
         {
-            if (TotalRecords == 0)
+            if (RecordTable == null)
             {
                 TotalRecordsMessage = $"N/A";
             }
             else
             {
-                var rpp = RecordsPerPage > TotalRecords ? TotalRecords : RecordsPerPage;
-                TotalRecordsMessage = $"{rpp} of {TotalRecords}";
+                TotalRecordsMessage = $"{RecordTable.Rows.Count} of {TotalRecords}";
             }
         }
     }

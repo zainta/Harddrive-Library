@@ -147,7 +147,7 @@ namespace HDDL.Language.Json.Reflection
         /// </summary>
         /// <param name="key">The key to check</param>
         /// <returns></returns>
-        public static bool IsAssured(string key)
+        public static bool BagKeyIsAssured(string key)
         {
             if (_relevantTypeCache.Has(key))
             {
@@ -163,7 +163,7 @@ namespace HDDL.Language.Json.Reflection
         /// <param name="key">The key to retrieve</param>
         /// <returns></returns>
         /// <exception cref="InvalidOperationException" />
-        public static Type GetAssuredType(string key)
+        public static Type GetAssuredBagKeyType(string key)
         {
             if (_relevantTypeCache.Has(key) &&
                 _relevantTypeCache[key].Item2.Length == 1)
@@ -257,50 +257,37 @@ namespace HDDL.Language.Json.Reflection
         /// <param name="value">The value to attempt conversion on</param>
         /// <param name="type">The target type</param>
         /// <returns>True if successful, false otherwise</returns>
-        public static bool TryConvertTo(object? value, Type type)
-        {
-            if (value == null &&
-                (!type.IsValueType || Nullable.GetUnderlyingType(type) != null)) return true;
-
-            try
-            {
-                if (type.IsEnum)
-                {
-                    Enum.ToObject(type, value);
-                }
-                else
-                {
-                    Convert.ChangeType(value, type);
-                }
-                
-            }
-            catch (Exception ex)
-            {
-                return false;
-            }
-
-            return true;
-        }
-
-        /// <summary>
-        /// Checks to see if the given value can be converted to the given type
-        /// </summary>
-        /// <param name="value">The value to attempt conversion on</param>
-        /// <param name="type">The target type</param>
-        /// <returns>True if successful, false otherwise</returns>
         public static object? ConvertTo(object? value, Type type)
         {
-            if (value == null &&
-                (!type.IsValueType || Nullable.GetUnderlyingType(type) != null)) return true;
+            if (value == null) return null;
 
-            object? result = null;
-            if (type.IsEnum)
+            object result = null;
+            if (type.GetInterface(nameof(IConvertible)) != null)
             {
-                result = Enum.ToObject(type, value);
+                result = Convert.ChangeType(value, type);
+            }
+            else if (type == typeof(Guid))
+            {
+                if (value is string)
+                {
+                    result = Guid.Parse((string)value);
+                }
+                else if (value is Guid)
+                {
+                    result = (Guid)value;
+                }
+            }
+            else if (type == typeof(string))
+            {
+                result = value.ToString();
+            }
+            else if (typeof(object).IsAssignableFrom(type))
+            {
+                result = value;
             }
             else
             {
-                result = Convert.ChangeType(value, type);
+                throw new Exception($"Unable to determine target type '{type}'");
             }
 
             return result;

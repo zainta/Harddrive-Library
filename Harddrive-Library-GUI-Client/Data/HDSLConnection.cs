@@ -9,6 +9,7 @@ using System.ComponentModel;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Linq;
+using HDDL.Data;
 
 namespace HDDLC.Data
 {
@@ -214,6 +215,45 @@ namespace HDDLC.Data
 
         #endregion
 
+        #region Mappings
+
+        /// <summary>
+        /// Mappings Dependency Property
+        /// </summary>
+        public static readonly DependencyProperty MappingsProperty =
+            DependencyProperty.Register("Mappings", typeof(ColumnNameMappingItem[]), typeof(HDSLConnection),
+                new FrameworkPropertyMetadata((ColumnNameMappingItem[])null,
+                    new PropertyChangedCallback(OnMappingsChanged)));
+
+        /// <summary>
+        /// The current column mappings from the target HDSL service instance
+        /// </summary>
+        public ColumnNameMappingItem[] Mappings
+        {
+            get { return (ColumnNameMappingItem[])GetValue(MappingsProperty); }
+            set { SetValue(MappingsProperty, value); }
+        }
+
+        /// <summary>
+        /// Handles changes to the Mappings property.
+        /// </summary>
+        private static void OnMappingsChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            HDSLConnection target = (HDSLConnection)d;
+            ColumnNameMappingItem[] oldMappings = (ColumnNameMappingItem[])e.OldValue;
+            ColumnNameMappingItem[] newMappings = target.Mappings;
+            target.OnMappingsChanged(oldMappings, newMappings);
+        }
+
+        /// <summary>
+        /// Provides derived classes an opportunity to handle changes to the Mappings property.
+        /// </summary>
+        protected virtual void OnMappingsChanged(ColumnNameMappingItem[] oldMappings, ColumnNameMappingItem[] newMappings)
+        {
+        }
+
+        #endregion
+
         /// <summary>
         /// Create a default connection
         /// </summary>
@@ -248,6 +288,7 @@ namespace HDDLC.Data
         {
             //if (!NeedsValidation) return;
             IsValid = null;
+            var validated = false;
 
             bool outcome = false;
             NeedsValidation = false;
@@ -280,7 +321,21 @@ namespace HDDLC.Data
                         {
                             IsValid = false;
                         }
+
+                        validated = IsValid.HasValue ? IsValid.Value : false;
                     });
+                }).ContinueWith((t) =>
+                {
+                    if (validated)
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            var connection = AsConnection();
+                            var mappings = connection.GetMappings();
+
+                            Mappings = mappings.ToArray();
+                        });
+                    }
                 });
         }
 

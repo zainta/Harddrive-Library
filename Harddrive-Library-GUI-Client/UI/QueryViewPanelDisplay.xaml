@@ -9,6 +9,11 @@
              d:DesignHeight="450" d:DesignWidth="800">
     <UserControl.Resources>
         <converters:CountToVisibilityConverter x:Key="countToVisibilityConverter"/>
+        <converters:DiskSizeFormatConverter x:Key="diskSizeFormatConverter"/>
+
+        <DataTemplate x:Key="SizeColumnCellTemplate">
+            <TextBlock Text="{Binding Converter={StaticResource diskSizeFormatConverter}, ConverterParameter=Size}" />
+        </DataTemplate>
     </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
@@ -107,7 +112,14 @@
             Grid.ColumnSpan="8"
             AlternatingRowBackground="Gainsboro"
             AlternationCount="2"
-            Visibility="{Binding ItemsSource.Count, Converter={StaticResource countToVisibilityConverter}, ConverterParameter=True, ElementName=dgData}" />
+            Visibility="{Binding ItemsSource.Count, Converter={StaticResource countToVisibilityConverter}, ConverterParameter=True, ElementName=dgData}"
+            AutoGeneratingColumn="dgData_AutoGeneratingColumn">
+            <DataGrid.Resources>
+                <Style TargetType="Hyperlink">
+                    <EventSetter Event="Click" Handler="dgData_Hyperlink_Click"/>
+                </Style>
+            </DataGrid.Resources>
+        </DataGrid>
 
         <TextBlock
             Grid.Column="0"

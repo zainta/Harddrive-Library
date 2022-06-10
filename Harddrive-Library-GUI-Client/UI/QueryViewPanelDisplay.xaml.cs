@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Data;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -83,6 +84,38 @@ namespace HDDLC.UI
             {
                 panel.NextPage();
             }
+        }
+
+        private void dgData_AutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
+        {
+            var panel = DataContext as QueryViewPanel;
+            if (panel != null)
+            {
+                var mapping = (from m in panel.RelevantMappings where m.Alias == e.PropertyName select m).SingleOrDefault();
+                if (mapping != null)
+                {
+                    if (mapping.Name.ToLower() == "size")
+                    {
+                        DataGridTemplateColumn sizeColumn = new DataGridTemplateColumn();
+                        sizeColumn.Header = mapping.Alias;
+                        sizeColumn.CellTemplate = FindResource("SizeColumnCellTemplate") as DataTemplate;
+                        e.Column = sizeColumn;
+                    }
+                    else if (mapping.Name.ToLower() == "path")
+                    {
+                        DataGridHyperlinkColumn linkColumn = new DataGridHyperlinkColumn();
+                        linkColumn.Header = mapping.Alias;
+                        linkColumn.Binding = new Binding(mapping.Alias);
+                        e.Column = linkColumn;
+                    }
+                }
+            }
+        }
+
+        private void dgData_Hyperlink_Click(object sender, RoutedEventArgs e)
+        {
+            Hyperlink link = (Hyperlink)e.OriginalSource;
+            Process.Start("explorer.exe", link.NavigateUri.AbsoluteUri);            
         }
     }
 }

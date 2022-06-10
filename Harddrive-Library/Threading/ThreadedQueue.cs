@@ -261,7 +261,7 @@ namespace HDDL.Threading
         /// <returns></returns>
         public Task WhenAll()
         {
-            return Task.WhenAll(_ending);
+            return Task.WhenAll(GetEndingWatcher());
         }
 
         /// <summary>
@@ -270,7 +270,21 @@ namespace HDDL.Threading
         /// <returns></returns>
         public void WaitAll()
         {
-            _ending.Wait();
+            GetEndingWatcher().Wait();
+        }
+
+        /// <summary>
+        /// Returns a task to monitor the completion of the given work
+        /// </summary>
+        /// <returns></returns>
+        private Task GetEndingWatcher()
+        {
+            return Task.Run(() =>
+                {
+                    while (GetTaskCount() != 0 || !_ending.IsCompleted)
+                    {
+                    }
+                });
         }
 
         /// <summary>

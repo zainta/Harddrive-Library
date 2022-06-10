@@ -62,39 +62,22 @@ namespace HDDL.Language.Json.Conversion
         }
 
         /// <summary>
+        /// Assigns the JsonBase derivation a type to convert into
+        /// </summary>
+        /// <param name="typeTarget">The type the JsonBase derivation will convert into</param>
+        public override void SetType(Type typeTarget)
+        {
+            base.SetType(typeTarget);
+            Kind = typeTarget;
+        }
+
+        /// <summary>
         /// Returns the JsonBase derivation as a json string
         /// </summary>
         /// <returns></returns>
         public override string AsJson()
         {
             return JsonBagHandler.GetItemJson(Value);
-        }
-
-        /// <summary>
-        /// Determines the appropriate type to convert the derivation into
-        /// </summary>
-        /// <param name="root">Indicates if this is the root call</param>
-        /// <returns></returns>
-        public override bool Evaluate(bool root = false)
-        {
-            if (Kind != null)
-            {
-                SetType(Kind);
-                return true;
-            }
-            
-            return false;
-        }
-
-        /// <summary>
-        /// Takes a type and determines if it is a potential match for the derived type
-        /// </summary>
-        /// <param name="type">The type to evaluate</param>
-        /// <param name="root">Indicates if this is the root call</param>
-        /// <returns></returns>
-        public override bool Evaluate(Type type, bool root = false)
-        {
-            return type != null && Kind == type;
         }
 
         /// <summary>
@@ -110,11 +93,11 @@ namespace HDDL.Language.Json.Conversion
         {
             if (Value is string || Value is Guid || Value is bool)
             {
-                return $"{Value.GetType().Name}, '{Value}'";
+                return $"{Value.GetType().Name}, {Kind}, '{Value}'";
             }
             else
             {
-                return $"{Value.GetType().Name}, {Value}";
+                return $"{Value.GetType().Name}, {Kind}, {Value}";
             }
         }
     }

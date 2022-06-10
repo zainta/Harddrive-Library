@@ -20,13 +20,13 @@ namespace HDDL.Data
         /// <summary>
         /// The original column's name
         /// </summary>
-        internal string Name 
+        public string Name 
         { 
             get
             {
                 return _name;
             }
-            set
+            internal set
             {
                 _name = value;
                 GetDataType();

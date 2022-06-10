@@ -1,10 +1,10 @@
-﻿using HDDL.IO;
+﻿// Copyright (c) Zain Al-Ahmary.  All rights reserved.
+// Licensed under the MIT License, (the "License"); you may not use this file except in compliance with the License. 
+// You may obtain a copy of the License at https://mit-license.org/
+
+using HDDL.IO;
 using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Data;
 
 namespace HDDL.UI.WPF.Converters
@@ -14,20 +14,24 @@ namespace HDDL.UI.WPF.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value != null)
+            if (value != null &&
+                value is System.Data.DataRowView drv && 
+                parameter != null &&
+                parameter is string key)
             {
-                if (value is string &&
-                    long.TryParse((string)value, out long val))
+                var val = drv[key];
+                if (val is string &&
+                    long.TryParse((string)val, out long v))
                 {
-                    return DiskHelper.ShortenSize(val);
+                    return DiskHelper.ShortenSize(v);
                 }
-                else if (value is long)
+                else if (val is long)
                 {
-                    return DiskHelper.ShortenSize((long)value);
+                    return DiskHelper.ShortenSize((long)val);
                 }
             }
 
-            return value;
+            return string.Empty;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
