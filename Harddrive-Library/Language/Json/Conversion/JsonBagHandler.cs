@@ -5,12 +5,10 @@
 using HDDL.Collections;
 using HDDL.Language.Json.Reflection;
 using System;
-using System.Linq;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Text;
-using System.Collections.Concurrent;
 using System.Threading.Tasks;
 
 namespace HDDL.Language.Json.Conversion
@@ -100,10 +98,18 @@ namespace HDDL.Language.Json.Conversion
             if (obj == null) return null;
 
             var jb = new JsonBag();
+            var ps = new ConcurrentDictionary<string, JsonBase>();
             var props = GetValidProperties(obj);
-            foreach (var prop in props)
+            Parallel.ForEach(props,
+                (prop) =>
+                {
+                    // this won't fail since we're foreaching through the list of properties without duplicates
+                    ps.TryAdd(prop.Name, GetAppropriateJsonContainer(prop.GetValue(obj)));
+                });
+
+            foreach (var item in ps)
             {
-                jb.Values.Add(prop.Name, new ValueTypeQuantity(prop, obj));
+                jb.Values.Add(item.Key, item.Value);
             }
 
             jb.SetType(obj.GetType());
@@ -127,139 +133,39 @@ namespace HDDL.Language.Json.Conversion
         /// <summary>
         /// Converts the provided object into json
         /// </summary>
-        /// <param name="obj">The json to convert</param>
+        /// <param name="obj">The jsonbase to convert</param>
+        /// <param name="appendTypeProperty">Whether or not JSON should include the $type property</param>
         /// <returns>The resulting json string</returns>
-        public static string GetJson(object obj)
-        {
-            if (obj is null)
-            {
-                return null;
-            }
-            else if (obj is IConvertible || obj is Guid)
-            {
-                return GetSingleJson(obj);
-            }
-            else if (obj is IList)
-            {
-                return GetArrayJson((IList)obj);
-            }
-            else
-            {
-                return GetBagJson(obj);
-            }
-        }
+        //internal static string GetJson(JsonBase obj, bool appendTypeProperty)
+        //{
+        //    if (obj is null)
+        //    {
+        //        return null;
+        //    }
+        //    else if (obj is IConvertible || obj is Guid)
+        //    {
+        //        return GetSingleJson(obj, appendTypeProperty);
+        //    }
+        //    else if (obj is IList)
+        //    {
+        //        return GetArrayJson((IList)obj, appendTypeProperty);
+        //    }
+        //    else
+        //    {
+        //        return GetBagJson(obj, appendTypeProperty);
+        //    }
+        //}
 
-        /// <summary>
-        /// Converts a single value into a json string
-        /// </summary>
-        /// <param name="o">The value to convert</param>
-        /// <param name="includeFields">Whether or not to include fields, defaults to false</param>
-        /// <returns>Returns a json string for a single item array</returns>
-        private static string GetSingleJson(object o)
-        {
-            return GetArrayJson(new object[] { o });
-        }
-
-        /// <summary>
-        /// Converts an IEnumerable into a json string
-        /// </summary>
-        /// <param name="o">The IEnumerable instance to convert</param>
-        /// <returns>The resulting json string</returns>
-        private static string GetArrayJson(IList o)
-        {
-            var result = new StringBuilder("[");
-            ConcurrentBag<OrderedJSONCarriage> items = new ConcurrentBag<OrderedJSONCarriage>();
-            Parallel.For(0, o.Count, 
-                (index) =>
-                {
-                    items.Add(new OrderedJSONCarriage(index, GetItemJson(o[index])));
-                });
-            
-            result.Append(
-                string.Join(",", (from item in items
-                                  orderby item.Index ascending
-                                  select item.Json).ToArray())
-                );
-            result.Append("]");
-
-            return result.ToString();
-        }
-
-        /// <summary>
-        /// Converts an object into a json string
-        /// </summary>
-        /// <param name="o">The object to convert</param>
-        /// <returns>The resulting json string</returns>
-        internal static string GetBagJson(object o)
-        {
-            var jb = (o is JsonBag ? o : GetAsBag(o)) as JsonBag;
-            if (jb != null)
-            {
-                var result = new StringBuilder("{");
-                var keyCount = 0;
-
-                foreach (var item in jb.Values.Keys)
-                {
-                    keyCount++;
-
-                    result.Append($"\"{item}\":{jb.Values[item].AsJson()}");
-                    if (keyCount < jb.Values.Keys.Count)
-                    {
-                        result.Append(",");
-                    }
-                }
-
-                result.Append("}");
-                return result.ToString();
-            }
-
-            return "null";
-        }
-
-        /// <summary>
-        /// Properly converts an object into json for nesting
-        /// </summary>
-        /// <param name="o">The object to convert</param>
-        /// <returns></returns>
-        internal static string GetItemJson(object o)
-        {
-            var result = new StringBuilder();
-            if (o is IConvertible)
-            {
-                if (o is string)
-                {
-                    var str = (string)o;
-                    result.Append($"\"{str.Replace("\\", "\\\\")}\"");
-                }
-                else if (o is bool || o is DateTime || o is TimeSpan)
-                {
-                    result.Append($"\"{o}\"");
-                }
-                else if (o is Enum)
-                {
-                    result.Append((int)o);
-                }
-                else
-                {
-                    result.Append(o);
-                }
-            }
-            else if (o is Guid)
-            {
-                result.Append($"\"{o}\"");
-            }
-            else if (o is IList)
-            {
-                result.Append(GetArrayJson((IList)o));
-            }
-            else
-            {
-                var bag = GetAsBag(o);
-                result.Append(GetBagJson(bag));
-            }
-
-            return result.ToString();
-        }
+        ///// <summary>
+        ///// Converts a single value into a json string
+        ///// </summary>
+        ///// <param name="o">The value to convert</param>
+        ///// <param name="appendTypeProperty">Whether or not JSON should include the $type property</param>
+        ///// <returns>Returns a json string for a single item array</returns>
+        //private static string GetSingleJson(object o, bool appendTypeProperty)
+        //{
+        //    return GetArrayJson(new object[] { o }, appendTypeProperty);
+        //}
 
         #endregion
 
@@ -328,7 +234,8 @@ namespace HDDL.Language.Json.Conversion
                 tokens.Pop();
 
                 while (tokens.Peek().Type == JsonTokenTypes.SquareOpen ||
-                    tokens.Peek().Type == JsonTokenTypes.CurlyOpen)
+                    tokens.Peek().Type == JsonTokenTypes.CurlyOpen ||
+                    tokens.Peek().Type == JsonTokenTypes.TypeAnnotation)
                 {
                     if (tokens.Peek().Type == JsonTokenTypes.CurlyOpen)
                     {
@@ -337,6 +244,10 @@ namespace HDDL.Language.Json.Conversion
                     else if (tokens.Peek().Type == JsonTokenTypes.SquareOpen)
                     {
                         result.Values.Add(MakeArray(tokens, issues));
+                    }
+                    else if (tokens.Peek().Type == JsonTokenTypes.TypeAnnotation)
+                    {
+                        GetTypeAnnotation(tokens, result, issues);
                     }
                     else
                     {
@@ -389,17 +300,29 @@ namespace HDDL.Language.Json.Conversion
 
                 // loop through and get all of the properties
                 while (issues.Count == 0 &&
-                    tokens.Peek().Type == JsonTokenTypes.String)
+                    (tokens.Peek().Type == JsonTokenTypes.String ||
+                    tokens.Peek().Type == JsonTokenTypes.TypeAnnotation))
                 {
-                    var prop = MakeProperty(tokens, issues);
-                    if (issues.Count == 0)
+                    if (tokens.Peek().Type == JsonTokenTypes.String)
                     {
-                        Add(prop, result, issues);
-                    }
+                        var prop = MakeProperty(tokens, issues);
+                        if (issues.Count == 0)
+                        {
+                            Add(prop, result, issues);
+                        }
 
-                    if (tokens.Peek().Type == JsonTokenTypes.Comma)
+                        if (tokens.Peek().Type == JsonTokenTypes.Comma)
+                        {
+                            tokens.Pop();
+                        }
+                    }
+                    else if (tokens.Peek().Type == JsonTokenTypes.TypeAnnotation)
                     {
-                        tokens.Pop();
+                        GetTypeAnnotation(tokens, result, issues);
+                    }
+                    else
+                    {
+                        issues.Add(new LogItemBase(tokens.Peek().Column, tokens.Peek().Row, "Unknown property definition."));
                     }
                 }
 
@@ -431,7 +354,8 @@ namespace HDDL.Language.Json.Conversion
             JsonPropertyBag prop = null;
             if (tokens.Count > 0)
             {
-                if (tokens.Peek().Type == JsonTokenTypes.String)
+                if (tokens.Peek().Type == JsonTokenTypes.String ||
+                    tokens.Peek().Type == JsonTokenTypes.TypeAnnotation)
                 {
                     var propDeclaration = tokens.Pop();
                     if (tokens.Peek().Type == JsonTokenTypes.Colon)
@@ -578,6 +502,43 @@ namespace HDDL.Language.Json.Conversion
             else
             {
                 jb.Values.Add(propDefinition.Name, propDefinition.Content);
+            }
+        }
+
+        /// <summary>
+        /// Retrieves and stores a type annotation if one is defined next
+        /// </summary>
+        /// <param name="tokens">The tokens to process</param>
+        /// <param name="jb">The json base derivation to modify</param>
+        /// <param name="issues">Where to store any issues encountered</param>
+        private static void GetTypeAnnotation(ListStack<JsonToken> tokens, JsonBase jb, List<LogItemBase> issues)
+        {
+            if (tokens.Peek().Type == JsonTokenTypes.TypeAnnotation)
+            {
+                var propDefStart = tokens.Peek();
+                var prop = MakeProperty(tokens, issues);
+                if (prop.Content is ValueTypeQuantity)
+                {
+                    try
+                    {
+                        var c = (ValueTypeQuantity)prop.Content;
+                        var t = Type.GetType(c.Value.ToString());
+                        jb.SetType(t);
+
+                        if (tokens.Peek().Type == JsonTokenTypes.Comma)
+                        {
+                            tokens.Pop();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        issues.Add(new LogItemBase(propDefStart.Column, propDefStart.Row, $"Exception thrown upon attempt to produce type indicated by $type property.  \n\n{ex}"));
+                    }
+                }
+                else
+                {
+                    issues.Add(new LogItemBase(propDefStart.Column, propDefStart.Row, $"Improper use of $type property detected."));
+                }
             }
         }
 

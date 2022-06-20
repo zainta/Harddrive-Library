@@ -5,6 +5,7 @@
 using HDDL.Language.Json.Reflection;
 using System;
 using System.Reflection;
+using System.Text;
 
 namespace HDDL.Language.Json.Conversion
 {
@@ -72,12 +73,39 @@ namespace HDDL.Language.Json.Conversion
         }
 
         /// <summary>
-        /// Returns the JsonBase derivation as a json string
+        /// Returns the ValueTypeQuantity as a json string
         /// </summary>
+        /// <param name="appendTypeProperty">Whether or not JSON should include the $type property</param>
         /// <returns></returns>
-        public override string AsJson()
+        public override string AsJson(bool appendTypeProperty)
         {
-            return JsonBagHandler.GetItemJson(Value);
+            var result = new StringBuilder();
+            if (Value is IConvertible)
+            {
+                if (Value is string)
+                {
+                    var str = (string)Value;
+                    result.Append($"\"{str.Replace("\\", "\\\\")}\"");
+                }
+                else if (Value is bool || Value is DateTime || Value is TimeSpan)
+                {
+                    result.Append($"\"{Value}\"");
+                }
+                else if (Value is Enum)
+                {
+                    result.Append((int)Value);
+                }
+                else
+                {
+                    result.Append(Value);
+                }
+            }
+            else if (Value is Guid)
+            {
+                result.Append($"\"{Value}\"");
+            }
+
+            return result.ToString();
         }
 
         /// <summary>

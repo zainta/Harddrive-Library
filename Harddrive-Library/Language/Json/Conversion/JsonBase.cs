@@ -3,6 +3,7 @@
 // You may obtain a copy of the License at https://mit-license.org/
 
 using System;
+using System.Text;
 
 namespace HDDL.Language.Json.Conversion
 {
@@ -24,8 +25,9 @@ namespace HDDL.Language.Json.Conversion
         /// <summary>
         /// Returns the JsonBase derivation as a json string
         /// </summary>
+        /// <param name="appendTypeProperty">Whether or not JSON should include the $type property</param>
         /// <returns></returns>
-        public virtual string AsJson()
+        public virtual string AsJson(bool appendTypeProperty)
         {
             throw new NotImplementedException();
         }
@@ -64,6 +66,23 @@ namespace HDDL.Language.Json.Conversion
         public virtual string GetKeyString()
         {
             throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Adds a correctly comma ended $type property to the given string builder based on the number of items indicated in contentItemCount
+        /// </summary>
+        /// <param name="sb">The string builder to modify</param>
+        /// <param name="type">The value to use in the type parameter</param>
+        /// <param name="contentItemCount">The number of content items will be stored in the json object/array</param>
+        protected void ProperlyAddType(StringBuilder sb, Type type, int contentItemCount)
+        {
+            var typeName = type.FullName;
+
+            sb.Append($"\"$type\":\"{typeName}\"");
+            if (contentItemCount > 0)
+            {
+                sb.Append(",");
+            }
         }
     }
 }

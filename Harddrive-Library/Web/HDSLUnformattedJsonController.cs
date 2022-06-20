@@ -16,16 +16,12 @@ namespace HDDL.Web
     /// </summary>
     [Route("qu")]
     [ApiController]
-    public class HDSLUnformattedJsonController : Controller
+    public class HDSLUnformattedJsonController : HDSLControllerBase
     {
-        private IDataHandler _dh;
-        private IInitializationFileManager _ini;
         private HDSLListManager _grayManager;
 
-        public HDSLUnformattedJsonController(IDataHandler dh, IInitializationFileManager ini)
+        public HDSLUnformattedJsonController(IDataHandler dh, IInitializationFileManager ini) : base(dh, ini)
         {
-            _dh = dh;
-            _ini = ini;
             _grayManager = new HDSLListManager(_ini);
         }
 
@@ -38,7 +34,7 @@ namespace HDDL.Web
         public IActionResult Get(string code)
         {
             var result = HDSLProvider.ExecuteCode(code, _dh as DataHandler, _grayManager);
-            return Ok(JsonConverter.GetJson(result, false));
+            return Ok(JsonConverter.GetJson(result, _useTypeAnnotation, false));
         }
 
         /// <summary>
@@ -50,7 +46,7 @@ namespace HDDL.Web
         public IActionResult Post(string code)
         {
             var result = HDSLProvider.ExecuteCode(code, _dh as DataHandler, _grayManager);
-            return Ok(JsonConverter.GetJson(result, false));
+            return Ok(JsonConverter.GetJson(result, _useTypeAnnotation, false));
         }
     }
 }

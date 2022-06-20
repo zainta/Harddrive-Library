@@ -165,8 +165,12 @@ namespace HDDL.Language.Json.Conversion
                 }
 
                 // check what kind of string it is
-                // for now, we'll just check for boolean and *anything else*
-                if (IsMatch(str[1], "[Tt][Rr][Uu][Ee]") || IsMatch(str[1], "[Ff][Aa][Ll][Ss][Ee]"))
+                if (IsMatch(str[1], "\\$[Tt][Yy][Pp][Ee]"))
+                {
+                    Tokens.Add(new JsonToken(JsonTokenTypes.TypeAnnotation, str[1], str[0], _row, _col));
+                    return true;
+                }
+                else if (IsMatch(str[1], "[Tt][Rr][Uu][Ee]") || IsMatch(str[1], "[Ff][Aa][Ll][Ss][Ee]"))
                 {
                     Tokens.Add(new JsonToken(JsonTokenTypes.Boolean, str[1], str[0], _row, _col));
                     return true;

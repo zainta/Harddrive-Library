@@ -27,18 +27,18 @@ namespace HDDL.Language.Json
         /// Takes an HDSLOutcome instance, or derived instance, and returns it as JSON.
         /// </summary>
         /// <param name="obj">The object to convert</param>
+        /// <param name="appendTypeAnnotation">Whether or not JSON should include the $type property</param>
         /// <param name="format">Whether or not to format the json</param>
         /// <returns></returns>
-        public static string GetJson(object obj, bool format = false)
+        public static string GetJson(object obj, bool appendTypeAnnotation, bool format)
         {
+            var json = JsonBagHandler.GetAppropriateJsonContainer(obj).AsJson(appendTypeAnnotation);
             if (format)
             {
-                return Format(JsonBagHandler.GetJson(obj));
+                json = Format(json);
             }
-            else
-            {
-                return JsonBagHandler.GetJson(obj);
-            }
+
+            return json;
         }
 
         /// <summary>

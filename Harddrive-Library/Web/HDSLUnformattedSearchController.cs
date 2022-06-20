@@ -16,16 +16,12 @@ namespace HDDL.Web
     /// </summary>
     [Route("su")]
     [ApiController]
-    public class HDSLUnformattedSearchController : Controller
+    public class HDSLUnformattedSearchController : HDSLControllerBase
     {
-        private IDataHandler _dh;
-        private IInitializationFileManager _ini;
         private HDSLListManager _grayManager;
 
-        public HDSLUnformattedSearchController(IDataHandler dh, IInitializationFileManager ini)
+        public HDSLUnformattedSearchController(IDataHandler dh, IInitializationFileManager ini) : base(dh, ini)
         {
-            _dh = dh;
-            _ini = ini;
             _grayManager = new HDSLListManager(_ini);
         }
 
@@ -38,7 +34,7 @@ namespace HDDL.Web
         public IActionResult Get(string text, int pageIndex = 0)
         {
             var result = _dh.WideSearch(text, pageIndex, 300);
-            return Ok(JsonConverter.GetJson(result, false));
+            return Ok(JsonConverter.GetJson(result, _useTypeAnnotation, false));
         }
 
         /// <summary>
@@ -50,7 +46,7 @@ namespace HDDL.Web
         public IActionResult Post(string text, int pageIndex = 0)
         {
             var result = _dh.WideSearch(text, pageIndex, 300);
-            return Ok(JsonConverter.GetJson(result, false));
+            return Ok(JsonConverter.GetJson(result, _useTypeAnnotation, false));
         }
     }
 }

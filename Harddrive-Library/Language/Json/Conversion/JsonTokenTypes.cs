@@ -67,6 +67,11 @@ namespace HDDL.Language.Json.Conversion
         /// <summary>
         /// Represents the end of the json
         /// </summary>
-        EndOfJSON
+        EndOfJSON,
+
+        /// <summary>
+        /// Stores the containing object's actual type
+        /// </summary>
+        TypeAnnotation
     }
 }

@@ -57,6 +57,7 @@ namespace HDDL.Language.Json.Conversion
                     case JsonTokenTypes.SquareClose:
                         Family = JsonTokenFamilies.StructuralClosing;
                         break;
+                    case JsonTokenTypes.TypeAnnotation:
                     case JsonTokenTypes.EndOfJSON:
                         Family = JsonTokenFamilies.Metadata;
                         break;

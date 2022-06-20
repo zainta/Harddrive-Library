@@ -3,6 +3,7 @@
 // You may obtain a copy of the License at https://mit-license.org/
 
 using HDDL.Data;
+using HDDL.IO.Settings;
 using HDDL.Language.Json;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,13 +14,10 @@ namespace HDDL.Web
     /// </summary>
     [Route("mappings")]
     [ApiController]
-    public class HDSLMappingJsonController : Controller
+    public class HDSLMappingJsonController : HDSLControllerBase
     {
-        private IDataHandler _dh;
-
-        public HDSLMappingJsonController(IDataHandler dh)
+        public HDSLMappingJsonController(IDataHandler dh, IInitializationFileManager ini) : base(dh, ini)
         {
-            _dh = dh;
         }
 
         /// <summary>
@@ -30,7 +28,7 @@ namespace HDDL.Web
         public IActionResult Get()
         {
             var result = _dh.GetAllColumnNameMappings();
-            return Ok(JsonConverter.GetJson(result, true));
+            return Ok(JsonConverter.GetJson(result, _useTypeAnnotation, true));
         }
 
         /// <summary>
@@ -41,7 +39,7 @@ namespace HDDL.Web
         public IActionResult Post()
         {
             var result = _dh.GetAllColumnNameMappings();
-            return Ok(JsonConverter.GetJson(result, true));
+            return Ok(JsonConverter.GetJson(result, _useTypeAnnotation, true));
         }
     }
 }

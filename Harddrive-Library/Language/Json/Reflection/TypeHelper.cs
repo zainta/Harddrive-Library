@@ -187,7 +187,14 @@ namespace HDDL.Language.Json.Reflection
                 var possibleTargets = new List<Type>();
                 foreach (Assembly ass in AppDomain.CurrentDomain.GetAssemblies())
                 {
-                    possibleTargets.AddRange(ass.GetExportedTypes());
+                    try
+                    {
+                        possibleTargets.AddRange(ass.GetExportedTypes());
+                    }
+                    catch
+                    {
+                        // if the assembly doesn't support exported types then we don't need them from it
+                    }
                 }
 
                 _allTypes = possibleTargets.ToArray();

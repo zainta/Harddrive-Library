@@ -37,27 +37,20 @@ namespace HDDL.Language.Json.Conversion
         }
 
         /// <summary>
-        /// Returns the JsonBase derivation as a json string
+        /// Returns the JsonBag as a json string
         /// </summary>
+        /// <param name="appendTypeProperty">Whether or not JSON should include the $type property</param>
         /// <returns></returns>
-        public override string AsJson()
+        public override string AsJson(bool appendTypeProperty)
         {
             var result = new StringBuilder("[");
-
-            var first = true;
-            foreach (var v in Values)
+            if (appendTypeProperty)
             {
-                if (first)
-                {
-                    first = false;
-                }
-                else
-                {
-                    result.Append(",");
-                }
-
-                result.Append(v.AsJson());
+                ProperlyAddType(result, ConvertTarget, Values.Count);
             }
+            result.Append(
+                string.Join(",", from v in Values select v.AsJson(appendTypeProperty))
+                );
             result.Append("]");
 
             return result.ToString();

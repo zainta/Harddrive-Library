@@ -28,12 +28,33 @@ namespace HDDL.Language.Json.Conversion
         }
 
         /// <summary>
-        /// Returns the JsonBase derivation as a json string
+        /// Returns the JsonBag as a json string
         /// </summary>
+        /// <param name="appendTypeProperty">Whether or not JSON should include the $type property</param>
         /// <returns></returns>
-        public override string AsJson()
+        public override string AsJson(bool appendTypeProperty)
         {
-            return JsonBagHandler.GetBagJson(this);
+            var result = new StringBuilder("{");
+            var keyCount = 0;
+
+            if (appendTypeProperty)
+            {
+                ProperlyAddType(result, ConvertTarget, Values.Keys.Count);
+            }
+
+            foreach (var item in Values.Keys)
+            {
+                keyCount++;
+
+                result.Append($"\"{item}\":{Values[item].AsJson(appendTypeProperty)}");
+                if (keyCount < Values.Keys.Count)
+                {
+                    result.Append(",");
+                }
+            }
+
+            result.Append("}");
+            return result.ToString();
         }
 
         /// <summary>
@@ -49,7 +70,6 @@ namespace HDDL.Language.Json.Conversion
                 var props = TypeHelper.GetValidProperties(ConvertTarget);
                 foreach (var p in props)
                 {
-                    //Values[p.Name].SetType(p.PropertyType);
                     p.SetValue(result, Values[p.Name].AsObject());
                 }
             }
