@@ -145,6 +145,8 @@ namespace HDDL.Language.Json.Conversion
         /// <returns></returns>
         private bool EvaluateItem(ValueTypeQuantity vtq, Type type)
         {
+            if (vtq.ConvertTarget != null) return true;
+
             var result = false;
             try
             {
@@ -189,6 +191,8 @@ namespace HDDL.Language.Json.Conversion
         /// <returns></returns>
         private bool EvaluateItem(JsonBag jb, Type type = null, bool runningInParallel = false)
         {
+            if (jb.ConvertTarget != null) return true;
+
             var result = false;
             var key = jb.GetKeyString();
             Type target;
@@ -307,6 +311,8 @@ namespace HDDL.Language.Json.Conversion
         /// <returns></returns>
         private bool EvaluateItem(JsonArray ja, Type type = null, bool runningInParallel = false)
         {
+            if (ja.ConvertTarget != null) return true;
+
             var result = false;
             var key = ja.GetKeyString();
 

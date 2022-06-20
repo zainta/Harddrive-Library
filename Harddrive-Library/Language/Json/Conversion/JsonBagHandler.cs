@@ -67,6 +67,7 @@ namespace HDDL.Language.Json.Conversion
                 result = new ValueTypeQuantity(obj);
             }
 
+            result.SetType(obj.GetType());
             return result;
         }
 
@@ -86,6 +87,7 @@ namespace HDDL.Language.Json.Conversion
                 ja.Values.Add(GetAppropriateJsonContainer(o));
             }
 
+            ja.SetType(obj.GetType());
             return ja;
         }
 
@@ -104,6 +106,7 @@ namespace HDDL.Language.Json.Conversion
                 jb.Values.Add(prop.Name, new ValueTypeQuantity(prop, obj));
             }
 
+            jb.SetType(obj.GetType());
             return jb;
         }
 
