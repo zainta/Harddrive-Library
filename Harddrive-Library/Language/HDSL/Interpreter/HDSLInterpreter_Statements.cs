@@ -312,7 +312,7 @@ namespace HDDL.Language.HDSL.Interpreter
         /// Allows setting up monitoring of disk areas
         /// 
         /// Syntax:
-        /// watch [passive] [path[, path, path] - defaults to current];
+        /// watch [passive] [refresh time] [path[, path, path] - defaults to current];
         /// </summary>
         private void HandleWatchDefinition()
         {
@@ -326,6 +326,8 @@ namespace HDDL.Language.HDSL.Interpreter
                     Pop();
                     initiallyPassive = true;
                 }
+
+                var refreshPoint = GetTime();
 
                 // the paths are optional, defaulting to the current directory
                 var scanPaths = GetPathList();
@@ -342,6 +344,8 @@ namespace HDDL.Language.HDSL.Interpreter
                         {
                             Id = Guid.NewGuid(),
                             InPassiveMode = initiallyPassive,
+                            PerformRefreshScans = refreshPoint.HasValue,
+                            RefreshTime = refreshPoint,
                             Path = path,
                             Target = null
                         };
@@ -354,6 +358,8 @@ namespace HDDL.Language.HDSL.Interpreter
                         else
                         {
                             dupe.InPassiveMode = false;
+                            dupe.PerformRefreshScans = watch.PerformRefreshScans;
+                            dupe.RefreshTime = watch.RefreshTime;
                             _dh.Update(dupe);
                         }
                     }

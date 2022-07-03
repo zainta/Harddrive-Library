@@ -27,7 +27,12 @@ namespace HDDL.Scanning.Monitoring
         /// <summary>
         /// The integrity check manager
         /// </summary>
-        private IntegrityMonitorSymphony _monitor;
+        private IntegrityMonitorSymphony _integrityMonitor;
+
+        /// <summary>
+        /// The background refresh scan manager
+        /// </summary>
+        private WatchRefreshScanSymphony _refreshMonitor;
 
         /// <summary>
         /// The data handler used for database management
@@ -132,7 +137,8 @@ namespace HDDL.Scanning.Monitoring
         private void SilentStart()
         {
             Messages.Start();
-            _monitor?.Start();
+            _integrityMonitor?.Start();
+            _refreshMonitor?.Start();
             _watchers?.ForEach(w => w.Start());
 
             if (_sideLoadWatcher != null)
@@ -148,7 +154,8 @@ namespace HDDL.Scanning.Monitoring
         /// </summary>
         private void SilentStop()
         {
-            _monitor?.Stop();
+            _integrityMonitor?.Stop();
+            _refreshMonitor?.Stop();
             _watchers?.ForEach(w => w.Stop());
 
             if (_sideLoadWatcher != null)
@@ -167,11 +174,18 @@ namespace HDDL.Scanning.Monitoring
         {
             SilentStop();
 
-            if (_monitor != null)
+            if (_integrityMonitor != null)
             {
-                _monitor.Stop();
-                Messages.Remove(_monitor);
-                _monitor = null;
+                _integrityMonitor.Stop();
+                Messages.Remove(_integrityMonitor);
+                _integrityMonitor = null;
+            }
+
+            if (_integrityMonitor != null)
+            {
+                _refreshMonitor.Stop();
+                Messages.Remove(_refreshMonitor);
+                _refreshMonitor = null;
             }
 
             if (_watchers != null)
@@ -332,8 +346,8 @@ namespace HDDL.Scanning.Monitoring
                 Inform("Loading passive integrity monitor.");
             }
 
-            _monitor = new IntegrityMonitorSymphony(_dh, GetMessagingMode());
-            Messages.Add(_monitor);
+            _integrityMonitor = new IntegrityMonitorSymphony(_dh, GetMessagingMode());
+            Messages.Add(_integrityMonitor);
 
             return true;
         }
@@ -379,6 +393,14 @@ namespace HDDL.Scanning.Monitoring
             {
                 AddWatch(watch);
             }
+
+            if (_narrateProgress)
+            {
+                Inform("Loading passive watch refresh monitor.");
+            }
+
+            _refreshMonitor = new WatchRefreshScanSymphony(_dh, GetMessagingMode());
+            Messages.Add(_refreshMonitor);
 
             _dh.WriteWatches();
             return true;
@@ -552,14 +574,30 @@ namespace HDDL.Scanning.Monitoring
                 Messages.Remove(source);
 
                 // create a new one
-                _monitor = new IntegrityMonitorSymphony(_dh, GetMessagingMode());
-                Messages.Add(_monitor);
-                source = _monitor;
+                _integrityMonitor = new IntegrityMonitorSymphony(_dh, GetMessagingMode());
+                Messages.Add(_integrityMonitor);
+                source = _integrityMonitor;
                 if (Active)
                 {
-                    _monitor.Start();
+                    _integrityMonitor.Start();
                 }
                 Warn($"Successfully recycled integrity scan queue monitor.");
+            }
+            else if (target is WatchRefreshScanSymphony)
+            {
+                var source = (WatchRefreshScanSymphony)target;
+                // unbind from old monitor
+                Messages.Remove(source);
+
+                // create a new one
+                _refreshMonitor = new WatchRefreshScanSymphony(_dh, GetMessagingMode());
+                Messages.Add(_refreshMonitor);
+                source = _refreshMonitor;
+                if (Active)
+                {
+                    _refreshMonitor.Start();
+                }
+                Warn($"Successfully recycled watch refresh scan queue monitor.");
             }
         }
 

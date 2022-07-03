@@ -14,25 +14,28 @@ using System.Threading.Tasks;
 namespace HDDL.Scanning.Monitoring
 {
     /// <summary>
-    /// Manages scheduling of Wards and notification of when they are due
+    /// Manages scheduling of Watches' refresh scans
     /// </summary>
-    class IntegrityMonitorSymphony : SymphonyBase
+    class WatchRefreshScanSymphony : SymphonyBase
     {
+        private const string HDSL_PATH_SLUG = "[path]";
+        private readonly string HDSL_SCAN = $"scan quiet @'{HDSL_PATH_SLUG}';";
+
         /// <summary>
-        /// The available wards in the database
+        /// The available watches in the database
         /// </summary>
-        private IEnumerable<WardItem> Wards
+        private IEnumerable<WatchItem> Watches
         {
             get
             {
                 if (_dh != null)
                 {
                     // return only the wards that do not overlap perfectly
-                    return _dh.GetWards().Distinct(new WardEqualityComparer());
+                    return _dh.GetWatches().Distinct(new WatchEqualityComparer());
                 }
                 else
                 {
-                    return new WardItem[] { };
+                    return new WatchItem[] { };
                 }
             }
         }
@@ -47,7 +50,7 @@ namespace HDDL.Scanning.Monitoring
         /// </summary>
         /// <param name="dh">The data handler to use</param>
         /// <param name="messenging">The kinds and styles of messages that will be relayed</param>
-        public IntegrityMonitorSymphony(DataHandler dh, MessagingModes messenging) : base(dh, messenging)
+        public WatchRefreshScanSymphony(DataHandler dh, MessagingModes messenging) : base(dh, messenging)
         {
         }
 
@@ -86,11 +89,12 @@ namespace HDDL.Scanning.Monitoring
                 while (State == SymphonyStates.Active)
                 {
                     // get the first scan that's due to be executed
-                    var due = (from w in Wards where w.IsDue() select w).FirstOrDefault();
+                    var due = (from w in Watches where w.IsDue() select w).FirstOrDefault();
                     if (due != null)
                     {
                         Events.Enqueue(new SymphonyEvent(this, due));
-                        var result = HDSLProvider.ExecuteCode(due.HDSL, _dh);
+                        var hdsl = HDSL_SCAN.Replace(HDSL_PATH_SLUG, due.Path);
+                        var result = HDSLProvider.ExecuteCode(hdsl, _dh);
 
                         // handle the results
                         if (result.Errors.Length > 0)
@@ -108,29 +112,29 @@ namespace HDDL.Scanning.Monitoring
                             var set = result.Results.FirstOrDefault();
                             if (set == null)
                             {
-                                Warn($"Unexpected result set returned. Type '{result.Results.FirstOrDefault().GetType().FullName}' was returned instead of '{typeof(HDSLOutcomeSet).FullName}'."); 
+                                Warn($"Unexpected result set returned. Type '{result.Results.FirstOrDefault().GetType().FullName}' was returned instead of '{typeof(HDSLOutcomeSet).FullName}'.");
                             }
                             else
                             {
-                                Inform($"Successfully executed integrity scan '{due.HDSL}'.");
+                                Inform($"Successfully executed refresh scan '{due.Path}'.");
                             }
                         }
 
-                        // update the scan's due date to now + interval.
+                        // update the scan's due date to be 24 hours from the previous.
                         // This prevents scans from being spammed.
-                        due.NextScan = DateTime.Now.Add(due.Interval);
+                        due.Increment();
                         _dh.Update(due);
-                        _dh.WriteWards();
+                        _dh.WriteWatches();
                         Events.Enqueue(new SymphonyEvent(this, due, result.Results.FirstOrDefault()));
                     }
 
-                    // wait 10 seconds before checking for another integrity check's need
+                    // wait 10 seconds before checking for another watch's need
                     Task.Delay(10000).Wait();
                 }
             }
             catch (Exception ex)
             {
-                Error($"The integrity monitoring symphony encountered an error and requires recycling.", ex);
+                Error($"The watch refresh monitoring symphony encountered an error and requires recycling.", ex);
                 State = SymphonyStates.Faulted;
             }
         }

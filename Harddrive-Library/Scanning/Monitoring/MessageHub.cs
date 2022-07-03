@@ -120,9 +120,9 @@ namespace HDDL.Scanning.Monitoring
                         // depending on the type of event received,
                         // look at its details and either queue it for reporting or act on its information
 
-                        if (evnt is IntegritySymphonyEvent)
+                        if (evnt is SymphonyEvent)
                         {
-                            var iseEvnt = (IntegritySymphonyEvent)evnt;
+                            var iseEvnt = (SymphonyEvent)evnt;
                         }
                         else if (evnt is NonSpammingFileSystemWatcherEvent)
                         {

@@ -17,15 +17,35 @@ namespace HDDL.Scanning.Monitoring
         /// </summary>
         internal Guid Id { get; private set; }
 
+        private ConcurrentQueue<EventMessageBase> _events;
+        private readonly ConcurrentQueue<EventMessageBase> _muteEvents = new ConcurrentQueue<EventMessageBase>();
         /// <summary>
         /// The reporter base's backlog of events
         /// </summary>
-        internal ConcurrentQueue<EventMessageBase> Events { get; private set; }
+        internal ConcurrentQueue<EventMessageBase> Events 
+        { 
+            get
+            {
+                if (IsMuted)
+                {
+                    return _muteEvents;
+                }
+                else
+                {
+                    return _events;
+                }
+            }
+        }
 
         /// <summary>
         /// The kinds and styles of messages that will be relayed
         /// </summary>
         private MessagingModes _messenging;
+
+        /// <summary>
+        /// If true, mutes the ReporterBase instance, always returning an empty event queue rather than the actual queue
+        /// </summary>
+        public bool IsMuted { get; set; }
 
         /// <summary>
         /// Creates a ReporterBase instance
@@ -35,7 +55,7 @@ namespace HDDL.Scanning.Monitoring
         {
             Id = Guid.NewGuid();
             _messenging = messenging;
-            Events = new ConcurrentQueue<EventMessageBase>();
+            _events = new ConcurrentQueue<EventMessageBase>();
         }
 
         /// <summary>
@@ -116,7 +136,7 @@ namespace HDDL.Scanning.Monitoring
                 if (_messenging.HasFlag(MessagingModes.Error) &&
                     requiredModes.HasFlag(MessagingModes.Error))
                 {
-                    Events.Enqueue(new MessageBundle(this, message, ex));
+                    _events.Enqueue(new MessageBundle(this, message, ex));
                 }
             }
             else
@@ -124,22 +144,22 @@ namespace HDDL.Scanning.Monitoring
                 if (_messenging.HasFlag(MessagingModes.Error) &&
                     requiredModes.HasFlag(MessagingModes.Error))
                 {
-                    Events.Enqueue(new MessageBundle(this, message, MessageTypes.Error));
+                    _events.Enqueue(new MessageBundle(this, message, MessageTypes.Error));
                 }
                 else if (_messenging.HasFlag(MessagingModes.Warning) &&
                     requiredModes.HasFlag(MessagingModes.Warning))
                 {
-                    Events.Enqueue(new MessageBundle(this, message, MessageTypes.Information));
+                    _events.Enqueue(new MessageBundle(this, message, MessageTypes.Information));
                 }
                 else if (_messenging.HasFlag(MessagingModes.Information) &&
                     requiredModes.HasFlag(MessagingModes.Information))
                 {
-                    Events.Enqueue(new MessageBundle(this, message, MessageTypes.Information));
+                    _events.Enqueue(new MessageBundle(this, message, MessageTypes.Information));
                 }
                 else if ((_messenging.HasFlag(MessagingModes.Information) || _messenging.HasFlag(MessagingModes.VerboseInformation)) &&
                     (requiredModes.HasFlag(MessagingModes.Information) || requiredModes.HasFlag(MessagingModes.VerboseInformation)))
                 {
-                    Events.Enqueue(new MessageBundle(this, message, MessageTypes.VerboseInformation));
+                    _events.Enqueue(new MessageBundle(this, message, MessageTypes.VerboseInformation));
                 }
             }
         }

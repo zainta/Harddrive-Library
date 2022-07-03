@@ -8,19 +8,19 @@ using HDDL.Language.HDSL.Results;
 namespace HDDL.Scanning.Monitoring
 {
     /// <summary>
-    /// Represents something that happened in/to an Integrity Symphony instance
+    /// Represents something that happened in/to a symphony-type instance
     /// </summary>
-    class IntegritySymphonyEvent : EventMessageBase
+    class SymphonyEvent : EventMessageBase
     {
         /// <summary>
         /// The type of event represented
         /// </summary>
-        public IntegritySymphonyEventTypes EventType { get; internal set; }
+        public SymphonyEventTypes EventType { get; internal set; }
 
         /// <summary>
-        /// The ward that triggered the integrity check
+        /// The ward or watch that triggered the check
         /// </summary>
-        public WardItem CheckTrigger { get; internal set; }
+        public HDDLRecordBase CheckTrigger { get; internal set; }
 
         /// <summary>
         /// The outcome of the triggered check
@@ -28,14 +28,14 @@ namespace HDDL.Scanning.Monitoring
         public HDSLOutcome CheckOutcome { get; internal set; }
 
         /// <summary>
-        /// The integrity symphony's new state
+        /// The symphony-type's new state
         /// </summary>
-        public IntegrityMonitorSymphonyStates NewState { get; internal set; }
+        public SymphonyStates NewState { get; internal set; }
 
         /// <summary>
-        /// The integrity symphony's old state
+        /// The symphony-type's old state
         /// </summary>
-        public IntegrityMonitorSymphonyStates OldState { get; internal set; }
+        public SymphonyStates OldState { get; internal set; }
 
         /// <summary>
         /// Creates an event for a state change
@@ -43,9 +43,9 @@ namespace HDDL.Scanning.Monitoring
         /// <param name="source"></param>
         /// <param name="oldState"></param>
         /// <param name="newState"></param>
-        public IntegritySymphonyEvent(IntegrityMonitorSymphony source, IntegrityMonitorSymphonyStates oldState, IntegrityMonitorSymphonyStates newState) : base(source)
+        public SymphonyEvent(SymphonyBase source, SymphonyStates oldState, SymphonyStates newState) : base(source)
         {
-            EventType = IntegritySymphonyEventTypes.StateChange;
+            EventType = SymphonyEventTypes.StateChange;
             NewState = newState;
             OldState = oldState;
         }
@@ -55,9 +55,9 @@ namespace HDDL.Scanning.Monitoring
         /// </summary>
         /// <param name="source"></param>
         /// <param name="check"></param>
-        public IntegritySymphonyEvent(IntegrityMonitorSymphony source, WardItem check) : base(source)
+        public SymphonyEvent(SymphonyBase source, HDDLRecordBase check) : base(source)
         {
-            EventType = IntegritySymphonyEventTypes.ScanStarts;
+            EventType = SymphonyEventTypes.ScanStarts;
             CheckTrigger = check;
         }
 
@@ -67,9 +67,9 @@ namespace HDDL.Scanning.Monitoring
         /// <param name="source"></param>
         /// <param name="check"></param>
         /// <param name="outcome"></param>
-        public IntegritySymphonyEvent(IntegrityMonitorSymphony source, WardItem check, HDSLOutcome outcome) : base(source)
+        public SymphonyEvent(SymphonyBase source, HDDLRecordBase check, HDSLOutcome outcome) : base(source)
         {
-            EventType = IntegritySymphonyEventTypes.ScanEnds;
+            EventType = SymphonyEventTypes.ScanEnds;
             CheckTrigger = check;
             CheckOutcome = outcome;
         }

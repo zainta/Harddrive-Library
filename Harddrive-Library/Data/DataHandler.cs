@@ -351,7 +351,9 @@ namespace HDDL.Data
                             create table if not exists watches (
                                 id text not null primary key,
                                 path text not null,
-                                inPassiveMode integer not null
+                                inPassiveMode integer not null,
+                                performRefreshScans integer not null,
+                                refreshTime text
                                 );
                             create unique index watches_path_index on watches(path);
 

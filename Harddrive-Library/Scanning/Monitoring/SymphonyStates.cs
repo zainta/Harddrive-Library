@@ -5,9 +5,9 @@
 namespace HDDL.Scanning.Monitoring
 {
     /// <summary>
-    /// Defines the possible states of the IntegrityMonitorSymphony
+    /// Defines the possible states of a symphony-type
     /// </summary>
-    enum IntegrityMonitorSymphonyStates
+    enum SymphonyStates
     {
         Idle,
         Active,

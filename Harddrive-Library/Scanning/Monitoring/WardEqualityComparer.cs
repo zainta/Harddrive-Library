@@ -12,7 +12,7 @@ using HDDL.IO.Disk;
 namespace HDDL.Scanning.Monitoring
 {
     /// <summary>
-    /// Compares two DiskItemType instances
+    /// Compares two WardItem instances
     /// </summary>
     class WardEqualityComparer : IEqualityComparer<WardItem>
     {

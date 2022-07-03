@@ -5,20 +5,20 @@
 namespace HDDL.Scanning.Monitoring
 {
     /// <summary>
-    /// The types of events represented by the IntegritySymphonyEvent class
+    /// The types of events represented by the SymphonyEvent class
     /// </summary>
-    public enum IntegritySymphonyEventTypes
+    public enum SymphonyEventTypes
     {
         /// <summary>
-        /// Occurs when an integrity check starts
+        /// Occurs when a scan starts
         /// </summary>
         ScanStarts,
         /// <summary>
-        /// Occurs when an integrity check ends
+        /// Occurs when a scan ends
         /// </summary>
         ScanEnds,
         /// <summary>
-        /// Occurs when the Integrity Symphony's state changes
+        /// Occurs when the Symphony-type's state changes
         /// </summary>
         StateChange
     }

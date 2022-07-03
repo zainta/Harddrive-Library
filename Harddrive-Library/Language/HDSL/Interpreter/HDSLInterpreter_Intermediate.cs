@@ -397,6 +397,90 @@ namespace HDDL.Language.HDSL.Interpreter
         }
 
         /// <summary>
+        /// Generates a time from tokens
+        /// 
+        /// Syntax:
+        /// HH:MM:SS.MM
+        /// 
+        /// All components are optional, if omited then 00 will be used in their place
+        /// Omitting AM/PM means military time
+        /// </summary>
+        /// <param name="required">If true, returning null (not generating anything) constitutes an error</param>
+        /// <returns>The resulting DateTime (time) or null</returns>
+        private DateTime? GetTime(bool required = false)
+        {
+            DateTime? dt = null;
+            var parts = new int[] { 0, 0, 0, 0 };
+            bool? type = null;
+            var start = Peek();
+
+            if (More())
+            {
+                // hours
+                if (Peek().Type == HDSLTokenTypes.WholeNumber)
+                {
+                    parts[0] = int.Parse(Pop().Literal);
+                }                
+                if (Peek().Type == HDSLTokenTypes.Colon)
+                {
+                    Pop();
+                }
+                else
+                {
+                    Report(new LogItemBase(Peek().Column, start.Row, $"Colon expected."));
+                }
+
+                if (NoErrors() && More())
+                {
+                    // minutes
+                    if (Peek().Type == HDSLTokenTypes.WholeNumber)
+                    {
+                        parts[1] = int.Parse(Pop().Literal);
+                    }
+                    if (Peek().Type == HDSLTokenTypes.Colon)
+                    {
+                        Pop();
+                    }
+                    else
+                    {
+                        Report(new LogItemBase(Peek().Column, start.Row, $"Colon expected."));
+                    }
+
+                    if (NoErrors() && More())
+                    {
+                        // if there is a period then the tokenizer will see a real number
+                        // if this token is a whole number then we don't have milliseconds
+
+                        // seconds
+                        if (Peek().Type == HDSLTokenTypes.WholeNumber)
+                        {
+                            parts[2] = int.Parse(Pop().Literal);
+                        }
+                        else if (Peek().Type == HDSLTokenTypes.RealNumber)
+                        {
+                            double d = double.Parse(Pop().Literal);
+                            parts[2] = (int)Math.Truncate(d);
+                            parts[3] = (int)((d - parts[2]) * 1000);
+                        }
+
+                        if (NoErrors())
+                        {
+                            var now = DateTime.Now;
+                            dt = new DateTime(now.Year, now.Month, now.Day, parts[0], parts[1], parts[2], parts[3], DateTimeKind.Local);
+                        }
+                    }
+                }
+            }
+
+            if (required && dt == null)
+            {
+                Report(new LogItemBase(start.Column, start.Row, $"Unknown time syntax."));
+            }
+
+            return dt;
+        }
+
+        /// <summary>
         /// Gathers a list of column name tokens and, with the provided type, returns the column mappings for the named tokens for that type
         /// </summary>
         /// <param name="forType">The type</param>
