@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Worker">
 
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <UserSecretsId>dotnet-Harddrive_Library_Container_Windows-DC7DEAED-6B43-472F-B557-F1A7986131F5</UserSecretsId>
     <RootNamespace>Harddrive_Library_Container_Windows</RootNamespace>
     <DockerDefaultTargetOS>Windows</DockerDefaultTargetOS>

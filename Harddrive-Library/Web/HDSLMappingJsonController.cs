@@ -4,7 +4,7 @@
 
 using HDDL.Data;
 using HDDL.IO.Settings;
-using HDDL.Language.Json;
+using ReddWare.Language.Json;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HDDL.Web
