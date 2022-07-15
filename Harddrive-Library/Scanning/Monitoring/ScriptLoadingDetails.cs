@@ -3,7 +3,7 @@
 // You may obtain a copy of the License at https://mit-license.org/
 
 using HDDL.IO.Disk;
-using HDDL.IO.Settings;
+using ReddWare.IO.Settings;
 using System;
 using System.Collections.Generic;
 using System.IO;

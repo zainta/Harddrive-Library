@@ -3,7 +3,7 @@
 // You may obtain a copy of the License at https://mit-license.org/
 
 using Microsoft.AspNetCore.Hosting;
-using HDDL.IO.Settings;
+using ReddWare.IO.Settings;
 using Microsoft.Extensions.Logging;
 
 namespace HDDL.Web

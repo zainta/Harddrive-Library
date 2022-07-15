@@ -3,7 +3,7 @@
 // You may obtain a copy of the License at https://mit-license.org/
 
 using HDDL.Data;
-using HDDL.IO.Settings;
+using ReddWare.IO.Settings;
 using ReddWare.Language.Json;
 using Microsoft.AspNetCore.Mvc;
 

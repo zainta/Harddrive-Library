@@ -5,7 +5,7 @@
 using HDDL.Data;
 using HDDL.Language.HDSL;
 using HDDL.Language.HDSL.Permissions;
-using HDDL.IO.Settings;
+using ReddWare.IO.Settings;
 using Microsoft.AspNetCore.Mvc;
 using ReddWare.Language.Json;
 

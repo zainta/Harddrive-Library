@@ -5,8 +5,8 @@
 using HDDL.Data;
 using HDDL.Language.HDSL;
 using HDDL.Language.HDSL.Results;
-using HDDL.IO.Parameters;
-using HDDL.IO.Settings;
+using ReddWare.IO.Parameters;
+using ReddWare.IO.Settings;
 using HDDL.Scanning;
 using HDDL.Web;
 using System.IO;
