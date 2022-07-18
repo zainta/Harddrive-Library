@@ -5,6 +5,9 @@ The Hard Drive Library (HDL) is a utility that allows easy searching for any ite
 
 The system's main benefit is the implementation of a query language that allows filtering of files based on various properties (by size, last date access, etc).  This language will be further enhanced throughout development.
 
+## External Dependencies
+This project makes use of the [ReddWare library](https://github.com/zainta/ReddWare).
+
 ## Usage
 
 ### Options
