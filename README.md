@@ -10,6 +10,15 @@ This project makes use of the [ReddWare library](https://github.com/zainta/ReddW
 
 ## Usage
 
+### Conventions
+The documentation for HDSL follows the following standards:
+* `[Square brackets]` denote optional items.
+* `<Angle brackets>` denote required items.
+* Pipe lists (`|`) denote mutually exclusive options.
+
+Note:  
+In all cases, the order of items is important.
+
 ### Options
 The command utility supports the following parameters:
 * hdsl -db: `<database full path>`
