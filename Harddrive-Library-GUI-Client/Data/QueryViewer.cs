@@ -408,10 +408,14 @@ namespace HDDLC.Data
         /// Takes a query and removes the paging clause
         /// </summary>
         /// <param name="query">The query to modify</param>
+        /// <param name="alwaysStripSemicolon">Whether or not to always remove the semicolon at the end</param>
         /// <returns></returns>
-        private string StripPaging(string query)
+        private string StripPaging(string query, bool alwaysStripSemicolon = false)
         {
-            return Regex.Replace(query, @"[Pp][Aa][Gg][Ee] ?\d+;?", string.Empty);
+            string temp = alwaysStripSemicolon ?
+                Regex.Replace(query, @";\s*$", string.Empty) :
+                query;
+            return Regex.Replace(temp, @"[Pp][Aa][Gg][Ee] ?\d+;?", string.Empty);
         }
 
         /// <summary>
@@ -465,7 +469,7 @@ namespace HDDLC.Data
 
             if (IsAdvancedQuery == true)
             {
-                var query = $"{StripPaging(requester.SearchQuery)} page {requestedIndex};";
+                var query = $"{StripPaging(requester.SearchQuery, true)} page {requestedIndex};";
                 Task<HDSLOutcomeSet>.Factory.StartNew(() => _client.Query(query))
                 .ContinueWith((tsk) =>
                 {
