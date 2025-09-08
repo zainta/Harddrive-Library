@@ -6,7 +6,79 @@ The Hard Drive Library (HDL) is a utility that allows easy searching for any ite
 The system's main benefit is the implementation of a query language that allows filtering of files based on various properties (by size, last date access, etc).  This language will be further enhanced throughout development.
 
 ## External Dependencies
-This project makes use of the [ReddWare library](https://github.com/zainta/ReddWare).
+This project makes use of my [ReddWare library](https://github.com/zainta/ReddWare).
+
+## Installation / Setup
+Download the application code from the [repository](https://github.com/zainta/Harddrive-Library) and build it.  This will result in three programs (along with various libraries):
+* 1. The console client
+* 2. The GUI client
+* 3. The Passive Scanner (Background Service)
+
+To install an application, copy the files to a location and edit the `db location.ini` file.  Note that all ini files are identical in the project.  You can set one up for everything if the applications will share configuration values.
+
+The ini file will appear as follows:
+`[HDSL_DB]`
+`DatabaseLocation=C:\HDSL\files database.db`
+
+`[HDSL_Passives]`
+`InitialScript=C:\HDSL\kernal fresh.hdsl`
+`SideloadScript=C:\HDSL\side-load.hdsl`
+`DeleteSideloadScriptAfterConsumption=False`
+`ConsumedSideloadScriptExtension=.done`
+`MonitorDuringRuntime=True`
+`SourceFolderSearchPattern=*.hdsl`
+
+`[HDSL_Web]`
+`Listen=True`
+`TryExecuteRemotely=True`
+`Broadcast=http://localhost:5000`
+`DisallowedHDSLStatements=set, reset, scan, check, purge`
+`BroadcastSources=http://localhost:5000`
+`UseTypeAnnotationProperty=True`
+`FileWorkingDirectory=C:\HDSL\Temp`
+
+These entries have the following meanings (broken down by subsection):
+
+### HDSL_DB
+These entries are universally used by all three executables.
+
+* `DatabaseLocation` is where the database lives.  If the file does not already exist then it will be created.
+
+### HDSL_Passives
+These entries are consumed exclusively by the passive scanning service.
+
+* `InitialScript` 
+    * A path to an initialization script to execute the first time the service runs.
+* `SideloadScript`
+    * A path that allows scripts to be injected during regular execution.
+* `DeleteSideloadScriptAfterConsumption`
+    * If true, side load scripts will be deleted after execution.
+* `ConsumedSideloadScriptExtension`
+    * If `DeleteSideloadScriptAfterConsumption` is false then scripts will renamed to have the given extension.
+* `MonitorDuringRuntime`
+    * If true, the side load script location will be monitored for during runtime.  If it is detected then it will be executed and then dealt with as configured.
+* `SourceFolderSearchPattern`
+    * The search mask used to find side-load scripts in the source `SideloadScript` path
+
+### HDSL_Web
+These scripts are consumed exclusively by network related functionality.
+
+* `Listen`
+    * If true, the passive scanner will activate the web interface on the given `Broadcast` address.
+* `TryExecuteRemotely`
+    * If true, the console client will attempt to execute HDSL code against any addresses in `BroadcastSources`.
+* `Broadcast`
+    * The address to serv from.  (defaults to `http://localhost:5000`)
+* `DisallowedHDSLStatements`
+    * A comma separated list of HDSL statements that cannot be executed via the web interface. (e.g. scan, find, etc)
+* `BroadcastSources`
+    * A comma separated list of passive scanner broadcast addresses to use when remotely executing code
+* `UseTypeAnnotationProperty`
+    * If true, produced JSON will contain a type annotation within its structure.  This invalidates it as JSON.
+* `FileWorkingDirectory`
+    * Currently unused.  This will ultimately be a part of a planned future feature.
+
+Once configuration is completed, execute the passive scanner from the command line or set it up as a service to make use of it.  See below for instructions on how.
 
 ## Usage
 
