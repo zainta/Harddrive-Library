@@ -78,7 +78,7 @@ These scripts are consumed exclusively by network related functionality.
 * `FileWorkingDirectory`
     * Currently unused.  This will ultimately be a part of a planned future feature.
 
-Once configuration is completed, execute the passive scanner from the command line or set it up as a service to make use of it.  See below for instructions on how.
+Once configuration is completed, execute the passive scanner from the command line or set it up as a service to make use of it.  See below for instructions on usage.
 
 ## Usage
 
