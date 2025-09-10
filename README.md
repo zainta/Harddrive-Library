@@ -17,25 +17,27 @@ Download the application code from the [repository](https://github.com/zainta/Ha
 To install an application, copy the files to a location and edit the `db location.ini` file.  Note that all ini files are identical in the project.  You can set one up for everything if the applications will share configuration values.
 
 The ini file will appear as follows:
-`[HDSL_DB]`
-`DatabaseLocation=C:\HDSL\files database.db`
+```
+[HDSL_DB]
+DatabaseLocation=C:\HDSL\files database.db
 
-`[HDSL_Passives]`
-`InitialScript=C:\HDSL\kernal fresh.hdsl`
-`SideloadScript=C:\HDSL\side-load.hdsl`
-`DeleteSideloadScriptAfterConsumption=False`
-`ConsumedSideloadScriptExtension=.done`
-`MonitorDuringRuntime=True`
-`SourceFolderSearchPattern=*.hdsl`
+[HDSL_Passives]
+InitialScript=C:\HDSL\kernal fresh.hdsl
+SideloadScript=C:\HDSL\side-load.hdsl
+DeleteSideloadScriptAfterConsumption=False
+ConsumedSideloadScriptExtension=.done
+MonitorDuringRuntime=True
+SourceFolderSearchPattern=*.hdsl
 
-`[HDSL_Web]`
-`Listen=True`
-`TryExecuteRemotely=True`
-`Broadcast=http://localhost:5000`
-`DisallowedHDSLStatements=set, reset, scan, check, purge`
-`BroadcastSources=http://localhost:5000`
-`UseTypeAnnotationProperty=True`
-`FileWorkingDirectory=C:\HDSL\Temp`
+[HDSL_Web]
+Listen=True
+TryExecuteRemotely=True
+Broadcast=http://localhost:5000
+DisallowedHDSLStatements=set, reset, scan, check, purge
+BroadcastSources=http://localhost:5000
+UseTypeAnnotationProperty=True
+FileWorkingDirectory=C:\HDSL\Temp
+```
 
 These entries have the following meanings (broken down by subsection):
 
